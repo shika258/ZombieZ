@@ -110,7 +110,7 @@ public enum StatType {
     
     LIFESTEAL(
         "Vol de vie",
-        "❤",
+        "♥",
         "§4",
         StatCategory.OFFENSIVE,
         false,
@@ -370,7 +370,7 @@ public enum StatType {
     
     POINTS_BONUS(
         "Bonus Points",
-        "⚡",
+        "⬡",
         "§6",
         StatCategory.UTILITY,
         false,
@@ -384,7 +384,7 @@ public enum StatType {
     
     STREAK_DAMAGE_BONUS(
         "Bonus Streak",
-        "🔥",
+        "⚔",
         "§c",
         StatCategory.MOMENTUM,
         false,
@@ -408,7 +408,7 @@ public enum StatType {
     
     FEVER_DURATION_BONUS(
         "Durée Fever",
-        "🔥",
+        "⌛",
         "§6",
         StatCategory.MOMENTUM,
         false,
@@ -417,10 +417,10 @@ public enum StatType {
         0, 100,
         "+{value}%"
     ),
-    
+
     FEVER_DAMAGE_BONUS(
         "Bonus Fever",
-        "🔥",
+        "💢",
         "§6",
         StatCategory.MOMENTUM,
         false,
@@ -472,7 +472,7 @@ public enum StatType {
     
     EXECUTE_DAMAGE(
         "Dégâts Exécution",
-        "☠",
+        "⚰",
         "§4",
         StatCategory.OFFENSIVE,
         false,
@@ -481,10 +481,10 @@ public enum StatType {
         0, 100,
         "+{value}%"
     ),
-    
+
     EXECUTE_THRESHOLD(
         "Seuil Exécution",
-        "☠",
+        "⚰",
         "§4",
         StatCategory.OFFENSIVE,
         false,
@@ -524,7 +524,7 @@ public enum StatType {
     
     CHEAT_DEATH_CHANCE(
         "Chance Survie",
-        "❤",
+        "✟",
         "§c",
         StatCategory.DEFENSIVE,
         false,
@@ -562,7 +562,7 @@ public enum StatType {
 
     LOW_HEALTH_DAMAGE_REDUCTION(
         "Protection Critique",
-        "❤",
+        "♡",
         "§4",
         StatCategory.DEFENSIVE,
         false,
@@ -574,7 +574,7 @@ public enum StatType {
 
     LOW_HEALTH_REGEN(
         "Regen Critique",
-        "❤",
+        "♡",
         "§a",
         StatCategory.DEFENSIVE,
         false,

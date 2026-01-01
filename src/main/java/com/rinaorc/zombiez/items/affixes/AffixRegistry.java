@@ -73,7 +73,7 @@ public class AffixRegistry {
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(40)
-            .stats(Map.of(StatType.DAMAGE_PERCENT, new double[]{6, 10}))
+            .stats(Map.of(StatType.DAMAGE_PERCENT, new double[]{12, 18}))
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(4)
             .build());
@@ -84,7 +84,7 @@ public class AffixRegistry {
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_4)
             .weight(15)
-            .stats(Map.of(StatType.DAMAGE_PERCENT, new double[]{10, 15}))
+            .stats(Map.of(StatType.DAMAGE_PERCENT, new double[]{16, 22}))
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(7)
             .build());
@@ -95,7 +95,7 @@ public class AffixRegistry {
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(5)
-            .stats(Map.of(StatType.DAMAGE_PERCENT, new double[]{15, 22}))
+            .stats(Map.of(StatType.DAMAGE_PERCENT, new double[]{20, 28}))
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(9)
             .build());
@@ -178,6 +178,51 @@ public class AffixRegistry {
             .minZone(8)
             .build());
 
+        // ==================== PREFIXES PÉNÉTRATION D'ARMURE ====================
+        // Thème: Perforant / Anti-Tank
+
+        registerAffix(Affix.builder()
+            .id("piercing")
+            .displayName("Perforant")
+            .specialDescription("Ignore une partie de l'armure ennemie")
+            .type(Affix.AffixType.PREFIX)
+            .tier(Affix.AffixTier.TIER_2)
+            .weight(50)
+            .stats(Map.of(StatType.ARMOR_PENETRATION, new double[]{5, 10}))
+            .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
+            .minZone(3)
+            .build());
+
+        registerAffix(Affix.builder()
+            .id("sundering")
+            .displayName("Brise-Armure")
+            .specialDescription("Pénétration d'armure améliorée")
+            .type(Affix.AffixType.PREFIX)
+            .tier(Affix.AffixTier.TIER_4)
+            .weight(18)
+            .stats(Map.of(
+                StatType.ARMOR_PENETRATION, new double[]{10, 18},
+                StatType.DAMAGE_PERCENT, new double[]{3, 6}
+            ))
+            .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
+            .minZone(6)
+            .build());
+
+        registerAffix(Affix.builder()
+            .id("of_armor_breaking")
+            .displayName("du Destructeur")
+            .specialDescription("Détruit les défenses ennemies")
+            .type(Affix.AffixType.SUFFIX)
+            .tier(Affix.AffixTier.TIER_3)
+            .weight(30)
+            .stats(Map.of(
+                StatType.ARMOR_PENETRATION, new double[]{8, 15},
+                StatType.CRIT_DAMAGE, new double[]{5, 10}
+            ))
+            .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
+            .minZone(5)
+            .build());
+
         // ==================== PREFIXES DÉFENSIFS ====================
         // Thème: Protection / Survie
 
@@ -209,9 +254,20 @@ public class AffixRegistry {
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_3)
             .weight(40)
-            .stats(Map.of(StatType.ARMOR_PERCENT, new double[]{6, 10}))
+            .stats(Map.of(StatType.ARMOR_PERCENT, new double[]{12, 18}))
             .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
             .minZone(4)
+            .build());
+
+        registerAffix(Affix.builder()
+            .id("ironclad")
+            .displayName("Blindage Renforcé")
+            .type(Affix.AffixType.PREFIX)
+            .tier(Affix.AffixTier.TIER_4)
+            .weight(15)
+            .stats(Map.of(StatType.ARMOR_PERCENT, new double[]{16, 22}))
+            .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
+            .minZone(6)
             .build());
 
         registerAffix(Affix.builder()
@@ -220,7 +276,7 @@ public class AffixRegistry {
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_5)
             .weight(8)
-            .stats(Map.of(StatType.ARMOR_PERCENT, new double[]{12, 18}))
+            .stats(Map.of(StatType.ARMOR_PERCENT, new double[]{20, 28}))
             .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
             .minZone(8)
             .build());
@@ -622,6 +678,51 @@ public class AffixRegistry {
             .minZone(7)
             .build());
 
+        // ==================== AFFIXES BLOCAGE (BOUCLIERS/ARMURES) ====================
+        // Thème: Parade / Blocage
+
+        registerAffix(Affix.builder()
+            .id("blocking")
+            .displayName("Parade")
+            .specialDescription("Chance de bloquer les attaques")
+            .type(Affix.AffixType.PREFIX)
+            .tier(Affix.AffixTier.TIER_2)
+            .weight(50)
+            .stats(Map.of(StatType.BLOCK_CHANCE, new double[]{3, 8}))
+            .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
+            .minZone(2)
+            .build());
+
+        registerAffix(Affix.builder()
+            .id("shieldwall")
+            .displayName("Mur de Boucliers")
+            .specialDescription("Blocage amélioré")
+            .type(Affix.AffixType.PREFIX)
+            .tier(Affix.AffixTier.TIER_4)
+            .weight(15)
+            .stats(Map.of(
+                StatType.BLOCK_CHANCE, new double[]{8, 15},
+                StatType.DAMAGE_REDUCTION, new double[]{3, 6}
+            ))
+            .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
+            .minZone(6)
+            .build());
+
+        registerAffix(Affix.builder()
+            .id("of_the_defender")
+            .displayName("du Défenseur")
+            .specialDescription("Maîtrise du blocage")
+            .type(Affix.AffixType.SUFFIX)
+            .tier(Affix.AffixTier.TIER_3)
+            .weight(30)
+            .stats(Map.of(
+                StatType.BLOCK_CHANCE, new double[]{5, 12},
+                StatType.ARMOR_PERCENT, new double[]{3, 8}
+            ))
+            .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
+            .minZone(4)
+            .build());
+
         // ==================== NOUVEAUX AFFIXES DÉFENSIFS (PATCH) ====================
         // Thème: Survie avancée / Protection spécialisée
 
@@ -658,14 +759,15 @@ public class AffixRegistry {
         registerAffix(Affix.builder()
             .id("adaptive")
             .displayName("Adaptatif")
-            .specialDescription("Résistances multiples")
+            .specialDescription("Résistances à tous les éléments")
             .type(Affix.AffixType.PREFIX)
             .tier(Affix.AffixTier.TIER_4)
             .weight(20)
             .stats(Map.of(
-                StatType.FIRE_RESISTANCE, new double[]{8, 15},
-                StatType.ICE_RESISTANCE, new double[]{8, 15},
-                StatType.POISON_RESISTANCE, new double[]{8, 15}
+                StatType.FIRE_RESISTANCE, new double[]{6, 12},
+                StatType.ICE_RESISTANCE, new double[]{6, 12},
+                StatType.LIGHTNING_RESISTANCE, new double[]{6, 12},
+                StatType.POISON_RESISTANCE, new double[]{6, 12}
             ))
             .allowedCategories(List.of(ItemType.ItemCategory.ARMOR))
             .minZone(6)
@@ -753,6 +855,7 @@ public class AffixRegistry {
             .tier(Affix.AffixTier.TIER_2)
             .weight(50)
             .stats(Map.of(StatType.COMBO_SPEED_BONUS, new double[]{1, 3}))
+            .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(2)
             .build());
 
@@ -765,7 +868,7 @@ public class AffixRegistry {
             .weight(15)
             .stats(Map.of(
                 StatType.COMBO_SPEED_BONUS, new double[]{3, 6},
-                StatType.ATTACK_SPEED, new double[]{5, 12}
+                StatType.ATTACK_SPEED_PERCENT, new double[]{5, 12}
             ))
             .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(6)
@@ -782,6 +885,7 @@ public class AffixRegistry {
             .tier(Affix.AffixTier.TIER_3)
             .weight(20)
             .stats(Map.of(StatType.FEVER_DURATION_BONUS, new double[]{8, 18}))
+            .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(5)
             .build());
 
@@ -811,6 +915,7 @@ public class AffixRegistry {
                 StatType.FEVER_DAMAGE_BONUS, new double[]{12, 20},
                 StatType.FEVER_DURATION_BONUS, new double[]{12, 25}
             ))
+            .allowedCategories(List.of(ItemType.ItemCategory.WEAPON))
             .minZone(9)
             .build());
 
