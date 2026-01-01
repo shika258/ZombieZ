@@ -3258,17 +3258,15 @@ class WispFireballPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final int attacksForTrigger;     // 3 attaques de base
-    private final double damagePercent;       // 30% des dégâts du joueur
-    private final Map<UUID, Integer> attackCounters = new HashMap<>();
+    private final double procChance;              // 5% de chance de base (0.05)
+    private final double damagePercent;           // 30% des dégâts du joueur
 
-    public WispFireballPassive(String id, String name, String desc, int attacksNeeded, double damagePercent) {
+    public WispFireballPassive(String id, String name, String desc, double procChance, double damagePercent) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.attacksForTrigger = attacksNeeded;
+        this.procChance = procChance;
         this.damagePercent = damagePercent;
-        PassiveAbilityCleanup.registerForCleanup(attackCounters);
     }
 
     @Override
@@ -3276,23 +3274,20 @@ class WispFireballPassive implements PetAbility {
 
     @Override
     public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
-        UUID uuid = player.getUniqueId();
-        int count = attackCounters.getOrDefault(uuid, 0) + 1;
+        // Chance de proc ajustée selon le niveau
+        double adjustedChance = procChance + (petData.getStatMultiplier() - 1) * 0.02;
 
-        // Nombre d'attaques ajusté selon le niveau (min 3)
-        int adjustedTrigger = (int) Math.max(3, attacksForTrigger - (petData.getStatMultiplier() - 1));
-
-        if (count >= adjustedTrigger) {
-            attackCounters.put(uuid, 0);
-            shootFireball(player, petData, target);
-        } else {
-            attackCounters.put(uuid, count);
-
-            // Indicateur visuel de charge
-            if (count >= adjustedTrigger - 1) {
-                player.getWorld().spawnParticle(Particle.FLAME,
-                    player.getLocation().add(0, 1.5, 0), 5, 0.2, 0.2, 0.2, 0.02);
-            }
+        if (Math.random() < adjustedChance) {
+            // Délai de 2 ticks pour éviter le conflit avec les dégâts de l'attaque du joueur
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> {
+                    if (target.isValid() && !target.isDead()) {
+                        shootFireball(player, petData, target);
+                    }
+                },
+                2L
+            );
         }
 
         return damage;
@@ -3319,10 +3314,11 @@ class WispFireballPassive implements PetAbility {
             Location currentLoc = origin.clone();
             int ticks = 0;
             final int maxTicks = 40; // 2 secondes max
+            boolean hasHit = false;
 
             @Override
             public void run() {
-                if (ticks >= maxTicks) {
+                if (ticks >= maxTicks || hasHit) {
                     cancel();
                     return;
                 }
@@ -3336,8 +3332,10 @@ class WispFireballPassive implements PetAbility {
 
                 // Vérifier collision avec les mobs
                 for (Entity entity : world.getNearbyEntities(currentLoc, 1, 1, 1)) {
-                    if (entity instanceof Monster monster) {
-                        // Impact!
+                    if (entity instanceof Monster monster && !hasHit) {
+                        hasHit = true;
+
+                        // Impact avec dégâts
                         monster.damage(fireballDamage, player);
                         monster.setFireTicks(60); // Brûle pendant 3s
                         petData.addDamage((long) fireballDamage);
@@ -3347,7 +3345,10 @@ class WispFireballPassive implements PetAbility {
                         world.spawnParticle(Particle.FLAME, currentLoc, 20, 0.5, 0.5, 0.5, 0.1);
                         world.playSound(currentLoc, Sound.ENTITY_GENERIC_BURN, 1.0f, 1.0f);
 
-                        player.sendMessage("§a[Pet] §6🔥 Boule de feu! §c" + (int)fireballDamage + " §7dégâts + brûlure");
+                        // Message uniquement si dégâts significatifs (pas de spam)
+                        if (fireballDamage >= 1) {
+                            player.sendMessage("§a[Pet] §6🔥 Boule de feu! §c" + String.format("%.1f", fireballDamage) + " §7dégâts");
+                        }
 
                         cancel();
                         return;

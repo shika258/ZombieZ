@@ -185,7 +185,7 @@ public enum PetType {
         "wisp",
         "Dégâts / Projectiles",
         "Flamme verte flottante",
-        "5ème attaque : boule de feu (30% dégâts)",
+        "5% chance : boule de feu (30% dégâts)",
         "Barrage Infernal",
         "5 boules de feu en éventail (50% chacune)",
         26,
