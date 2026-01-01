@@ -301,10 +301,17 @@ public class CombatListener implements Listener {
     public void onDamageDisplayMonitor(EntityDamageByEntityEvent event) {
         Entity victim = event.getEntity();
 
-        // Nettoyage systématique des metadata de dégâts spéciaux (pet, beast)
-        // Doit être fait AVANT le return pour garantir le cleanup
-        victim.removeMetadata("zombiez_pet_damage", plugin);
-        victim.removeMetadata("zombiez_beast_damage", plugin);
+        // Nettoyage DIFFÉRÉ des metadata de dégâts spéciaux (pet, beast)
+        // Utilise un délai de 1 tick pour permettre aux events imbriqués de terminer
+        // (ex: PetCombatListener fait target.damage() qui déclenche un nouvel event)
+        if (victim.hasMetadata("zombiez_pet_damage") || victim.hasMetadata("zombiez_beast_damage")) {
+            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                if (victim.isValid()) {
+                    victim.removeMetadata("zombiez_pet_damage", plugin);
+                    victim.removeMetadata("zombiez_beast_damage", plugin);
+                }
+            }, 1L);
+        }
 
         // Vérifier si on doit afficher un indicateur (metadata définie par les handlers HIGH)
         if (!victim.hasMetadata("zombiez_show_indicator")) return;
@@ -360,20 +367,17 @@ public class CombatListener implements Listener {
 
         // ============ BLOQUER DÉGÂTS MÊLÉE AVEC ARC/ARBALÈTE ============
         // Les arcs et arbalètes ne font pas de dégâts au corps à corps (clic gauche)
-        // Exceptions: dégâts des bêtes du Chasseur, dégâts des pets, animaux passifs
+        // Exceptions: dégâts des bêtes du Chasseur, dégâts des pets
+        // IMPORTANT: Ne PAS supprimer les metadata ici ! Le cleanup est fait par le handler MONITOR
+        // pour éviter les problèmes avec les events imbriqués (target.damage() dans PetCombatListener)
         if (damager instanceof Player meleeAttacker) {
             // Ne pas bloquer si c'est un dégât de bête (Chasseur spé Bêtes)
             if (victim.hasMetadata("zombiez_beast_damage")) {
-                // C'est un dégât de bête, laisser passer
+                // C'est un dégât de bête, laisser passer (cleanup par MONITOR)
             }
             // Ne pas bloquer si c'est un dégât de pet
             else if (victim.hasMetadata("zombiez_pet_damage")) {
-                victim.removeMetadata("zombiez_pet_damage", plugin);
-                // C'est un dégât de pet, laisser passer
-            }
-            // Ne pas bloquer les animaux passifs (cochons, vaches, etc.) - ils peuvent être attaqués avec arc en main
-            else if (victim instanceof Animals) {
-                // Animaux passifs peuvent être attaqués avec arc/arbalète en main
+                // C'est un dégât de pet, laisser passer (cleanup par MONITOR)
             } else {
                 ItemStack heldItem = meleeAttacker.getInventory().getItemInMainHand();
                 if (heldItem != null && isRangedWeapon(heldItem.getType())) {
