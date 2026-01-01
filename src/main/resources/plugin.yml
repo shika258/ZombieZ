@@ -83,6 +83,12 @@ commands:
     permission: zombiez.admin.worldboss
     aliases: [zzwb, worldboss, boss]
 
+  zzeco:
+    description: Gestion de l'economie des joueurs (points et gemmes)
+    usage: /<command> <give|set|take|info> <joueur> [montant] [points|gems]
+    permission: zombiez.admin.economy
+    aliases: [zzeconomy, zzpoints, zzgems, eco]
+
   # Commandes Joueur
   spawn:
     description: Téléportation au spawn
@@ -226,6 +232,7 @@ permissions:
       zombiez.admin.microevents: true
       zombiez.admin.weather: true
       zombiez.admin.class: true
+      zombiez.admin.economy: true
       zombiez.pet.admin: true
 
   zombiez.admin.items:
@@ -258,6 +265,10 @@ permissions:
 
   zombiez.admin.awaken:
     description: Gestion du système d'éveils
+    default: op
+
+  zombiez.admin.economy:
+    description: Gestion de l'économie des joueurs (points/gemmes)
     default: op
 
   zombiez.pet.admin:

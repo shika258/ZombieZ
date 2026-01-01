@@ -808,6 +808,11 @@ public class ZombieZPlugin extends JavaPlugin {
         getCommand("zzworldboss").setExecutor(worldBossCmd);
         getCommand("zzworldboss").setTabCompleter(worldBossCmd);
 
+        // Commandes Admin Économie (points/gemmes)
+        com.rinaorc.zombiez.commands.admin.EconomyAdminCommand ecoCmd = new com.rinaorc.zombiez.commands.admin.EconomyAdminCommand(this);
+        getCommand("zzeco").setExecutor(ecoCmd);
+        getCommand("zzeco").setTabCompleter(ecoCmd);
+
         // Commandes Joueur - Base
         getCommand("spawn").setExecutor(new SpawnCommand(this));
         getCommand("stats").setExecutor(new StatsCommand(this));
