@@ -75,9 +75,9 @@ public class PetDisplayManager {
     // Constantes pour les hologrammes TextDisplay (offsets via Transformation)
     // Ces offsets sont appliqués via setTransformation() car les hologrammes sont
     // des passagers
-    private static final float HOLOGRAM_Y_OFFSET_LINE1 = 1.85f; // Nom du pet (en gras)
-    private static final float HOLOGRAM_Y_OFFSET_LINE2 = 1.60f; // Propriétaire
-    private static final float HOLOGRAM_Y_OFFSET_LINE3 = 1.35f; // Timer ultime
+    private static final float HOLOGRAM_Y_OFFSET_LINE1 = 1.35f; // Nom du pet (en gras)
+    private static final float HOLOGRAM_Y_OFFSET_LINE2 = 1.10f; // Propriétaire
+    private static final float HOLOGRAM_Y_OFFSET_LINE3 = 0.85f; // Timer ultime
 
     public PetDisplayManager(ZombieZPlugin plugin, PetManager petManager) {
         this.plugin = plugin;
@@ -803,6 +803,7 @@ public class PetDisplayManager {
                 wolf.setOwner(player);
                 wolf.setSitting(false);
                 wolf.setCollarColor(getDyeColor(type));
+                wolf.setAI(false); // Désactiver l'IA pour éviter que le loup attaque les mobs
                 entity = wolf;
             }
             case CAT -> {
@@ -944,6 +945,155 @@ public class PetDisplayManager {
                     mooshroom.getAttribute(org.bukkit.attribute.Attribute.SCALE).setBaseValue(0.5);
                 }
                 entity = mooshroom;
+            }
+            case ARMADILLO -> {
+                // Armadillo Combo - armadillo doré miniature
+                org.bukkit.entity.Armadillo armadillo = (org.bukkit.entity.Armadillo) world.spawnEntity(loc, EntityType.ARMADILLO);
+                // Scale réduit pour un pet mignon (0.6 = 60% de la taille normale)
+                if (armadillo.getAttribute(org.bukkit.attribute.Attribute.SCALE) != null) {
+                    armadillo.getAttribute(org.bukkit.attribute.Attribute.SCALE).setBaseValue(0.6);
+                }
+                entity = armadillo;
+            }
+            case FROG -> {
+                org.bukkit.entity.Frog frog = (org.bukkit.entity.Frog) world.spawnEntity(loc, EntityType.FROG);
+                frog.setVariant(org.bukkit.entity.Frog.Variant.WARM); // Orange par défaut
+                entity = frog;
+            }
+            case POLAR_BEAR -> {
+                org.bukkit.entity.PolarBear polarBear = (org.bukkit.entity.PolarBear) world.spawnEntity(loc, EntityType.POLAR_BEAR);
+                // Scale réduit pour un pet mignon
+                if (polarBear.getAttribute(org.bukkit.attribute.Attribute.SCALE) != null) {
+                    polarBear.getAttribute(org.bukkit.attribute.Attribute.SCALE).setBaseValue(0.5);
+                }
+                entity = polarBear;
+            }
+            case GLOW_SQUID -> {
+                org.bukkit.entity.GlowSquid glowSquid = (org.bukkit.entity.GlowSquid) world.spawnEntity(loc, EntityType.GLOW_SQUID);
+                entity = glowSquid;
+            }
+            case TURTLE -> {
+                org.bukkit.entity.Turtle turtle = (org.bukkit.entity.Turtle) world.spawnEntity(loc, EntityType.TURTLE);
+                entity = turtle;
+            }
+            case SHEEP -> {
+                org.bukkit.entity.Sheep sheep = (org.bukkit.entity.Sheep) world.spawnEntity(loc, EntityType.SHEEP);
+                sheep.setBaby();
+                entity = sheep;
+            }
+            case PANDA -> {
+                org.bukkit.entity.Panda panda = (org.bukkit.entity.Panda) world.spawnEntity(loc, EntityType.PANDA);
+                panda.setBaby();
+                entity = panda;
+            }
+            case GOAT -> {
+                org.bukkit.entity.Goat goat = (org.bukkit.entity.Goat) world.spawnEntity(loc, EntityType.GOAT);
+                goat.setBaby();
+                entity = goat;
+            }
+            case PIGLIN -> {
+                org.bukkit.entity.Piglin piglin = (org.bukkit.entity.Piglin) world.spawnEntity(loc, EntityType.PIGLIN);
+                piglin.setBaby();
+                piglin.setImmuneToZombification(true);
+                entity = piglin;
+            }
+            case STRAY -> {
+                org.bukkit.entity.Stray stray = (org.bukkit.entity.Stray) world.spawnEntity(loc, EntityType.STRAY);
+                // Scale réduit pour pet
+                if (stray.getAttribute(org.bukkit.attribute.Attribute.SCALE) != null) {
+                    stray.getAttribute(org.bukkit.attribute.Attribute.SCALE).setBaseValue(0.6);
+                }
+                entity = stray;
+            }
+            case WITCH -> {
+                org.bukkit.entity.Witch witch = (org.bukkit.entity.Witch) world.spawnEntity(loc, EntityType.WITCH);
+                if (witch.getAttribute(org.bukkit.attribute.Attribute.SCALE) != null) {
+                    witch.getAttribute(org.bukkit.attribute.Attribute.SCALE).setBaseValue(0.6);
+                }
+                entity = witch;
+            }
+            case PILLAGER -> {
+                org.bukkit.entity.Pillager pillager = (org.bukkit.entity.Pillager) world.spawnEntity(loc, EntityType.PILLAGER);
+                if (pillager.getAttribute(org.bukkit.attribute.Attribute.SCALE) != null) {
+                    pillager.getAttribute(org.bukkit.attribute.Attribute.SCALE).setBaseValue(0.6);
+                }
+                entity = pillager;
+            }
+            case MAGMA_CUBE -> {
+                org.bukkit.entity.MagmaCube magmaCube = (org.bukkit.entity.MagmaCube) world.spawnEntity(loc, EntityType.MAGMA_CUBE);
+                magmaCube.setSize(1); // Taille minimale
+                entity = magmaCube;
+            }
+            case VINDICATOR -> {
+                org.bukkit.entity.Vindicator vindicator = (org.bukkit.entity.Vindicator) world.spawnEntity(loc, EntityType.VINDICATOR);
+                if (vindicator.getAttribute(org.bukkit.attribute.Attribute.SCALE) != null) {
+                    vindicator.getAttribute(org.bukkit.attribute.Attribute.SCALE).setBaseValue(0.6);
+                }
+                entity = vindicator;
+            }
+            case DROWNED -> {
+                org.bukkit.entity.Drowned drowned = (org.bukkit.entity.Drowned) world.spawnEntity(loc, EntityType.DROWNED);
+                drowned.setBaby();
+                entity = drowned;
+            }
+            case CAMEL -> {
+                org.bukkit.entity.Camel camel = (org.bukkit.entity.Camel) world.spawnEntity(loc, EntityType.CAMEL);
+                camel.setBaby();
+                entity = camel;
+            }
+            case STRIDER -> {
+                org.bukkit.entity.Strider strider = (org.bukkit.entity.Strider) world.spawnEntity(loc, EntityType.STRIDER);
+                strider.setBaby();
+                entity = strider;
+            }
+            case DOLPHIN -> {
+                org.bukkit.entity.Dolphin dolphin = (org.bukkit.entity.Dolphin) world.spawnEntity(loc, EntityType.DOLPHIN);
+                entity = dolphin;
+            }
+            case WARDEN -> {
+                org.bukkit.entity.Warden warden = (org.bukkit.entity.Warden) world.spawnEntity(loc, EntityType.WARDEN);
+                // Scale très réduit car le Warden est énorme
+                if (warden.getAttribute(org.bukkit.attribute.Attribute.SCALE) != null) {
+                    warden.getAttribute(org.bukkit.attribute.Attribute.SCALE).setBaseValue(0.25);
+                }
+                entity = warden;
+            }
+            case IRON_GOLEM -> {
+                org.bukkit.entity.IronGolem ironGolem = (org.bukkit.entity.IronGolem) world.spawnEntity(loc, EntityType.IRON_GOLEM);
+                // Scale divisé par 2 (0.5 = moitié de la taille normale)
+                if (ironGolem.getAttribute(org.bukkit.attribute.Attribute.SCALE) != null) {
+                    ironGolem.getAttribute(org.bukkit.attribute.Attribute.SCALE).setBaseValue(0.5);
+                }
+                ironGolem.setPlayerCreated(true); // Empêche l'agression aux mobs
+                entity = ironGolem;
+            }
+            case WANDERING_TRADER -> {
+                org.bukkit.entity.WanderingTrader trader = (org.bukkit.entity.WanderingTrader) world.spawnEntity(loc, EntityType.WANDERING_TRADER);
+                if (trader.getAttribute(org.bukkit.attribute.Attribute.SCALE) != null) {
+                    trader.getAttribute(org.bukkit.attribute.Attribute.SCALE).setBaseValue(0.6);
+                }
+                entity = trader;
+            }
+            case ZOGLIN -> {
+                org.bukkit.entity.Zoglin zoglin = (org.bukkit.entity.Zoglin) world.spawnEntity(loc, EntityType.ZOGLIN);
+                zoglin.setBaby();
+                entity = zoglin;
+            }
+            case ILLUSIONER -> {
+                org.bukkit.entity.Illusioner illusioner = (org.bukkit.entity.Illusioner) world.spawnEntity(loc, EntityType.ILLUSIONER);
+                if (illusioner.getAttribute(org.bukkit.attribute.Attribute.SCALE) != null) {
+                    illusioner.getAttribute(org.bukkit.attribute.Attribute.SCALE).setBaseValue(0.6);
+                }
+                entity = illusioner;
+            }
+            case CREAKING -> {
+                // Creaking (1.21.4) - nouvelle entité de la Pale Garden
+                entity = world.spawnEntity(loc, EntityType.CREAKING);
+                if (entity instanceof LivingEntity living) {
+                    if (living.getAttribute(org.bukkit.attribute.Attribute.SCALE) != null) {
+                        living.getAttribute(org.bukkit.attribute.Attribute.SCALE).setBaseValue(0.5);
+                    }
+                }
             }
             default -> {
                 // Fallback: Allay (visible et petit)

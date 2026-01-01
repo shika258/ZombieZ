@@ -306,12 +306,13 @@ public class PetCombatListener implements Listener {
 
         // Appliquer les dégâts modifiés
         if (isRangedWeaponMelee) {
-            // Le joueur tient un arc/arbalète en mêlée - l'event original sera cancelled par CombatListener
+            // Le joueur tient un arc/arbalète en mêlée
             // On applique les dégâts du pet directement avec un marqueur pour bypass le blocage arc
-            // Pas de zombiez_secondary_damage ici car l'event original est cancelled (pas de double indicateur)
             target.setMetadata("zombiez_pet_damage", new FixedMetadataValue(plugin, true));
             target.damage(modifiedDamage, player);
-            // Ne pas modifier l'event original qui sera cancelled
+            // IMPORTANT: Annuler l'event original pour éviter les dégâts en double
+            // L'event imbriqué (créé par damage()) a déjà appliqué les dégâts avec les stats du pet
+            event.setCancelled(true);
         } else {
             event.setDamage(modifiedDamage);
         }

@@ -95,31 +95,31 @@ public class PetAbilityRegistry {
         );
 
         // Champignon Explosif (anciennement Champignon Ambulant)
-        // Passif: Les kills explosent en spores (20% dégâts, 3 blocs)
+        // Passif: Les kills explosent en spores (20% dégâts, 4 blocs)
         // Ultimate: Charge 1.5s puis explose (150% dégâts, 6 blocs, knockback)
         registerAbilities(PetType.CHAMPIGNON_AMBULANT,
             new VolatileSporesPassive("shroom_volatile", "Spores Volatiles",
-                "Les kills explosent en spores (20% dégâts AoE, 3 blocs)", 0.20, 3),
+                "Les kills explosent en spores (20% dégâts AoE, 4 blocs)", 0.20, 4),
             new FungalDetonationActive("shroom_detonate", "Détonation Fongique",
                 "Charge 1.5s puis explose (150% dégâts, 6 blocs, knockback)", 1.5, 6, 30)
         );
 
         // Golem Sismique (anciennement Golem de Poche)
-        // Passif: Chaque 5ème attaque crée une secousse (stun 1s, 3 blocs)
-        // Ultimate: Séisme - stun 2s + 30 dégâts dans 8 blocs
+        // Passif: 5% chance par attaque de créer une secousse (20% dégâts + stun 1s, 3 blocs)
+        // Ultimate: Séisme - 80% dégâts arme + stun 2s dans 8 blocs
         registerAbilities(PetType.GOLEM_POCHE,
             new HeavyStepsPassive("golem_steps", "Pas Lourds",
-                "Chaque 5ème attaque crée une secousse (stun 1s, 3 blocs)", 5, 20, 3),
+                "5% chance: secousse AoE (20% dégâts + stun 1s, 3 blocs)", 0.05, 20, 3),
             new SeismicSlamActive("golem_seism", "Séisme",
-                "Frappe le sol: stun 2s + 30 dégâts dans 8 blocs", 30, 40, 8)
+                "Frappe le sol: 80% dégâts arme + stun 2s (8 blocs)", 0.80, 40, 8)
         );
 
         // Feu Follet - Boules de Feu
-        // Passif: Chaque 5ème attaque tire une boule de feu (30% dégâts joueur)
+        // Passif: 5% chance par attaque de tirer une boule de feu (30% dégâts joueur)
         // Ultimate: Tire 5 boules de feu en éventail (50% dégâts chacune)
         registerAbilities(PetType.FEU_FOLLET,
             new WispFireballPassive("wisp_fireball", "Tir Enflammé",
-                "Chaque 5ème attaque tire une boule de feu (30% dégâts joueur)", 5, 0.30),
+                "5% chance par attaque de tirer une boule de feu (30% dégâts)", 0.05, 0.30),
             new InfernalBarrageActive("wisp_barrage", "Barrage Infernal",
                 "Tire 5 boules de feu en éventail (50% dégâts chacune)", 5, 0.50)
         );
@@ -459,11 +459,11 @@ public class PetAbilityRegistry {
         // ==================== NOUVEAUX PETS VISUELS ====================
 
         // Grenouille Bondissante (anciennement Étoile Filante)
-        // Passif: Chaque 4ème attaque = bond sur l'ennemi (+30% dégâts, stun 0.5s)
+        // Passif: 5% chance par attaque = bond sur l'ennemi (+30% dégâts, stun 0.5s)
         // Ultimate: Enchaîne 5 bonds sur différents ennemis (50% dégâts, stun chacun)
         registerAbilities(PetType.ETOILE_FILANTE,
             new FrogBouncePassive("frog_bounce", "Rebond",
-                "Chaque 4ème attaque = bond (+30% dégâts, stun 0.5s)", 4, 0.30, 10),
+                "5% chance par attaque: bond (+30% dégâts, stun 0.5s)", 0.05, 0.30, 10),
             new BouncingAssaultActive("frog_assault", "Assaut Bondissant",
                 "Enchaîne 5 bonds sur différents ennemis (50% dégâts, stun)", 5, 0.50, 15)
         );

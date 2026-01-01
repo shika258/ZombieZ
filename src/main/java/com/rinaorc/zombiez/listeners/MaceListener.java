@@ -334,25 +334,13 @@ public class MaceListener implements Listener {
         // ==================== EFFETS VISUELS ET SONORES ====================
         spawnGroundPoundEffects(center, radius, fallDistance);
 
-        // Feedback au joueur
-        String smashLevel;
+        // Feedback sonore uniquement (pas d'ActionBar pour ne pas interférer avec le HUD combat)
         if (fallDistance >= FALL_THRESHOLD_HIGH) {
-            smashLevel = "§6§l⚡ SMASH DÉVASTATEUR !";
             player.playSound(player.getLocation(), Sound.ITEM_MACE_SMASH_GROUND_HEAVY, 1.0f, 0.8f);
         } else if (fallDistance >= FALL_THRESHOLD_MEDIUM) {
-            smashLevel = "§e⚡ Smash Puissant !";
             player.playSound(player.getLocation(), Sound.ITEM_MACE_SMASH_GROUND, 1.0f, 1.0f);
         } else {
-            smashLevel = "§7⚡ Smash";
             player.playSound(player.getLocation(), Sound.ITEM_MACE_SMASH_AIR, 0.8f, 1.2f);
-        }
-
-        if (hitCount > 0) {
-            player.sendActionBar(net.kyori.adventure.text.Component.text(
-                smashLevel + " §7(" + (hitCount + 1) + " cibles)"
-            ));
-        } else {
-            player.sendActionBar(net.kyori.adventure.text.Component.text(smashLevel));
         }
     }
 

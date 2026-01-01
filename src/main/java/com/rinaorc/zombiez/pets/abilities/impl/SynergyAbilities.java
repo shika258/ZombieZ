@@ -228,6 +228,10 @@ class ComboExplosionActive implements PetAbility {
     private final double damagePerStack;  // Dégâts par stack (5 par défaut)
     private final int explosionRadius;    // Rayon de l'explosion (8 blocs)
 
+    // Cooldown de 3 secondes sur le message d'erreur pour éviter le spam
+    private static final Map<UUID, Long> lastErrorMessage = new ConcurrentHashMap<>();
+    private static final long ERROR_MESSAGE_COOLDOWN = 3000L; // 3 secondes
+
     public ComboExplosionActive(String id, String name, String desc, ComboPassive passive, double damagePerStack, int radius) {
         this.id = id;
         this.displayName = name;
@@ -247,7 +251,13 @@ class ComboExplosionActive implements PetAbility {
     public boolean activate(Player player, PetData petData) {
         int stacks = comboPassive.getComboStacks(player.getUniqueId());
         if (stacks < 3) {
-            player.sendMessage("§c[Pet] §7Pas assez de combo! (§e" + stacks + "§7/3 minimum)");
+            // Cooldown sur le message d'erreur pour éviter le spam
+            long now = System.currentTimeMillis();
+            Long lastMsg = lastErrorMessage.get(player.getUniqueId());
+            if (lastMsg == null || now - lastMsg >= ERROR_MESSAGE_COOLDOWN) {
+                player.sendMessage("§c[Pet] §7Pas assez de combo! (§e" + stacks + "§7/3 minimum)");
+                lastErrorMessage.put(player.getUniqueId(), now);
+            }
             return false;
         }
 
@@ -354,7 +364,7 @@ class FeastActive implements PetAbility {
     public boolean isPassive() { return false; }
 
     @Override
-    public int getCooldown() { return 35; }
+    public int getCooldown() { return 20; }
 
     @Override
     public boolean activate(Player player, PetData petData) {
@@ -3031,19 +3041,17 @@ class HeavyStepsPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final int attacksForTrigger;    // 5 attaques
+    private final double procChance;        // 5% de chance (0.05)
     private final int stunDurationTicks;    // 1s = 20 ticks
     private final int stunRadius;           // 3 blocs
-    private final Map<UUID, Integer> attackCounters = new HashMap<>();
 
-    public HeavyStepsPassive(String id, String name, String desc, int attacksNeeded, int stunTicks, int radius) {
+    public HeavyStepsPassive(String id, String name, String desc, double procChance, int stunTicks, int radius) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.attacksForTrigger = attacksNeeded;
+        this.procChance = procChance;
         this.stunDurationTicks = stunTicks;
         this.stunRadius = radius;
-        PassiveAbilityCleanup.registerForCleanup(attackCounters);
     }
 
     @Override
@@ -3051,25 +3059,11 @@ class HeavyStepsPassive implements PetAbility {
 
     @Override
     public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
-        UUID uuid = player.getUniqueId();
-        int count = attackCounters.getOrDefault(uuid, 0) + 1;
+        // Chance de proc ajustée selon le niveau (+1% par multiplicateur)
+        double adjustedChance = procChance + (petData.getStatMultiplier() - 1) * 0.01;
 
-        // Calculer le nombre d'attaques nécessaires selon le niveau
-        int adjustedTrigger = (int) Math.max(3, attacksForTrigger - (petData.getStatMultiplier() - 1));
-
-        if (count >= adjustedTrigger) {
-            attackCounters.put(uuid, 0);
+        if (Math.random() < adjustedChance) {
             triggerQuake(player, petData);
-        } else {
-            attackCounters.put(uuid, count);
-
-            // Indicateur de progression (particules sous les pieds)
-            if (count >= adjustedTrigger - 2) {
-                player.getWorld().spawnParticle(Particle.BLOCK,
-                    player.getLocation().add(0, 0.1, 0),
-                    5, 0.3, 0, 0.3, 0,
-                    org.bukkit.Material.STONE.createBlockData());
-            }
         }
 
         return damage;
@@ -3082,10 +3076,20 @@ class HeavyStepsPassive implements PetAbility {
         // Durée de stun ajustée par niveau
         int adjustedStunDuration = (int) (stunDurationTicks + (petData.getStatMultiplier() - 1) * 10);
 
-        // Stun tous les mobs dans le rayon
+        // Calcul des dégâts AoE (20% des dégâts de l'arme du joueur)
+        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
+        double quakeDamage = playerDamage * 0.20 * petData.getStatMultiplier();
+
+        // Stun et dégâts à tous les mobs dans le rayon
         int enemiesStunned = 0;
+        double totalDamage = 0;
         for (Entity entity : world.getNearbyEntities(center, stunRadius, stunRadius, stunRadius)) {
             if (entity instanceof Monster monster) {
+                // Infliger les dégâts AoE
+                monster.damage(quakeDamage, player);
+                petData.addDamage((long) quakeDamage);
+                totalDamage += quakeDamage;
+
                 // Appliquer le stun via Slowness + Weakness
                 monster.addPotionEffect(new PotionEffect(
                     PotionEffectType.SLOWNESS, adjustedStunDuration, 127, false, false));
@@ -3125,7 +3129,8 @@ class HeavyStepsPassive implements PetAbility {
 
         // Message
         if (enemiesStunned > 0) {
-            player.sendMessage("§a[Pet] §6Pas Lourds! §e" + enemiesStunned +
+            player.sendMessage("§a[Pet] §6Pas Lourds! §c" + String.format("%.1f", totalDamage) +
+                " §7dégâts → §e" + enemiesStunned +
                 " §7ennemi" + (enemiesStunned > 1 ? "s" : "") + " §cstun §7" +
                 String.format("%.1f", adjustedStunDuration / 20.0) + "s");
         }
@@ -3137,15 +3142,15 @@ class SeismicSlamActive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final double baseDamage;        // 30 dégâts de base
+    private final double damagePercent;     // 80% des dégâts de l'arme (0.80)
     private final int stunDurationTicks;    // 2s = 40 ticks
     private final int slamRadius;           // 8 blocs
 
-    public SeismicSlamActive(String id, String name, String desc, double damage, int stunTicks, int radius) {
+    public SeismicSlamActive(String id, String name, String desc, double damagePercent, int stunTicks, int radius) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.baseDamage = damage;
+        this.damagePercent = damagePercent;
         this.stunDurationTicks = stunTicks;
         this.slamRadius = radius;
     }
@@ -3161,8 +3166,9 @@ class SeismicSlamActive implements PetAbility {
         Location center = player.getLocation();
         World world = center.getWorld();
 
-        // Calcul des valeurs
-        double damage = baseDamage * petData.getStatMultiplier();
+        // Calcul des dégâts basés sur l'arme du joueur (80%)
+        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
+        double damage = playerDamage * damagePercent * petData.getStatMultiplier();
         int adjustedStun = (int) (stunDurationTicks + (petData.getStatMultiplier() - 1) * 20);
         int adjustedRadius = (int) (slamRadius + (petData.getStatMultiplier() - 1) * 2);
 
@@ -3248,17 +3254,15 @@ class WispFireballPassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final int attacksForTrigger;     // 3 attaques de base
-    private final double damagePercent;       // 30% des dégâts du joueur
-    private final Map<UUID, Integer> attackCounters = new HashMap<>();
+    private final double procChance;              // 5% de chance de base (0.05)
+    private final double damagePercent;           // 30% des dégâts du joueur
 
-    public WispFireballPassive(String id, String name, String desc, int attacksNeeded, double damagePercent) {
+    public WispFireballPassive(String id, String name, String desc, double procChance, double damagePercent) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.attacksForTrigger = attacksNeeded;
+        this.procChance = procChance;
         this.damagePercent = damagePercent;
-        PassiveAbilityCleanup.registerForCleanup(attackCounters);
     }
 
     @Override
@@ -3266,23 +3270,20 @@ class WispFireballPassive implements PetAbility {
 
     @Override
     public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
-        UUID uuid = player.getUniqueId();
-        int count = attackCounters.getOrDefault(uuid, 0) + 1;
+        // Chance de proc ajustée selon le niveau
+        double adjustedChance = procChance + (petData.getStatMultiplier() - 1) * 0.02;
 
-        // Nombre d'attaques ajusté selon le niveau (min 3)
-        int adjustedTrigger = (int) Math.max(3, attacksForTrigger - (petData.getStatMultiplier() - 1));
-
-        if (count >= adjustedTrigger) {
-            attackCounters.put(uuid, 0);
-            shootFireball(player, petData, target);
-        } else {
-            attackCounters.put(uuid, count);
-
-            // Indicateur visuel de charge
-            if (count >= adjustedTrigger - 1) {
-                player.getWorld().spawnParticle(Particle.FLAME,
-                    player.getLocation().add(0, 1.5, 0), 5, 0.2, 0.2, 0.2, 0.02);
-            }
+        if (Math.random() < adjustedChance) {
+            // Délai de 2 ticks pour éviter le conflit avec les dégâts de l'attaque du joueur
+            Bukkit.getScheduler().runTaskLater(
+                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                () -> {
+                    if (target.isValid() && !target.isDead()) {
+                        shootFireball(player, petData, target);
+                    }
+                },
+                2L
+            );
         }
 
         return damage;
@@ -3309,10 +3310,11 @@ class WispFireballPassive implements PetAbility {
             Location currentLoc = origin.clone();
             int ticks = 0;
             final int maxTicks = 40; // 2 secondes max
+            boolean hasHit = false;
 
             @Override
             public void run() {
-                if (ticks >= maxTicks) {
+                if (ticks >= maxTicks || hasHit) {
                     cancel();
                     return;
                 }
@@ -3326,8 +3328,10 @@ class WispFireballPassive implements PetAbility {
 
                 // Vérifier collision avec les mobs
                 for (Entity entity : world.getNearbyEntities(currentLoc, 1, 1, 1)) {
-                    if (entity instanceof Monster monster) {
-                        // Impact!
+                    if (entity instanceof Monster monster && !hasHit) {
+                        hasHit = true;
+
+                        // Impact avec dégâts
                         monster.damage(fireballDamage, player);
                         monster.setFireTicks(60); // Brûle pendant 3s
                         petData.addDamage((long) fireballDamage);
@@ -3337,7 +3341,10 @@ class WispFireballPassive implements PetAbility {
                         world.spawnParticle(Particle.FLAME, currentLoc, 20, 0.5, 0.5, 0.5, 0.1);
                         world.playSound(currentLoc, Sound.ENTITY_GENERIC_BURN, 1.0f, 1.0f);
 
-                        player.sendMessage("§a[Pet] §6🔥 Boule de feu! §c" + (int)fireballDamage + " §7dégâts + brûlure");
+                        // Message uniquement si dégâts significatifs (pas de spam)
+                        if (fireballDamage >= 1) {
+                            player.sendMessage("§a[Pet] §6🔥 Boule de feu! §c" + String.format("%.1f", fireballDamage) + " §7dégâts");
+                        }
 
                         cancel();
                         return;
@@ -3639,35 +3646,64 @@ class SpiderAmbushActive implements PetAbility {
         world.playSound(playerLoc, Sound.ENTITY_SPIDER_AMBIENT, 1.0f, 0.5f);
         player.sendMessage("§a[Pet] §c§l\uD83D\uDD77 EMBUSCADE!");
 
-        // Animation du bond de l'araignée (de la position du joueur vers la cible)
-        Location spiderStart = playerLoc.clone().add(0, 1, 0);
-        Vector direction = targetLoc.toVector().subtract(spiderStart.toVector()).normalize();
+        // Spawn d'une araignée temporaire pour l'animation de bond
+        Location spiderStart = playerLoc.clone().add(0, 0.5, 0);
+        org.bukkit.entity.Spider leapSpider = (org.bukkit.entity.Spider) world.spawnEntity(spiderStart, org.bukkit.entity.EntityType.SPIDER);
+
+        // Configurer l'araignée temporaire
+        leapSpider.setAI(false);
+        leapSpider.setSilent(true);
+        leapSpider.setInvulnerable(true);
+        leapSpider.setPersistent(false);
+        leapSpider.setGravity(false);
+        leapSpider.setCustomName("§c§l🕷");
+        leapSpider.setCustomNameVisible(true);
+
+        // Réduire la taille si possible (via scale attribute)
+        if (leapSpider.getAttribute(org.bukkit.attribute.Attribute.SCALE) != null) {
+            leapSpider.getAttribute(org.bukkit.attribute.Attribute.SCALE).setBaseValue(0.7);
+        }
+
+        // Calculer la direction et la vitesse du bond
+        Vector direction = targetLoc.toVector().subtract(spiderStart.toVector());
+        double distance = direction.length();
+        int flightTicks = Math.max(8, (int) (distance * 1.5)); // Durée basée sur la distance
+        Vector velocity = direction.normalize().multiply(distance / flightTicks);
+        // Ajouter une courbe parabolique (arc de saut)
+        velocity.setY(velocity.getY() + 0.15);
 
         new BukkitRunnable() {
-            Location currentLoc = spiderStart.clone();
             int ticks = 0;
-            final int maxTicks = (int) (finalMinDist * 2); // Durée basée sur la distance
 
             @Override
             public void run() {
-                if (ticks >= maxTicks || !finalTarget.isValid()) {
+                if (ticks >= flightTicks || !finalTarget.isValid() || !leapSpider.isValid()) {
                     // Arrivée sur la cible - Impact!
+                    if (leapSpider.isValid()) {
+                        // Effet de disparition
+                        world.spawnParticle(Particle.POOF, leapSpider.getLocation(), 10, 0.3, 0.3, 0.3, 0.05);
+                        leapSpider.remove();
+                    }
                     executeImpact(player, petData, finalTarget, adjustedImmobilize, adjustedMarkDuration);
                     cancel();
                     return;
                 }
 
-                // Avancer l'araignée
-                currentLoc.add(direction.clone().multiply(0.5));
+                // Déplacer l'araignée
+                Location newLoc = leapSpider.getLocation().add(velocity);
+                // Courbe parabolique descendante après la moitié du trajet
+                if (ticks > flightTicks / 2) {
+                    newLoc.add(0, -0.08 * (ticks - flightTicks / 2), 0);
+                }
+                leapSpider.teleport(newLoc);
 
-                // Particules de l'araignée en mouvement
-                world.spawnParticle(Particle.BLOCK, currentLoc, 8, 0.2, 0.2, 0.2, 0,
+                // Particules de traînée
+                world.spawnParticle(Particle.BLOCK, newLoc, 3, 0.1, 0.1, 0.1, 0,
                     org.bukkit.Material.COBWEB.createBlockData());
-                world.spawnParticle(Particle.SMOKE, currentLoc, 3, 0.1, 0.1, 0.1, 0.02);
 
-                // Son de mouvement rapide
-                if (ticks % 4 == 0) {
-                    world.playSound(currentLoc, Sound.ENTITY_SPIDER_STEP, 0.5f, 1.5f);
+                // Son de saut
+                if (ticks % 5 == 0) {
+                    world.playSound(newLoc, Sound.ENTITY_SPIDER_STEP, 0.6f, 1.8f);
                 }
 
                 ticks++;
@@ -3988,19 +4024,17 @@ class FrogBouncePassive implements PetAbility {
     private final String id;
     private final String displayName;
     private final String description;
-    private final int attacksForBounce;          // 4 attaques
+    private final double procChance;              // 5% de chance (0.05)
     private final double bounceDamageBonus;       // +30%
     private final int stunDurationTicks;          // 0.5s = 10 ticks
-    private final Map<UUID, Integer> attackCounters = new HashMap<>();
 
-    public FrogBouncePassive(String id, String name, String desc, int attacks, double bonus, int stunTicks) {
+    public FrogBouncePassive(String id, String name, String desc, double procChance, double bonus, int stunTicks) {
         this.id = id;
         this.displayName = name;
         this.description = desc;
-        this.attacksForBounce = attacks;
+        this.procChance = procChance;
         this.bounceDamageBonus = bonus;
         this.stunDurationTicks = stunTicks;
-        PassiveAbilityCleanup.registerForCleanup(attackCounters);
     }
 
     @Override
@@ -4008,19 +4042,13 @@ class FrogBouncePassive implements PetAbility {
 
     @Override
     public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
-        UUID uuid = player.getUniqueId();
         World world = player.getWorld();
 
-        // Incrémenter le compteur
-        int count = attackCounters.getOrDefault(uuid, 0) + 1;
+        // Chance de proc ajustée par niveau (+1% par multiplicateur)
+        double adjustedChance = procChance + (petData.getStatMultiplier() - 1) * 0.01;
 
-        // Ajuster le nombre d'attaques requis par niveau (4 base, 3 au max)
-        int adjustedAttacks = Math.max(3, attacksForBounce - (int)((petData.getStatMultiplier() - 1) * 2));
-
-        if (count >= adjustedAttacks) {
-            // BOND! Reset le compteur
-            attackCounters.put(uuid, 0);
-
+        if (Math.random() < adjustedChance) {
+            // BOND!
             // Calculer le bonus de dégâts
             double adjustedBonus = bounceDamageBonus + (petData.getStatMultiplier() - 1) * 0.10;
             double bonusDamage = damage * adjustedBonus;
@@ -4036,31 +4064,19 @@ class FrogBouncePassive implements PetAbility {
             Location targetLoc = target.getLocation();
 
             // Particules de bond (splash d'eau + slime)
-            world.spawnParticle(Particle.SPLASH, targetLoc.add(0, 0.5, 0), 20, 0.5, 0.3, 0.5, 0.1);
+            world.spawnParticle(Particle.SPLASH, targetLoc.clone().add(0, 0.5, 0), 20, 0.5, 0.3, 0.5, 0.1);
             world.spawnParticle(Particle.ITEM_SLIME, targetLoc, 10, 0.3, 0.3, 0.3, 0.05);
 
             // Sons de grenouille
             world.playSound(targetLoc, Sound.ENTITY_FROG_LONG_JUMP, 1.0f, 1.2f);
             world.playSound(targetLoc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 0.8f, 1.0f);
 
-            player.sendMessage("§a[Pet] §2🐸 BOND! §7+" + (int)(adjustedBonus * 100) + "% dégâts + stun!");
+            player.sendMessage("§a[Pet] §2🐸 BOND! §c" + String.format("%.1f", bonusDamage) + " §7dégâts bonus + stun!");
 
             return damage + bonusDamage;
-        } else {
-            attackCounters.put(uuid, count);
-
-            // Indicateur visuel de progression
-            if (count == adjustedAttacks - 1) {
-                world.spawnParticle(Particle.HAPPY_VILLAGER, player.getLocation().add(0, 1.5, 0),
-                    3, 0.2, 0.2, 0.2, 0);
-            }
         }
 
         return damage;
-    }
-
-    public int getAttackCount(UUID uuid) {
-        return attackCounters.getOrDefault(uuid, 0);
     }
 }
 
