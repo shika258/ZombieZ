@@ -283,6 +283,7 @@ public class MicroEventManager {
             case PINATA_ZOMBIE -> new PinataZombieEvent(plugin, player, location, zone);
             case DEATH_RACE -> new DeathRaceEvent(plugin, player, location, zone, this);
             case JACKPOT_ZOMBIE -> new JackpotZombieEvent(plugin, player, location, zone);
+            case SUPPLY_DROP -> new SupplyDropMicroEvent(plugin, player, location, zone);
         };
     }
 
