@@ -244,11 +244,13 @@ public class ForgeGUI implements InventoryHolder {
         Map<StatType, Double> baseStats = zItem.getBaseStats();
         List<ZombieZItem.RolledAffix> affixes = zItem.getAffixes();
 
-        // Map des stats de base
+        // Map des stats de base avec clé unique (displayName + format)
+        // Cela évite les conflits entre DAMAGE/DAMAGE_PERCENT, ATTACK_SPEED/ATTACK_SPEED_PERCENT, etc.
         Map<String, Map.Entry<Double, StatType>> baseStatsMap = new HashMap<>();
         for (var entry : baseStats.entrySet()) {
             if (entry.getKey().isBaseStat()) {
-                baseStatsMap.put(entry.getKey().getDisplayName(),
+                String uniqueKey = getUniqueStatKey(entry.getKey());
+                baseStatsMap.put(uniqueKey,
                     new java.util.AbstractMap.SimpleEntry<>(entry.getValue(), entry.getKey()));
             }
         }
@@ -267,7 +269,8 @@ public class ForgeGUI implements InventoryHolder {
                     currentAffixStats = new HashMap<>();
                     ZombieZItem.RolledAffix affix = affixes.get(currentAffixIndex);
                     for (var entry : affix.getRolledStats().entrySet()) {
-                        currentAffixStats.put(entry.getKey().getDisplayName(),
+                        String uniqueKey = getUniqueStatKey(entry.getKey());
+                        currentAffixStats.put(uniqueKey,
                             new java.util.AbstractMap.SimpleEntry<>(entry.getValue(), entry.getKey()));
                     }
                 }
@@ -280,15 +283,21 @@ public class ForgeGUI implements InventoryHolder {
                 if (colonIndex > 4) {
                     String statName = line.substring(4, colonIndex);
 
-                    // IMPORTANT: Si on est dans une section d'affix, chercher d'abord dans l'affix
-                    // car les stats d'affix (ex: DAMAGE_PERCENT) peuvent avoir le même displayName
-                    // que les stats de base (ex: DAMAGE)
+                    // Déterminer si la valeur dans le lore est un pourcentage
+                    // en regardant si la ligne contient un % après le ":"
+                    String valueSection = line.substring(colonIndex);
+                    boolean isPercentInLore = valueSection.contains("%");
+
+                    // Construire la même clé unique utilisée pour indexer
+                    String lookupKey = statName + (isPercentInLore ? "_PCT" : "_FLAT");
+
+                    // Chercher d'abord dans l'affix courant, puis dans les stats de base
                     Map.Entry<Double, StatType> statEntry = null;
                     if (currentAffixStats != null) {
-                        statEntry = currentAffixStats.get(statName);
+                        statEntry = currentAffixStats.get(lookupKey);
                     }
                     if (statEntry == null) {
-                        statEntry = baseStatsMap.get(statName);
+                        statEntry = baseStatsMap.get(lookupKey);
                     }
 
                     if (statEntry != null) {
@@ -305,6 +314,16 @@ public class ForgeGUI implements InventoryHolder {
                 }
             }
         }
+    }
+
+    /**
+     * Génère une clé unique pour un StatType en combinant displayName et format
+     * Évite les conflits entre DAMAGE/DAMAGE_PERCENT, ATTACK_SPEED/ATTACK_SPEED_PERCENT, etc.
+     */
+    private String getUniqueStatKey(StatType statType) {
+        // Si le format contient %, c'est un pourcentage
+        boolean isPercentFormat = statType.getDisplayFormat().contains("%");
+        return statType.getDisplayName() + (isPercentFormat ? "_PCT" : "_FLAT");
     }
 
     /**
