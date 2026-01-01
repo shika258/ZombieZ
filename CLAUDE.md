@@ -9,7 +9,7 @@ Plugin de survie par vagues ultra-performant conçu pour **200 joueurs simultan�
 
 ## 🛠 Commandes du Projet
 * **Build :** `mvn clean package`
-* **Dépendances :** Paper API, ProtocolLib, Adventure API, Lombok.
+* **Dépendances :** Paper API, ProtocolLib, Adventure API, Lombok, Citizens API.
 
 ---
 
@@ -163,6 +163,83 @@ if (minion != null) {
 6. ☐ Tracker sur `PlayerJoin` (restaurer progression)
 7. ☐ Cleanup sur `PlayerQuit` (nettoyer Maps/Sets)
 8. ☐ **Vérifier : AUCUN sendActionBar()**
+
+---
+
+## 👤 NPCs Journey - OBLIGATOIRE : Citizens API via JourneyNPCManager
+
+> **Règle absolue :** Tous les NPCs des quêtes Journey DOIVENT être créés via `JourneyNPCManager` pour bénéficier de Citizens API (si disponible) avec fallback vanilla.
+
+### ✅ Comment créer un NPC Journey
+
+**Utiliser `JourneyNPCManager.NPCConfig` :**
+```java
+// Dans ChapterXSystems.java
+private void spawnMyNPC(World world) {
+    Location loc = MY_NPC_LOCATION.clone();
+    loc.setWorld(world);
+
+    JourneyNPCManager.NPCConfig config = new JourneyNPCManager.NPCConfig(
+        "chapterX_npc_name",           // ID unique (chapitre_nom)
+        "§6§lNom du PNJ",              // Nom affiché
+        loc                             // Position
+    )
+    .entityType(EntityType.VILLAGER)   // ou EntityType.PLAYER pour skin custom
+    .profession(Villager.Profession.FARMER)  // Si Villager
+    .lookClose(true)                   // Regarde les joueurs proches
+    .display(                          // TextDisplay au-dessus
+        "§e🎯 §6§lTITRE §e🎯",
+        "§8─────────",
+        "§f▶ Clic droit"
+    )
+    .displayScale(1.8f)
+    .displayHeight(2.5)
+    .onInteract(event -> {             // Handler d'interaction
+        event.setCancelled(true);
+        handleMyNPCInteraction(event.getPlayer());
+    });
+
+    npcManager.createOrGetNPC(config);
+}
+```
+
+### ⚠️ INTERDIT : Spawn vanilla direct
+
+**❌ MAUVAIS (ancien système) :**
+```java
+world.spawn(loc, Villager.class, villager -> {
+    villager.customName(Component.text("Mon NPC"));
+    villager.setAI(false);
+    villager.setInvulnerable(true);
+    // ... configuration manuelle
+});
+```
+
+**✅ BON (via JourneyNPCManager) :**
+```java
+var npcManager = plugin.getJourneyNPCManager();
+var config = new JourneyNPCManager.NPCConfig("chapter1_farmer", "Fermier", loc)
+    .entityType(EntityType.VILLAGER)
+    .profession(Villager.Profession.FARMER)
+    .onInteract(event -> handleInteraction(event.getPlayer()));
+npcManager.createOrGetNPC(config);
+```
+
+### 🎯 Ce que JourneyNPCManager gère automatiquement :
+- **Citizens API** si disponible (NPCs persistants, skins, animations)
+- **Fallback vanilla** si Citizens non installé
+- **Protection** : NPCs invulnérables, pas de trading
+- **LookClose** : Les NPCs regardent les joueurs à proximité
+- **TextDisplays** : Labels visuels au-dessus des NPCs
+- **Interactions** : Handler centralisé avec annulation automatique
+- **PDC Tags** : Identification via `journey_npc_id`
+
+### 📝 Checklist nouveau NPC Journey
+1. ☐ Définir l'ID unique : `chapterX_nom_npc`
+2. ☐ Créer la config via `JourneyNPCManager.NPCConfig`
+3. ☐ Définir le handler `onInteract()`
+4. ☐ Appeler `npcManager.createOrGetNPC(config)` dans `initialize()`
+5. ☐ **NE PAS** gérer manuellement spawn/despawn/protection
 
 ---
 
