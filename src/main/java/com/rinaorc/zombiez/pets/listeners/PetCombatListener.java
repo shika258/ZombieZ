@@ -182,8 +182,9 @@ public class PetCombatListener implements Listener {
     @EventHandler(priority = EventPriority.NORMAL)
     public void onDamageDealt(EntityDamageByEntityEvent event) {
         // Éviter la récursion infinie - ignorer les dégâts déjà traités par le système de pet
+        // NE PAS supprimer le metadata ici! CombatListener (HIGHEST) en a besoin pour
+        // laisser passer les dégâts de pet quand le joueur tient un arc/arbalète
         if (event.getEntity().hasMetadata("zombiez_pet_damage")) {
-            event.getEntity().removeMetadata("zombiez_pet_damage", plugin);
             return;
         }
 
