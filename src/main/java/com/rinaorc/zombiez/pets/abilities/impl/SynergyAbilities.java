@@ -228,6 +228,10 @@ class ComboExplosionActive implements PetAbility {
     private final double damagePerStack;  // Dégâts par stack (5 par défaut)
     private final int explosionRadius;    // Rayon de l'explosion (8 blocs)
 
+    // Cooldown de 3 secondes sur le message d'erreur pour éviter le spam
+    private static final Map<UUID, Long> lastErrorMessage = new ConcurrentHashMap<>();
+    private static final long ERROR_MESSAGE_COOLDOWN = 3000L; // 3 secondes
+
     public ComboExplosionActive(String id, String name, String desc, ComboPassive passive, double damagePerStack, int radius) {
         this.id = id;
         this.displayName = name;
@@ -247,7 +251,13 @@ class ComboExplosionActive implements PetAbility {
     public boolean activate(Player player, PetData petData) {
         int stacks = comboPassive.getComboStacks(player.getUniqueId());
         if (stacks < 3) {
-            player.sendMessage("§c[Pet] §7Pas assez de combo! (§e" + stacks + "§7/3 minimum)");
+            // Cooldown sur le message d'erreur pour éviter le spam
+            long now = System.currentTimeMillis();
+            Long lastMsg = lastErrorMessage.get(player.getUniqueId());
+            if (lastMsg == null || now - lastMsg >= ERROR_MESSAGE_COOLDOWN) {
+                player.sendMessage("§c[Pet] §7Pas assez de combo! (§e" + stacks + "§7/3 minimum)");
+                lastErrorMessage.put(player.getUniqueId(), now);
+            }
             return false;
         }
 
