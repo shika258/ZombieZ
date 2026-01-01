@@ -442,7 +442,7 @@ public class ItemManager {
     /**
      * Obtient un ZombieZItem depuis le cache, ou le restaure depuis le PDC si non trouvé
      */
-    private ZombieZItem getOrRestoreItem(ItemStack itemStack) {
+    public ZombieZItem getOrRestoreItem(ItemStack itemStack) {
         UUID uuid = ZombieZItem.getItemUUID(itemStack);
         if (uuid == null) return null;
 
