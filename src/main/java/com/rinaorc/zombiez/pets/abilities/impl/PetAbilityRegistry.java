@@ -95,11 +95,11 @@ public class PetAbilityRegistry {
         );
 
         // Champignon Explosif (anciennement Champignon Ambulant)
-        // Passif: Les kills explosent en spores (20% dégâts, 3 blocs)
+        // Passif: Les kills explosent en spores (20% dégâts, 4 blocs)
         // Ultimate: Charge 1.5s puis explose (150% dégâts, 6 blocs, knockback)
         registerAbilities(PetType.CHAMPIGNON_AMBULANT,
             new VolatileSporesPassive("shroom_volatile", "Spores Volatiles",
-                "Les kills explosent en spores (20% dégâts AoE, 3 blocs)", 0.20, 3),
+                "Les kills explosent en spores (20% dégâts AoE, 4 blocs)", 0.20, 4),
             new FungalDetonationActive("shroom_detonate", "Détonation Fongique",
                 "Charge 1.5s puis explose (150% dégâts, 6 blocs, knockback)", 1.5, 6, 30)
         );

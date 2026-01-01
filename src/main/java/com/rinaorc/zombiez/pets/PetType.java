@@ -153,7 +153,7 @@ public enum PetType {
         "mushroom",
         "Explosion / AoE",
         "Champignon rouge pulsant d'énergie volatile",
-        "Les kills explosent (20% dégâts AoE, 3 blocs)",
+        "Les kills explosent (20% dégâts AoE, 4 blocs)",
         "Détonation Fongique",
         "Charge 1.5s → explosion 150% (6 blocs, knockback)",
         30,
