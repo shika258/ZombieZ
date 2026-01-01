@@ -58,26 +58,60 @@ public class PetCombatListener implements Listener {
 
     /**
      * Empêche tous les mobs de cibler les pets des joueurs
+     * ET empêche les pets de cibler autre chose que les mobs ZombieZ
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onEntityTargetPet(EntityTargetLivingEntityEvent event) {
         if (event.getTarget() == null)
             return;
 
-        // Vérifier si la cible est un pet
+        // Vérifier si la cible est un pet - personne ne peut cibler un pet
         if (isPetEntity(event.getTarget())) {
             event.setCancelled(true);
+            return;
+        }
+
+        // Vérifier si un pet essaie de cibler quelque chose
+        if (isPetEntity(event.getEntity())) {
+            // Les pets ne peuvent cibler que les mobs ZombieZ (Monster avec tag)
+            if (!(event.getTarget() instanceof Monster)) {
+                event.setCancelled(true);
+                return;
+            }
+            // Vérifier que c'est un mob ZombieZ (pas un monstre vanilla ou autre pet)
+            if (!event.getTarget().getScoreboardTags().contains("zombiez_mob")) {
+                event.setCancelled(true);
+            }
         }
     }
 
     /**
      * Annule tous les dégâts reçus par les pets (protection totale)
+     * ET empêche les pets d'attaquer autre chose que les mobs ZombieZ
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPetDamage(EntityDamageEvent event) {
-        // Vérifier si c'est un pet
+        // Vérifier si c'est un pet qui reçoit des dégâts
         if (isPetEntity(event.getEntity())) {
             event.setCancelled(true);
+            return;
+        }
+
+        // Vérifier si c'est un pet qui attaque (cas EntityDamageByEntityEvent)
+        if (event instanceof EntityDamageByEntityEvent damageByEntity) {
+            Entity damager = damageByEntity.getDamager();
+            // Si l'attaquant est un pet
+            if (isPetEntity(damager)) {
+                // Les pets ne peuvent attaquer que les mobs ZombieZ
+                if (!(event.getEntity() instanceof Monster)) {
+                    event.setCancelled(true);
+                    return;
+                }
+                // Vérifier que c'est un mob ZombieZ
+                if (!event.getEntity().getScoreboardTags().contains("zombiez_mob")) {
+                    event.setCancelled(true);
+                }
+            }
         }
     }
 
