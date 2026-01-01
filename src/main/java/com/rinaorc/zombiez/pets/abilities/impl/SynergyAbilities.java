@@ -4755,7 +4755,9 @@ class SwarmRetaliationPassive implements PetAbility {
     private final String description;
     private final double damagePercent;          // 15% des dégâts du joueur
     private final long baseCooldownMs;           // 2000ms = 2s
-    private final Map<UUID, Long> lastRetaliation = new HashMap<>();
+    private final Map<UUID, Long> lastRetaliation = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> lastMessage = new ConcurrentHashMap<>();
+    private static final long MESSAGE_COOLDOWN_MS = 5000; // 5s entre les messages
 
     public SwarmRetaliationPassive(String id, String name, String desc, double dmgPercent, long cooldownMs) {
         this.id = id;
@@ -4764,6 +4766,7 @@ class SwarmRetaliationPassive implements PetAbility {
         this.damagePercent = dmgPercent;
         this.baseCooldownMs = cooldownMs;
         PassiveAbilityCleanup.registerForCleanup(lastRetaliation);
+        PassiveAbilityCleanup.registerForCleanup(lastMessage);
     }
 
     @Override
@@ -4799,7 +4802,7 @@ class SwarmRetaliationPassive implements PetAbility {
         double closestDist = Double.MAX_VALUE;
 
         for (Entity entity : player.getNearbyEntities(5, 5, 5)) {
-            if (entity instanceof Monster monster) {
+            if (entity instanceof Monster monster && monster.isValid() && !monster.isDead()) {
                 double dist = entity.getLocation().distanceSquared(playerLoc);
                 if (dist < closestDist) {
                     closestDist = dist;
@@ -4811,15 +4814,13 @@ class SwarmRetaliationPassive implements PetAbility {
         if (target != null) {
             // Animation des 3 mini-abeilles qui attaquent
             final Monster finalTarget = target;
-            final Location targetLoc = target.getLocation();
 
             // Créer 3 trajectoires d'abeilles animées
             for (int i = 0; i < 3; i++) {
-                final int beeIndex = i;
                 final double angleOffset = (2 * Math.PI / 3) * i;
 
                 Bukkit.getScheduler().runTaskLater(
-                    Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                    JavaPlugin.getPlugin(ZombieZPlugin.class),
                     () -> animateBeeAttack(player, petData, playerLoc.clone(), finalTarget, retaliationDamage / 3, angleOffset),
                     i * 2L
                 );
@@ -4828,11 +4829,18 @@ class SwarmRetaliationPassive implements PetAbility {
             // Son de l'essaim
             world.playSound(playerLoc, Sound.ENTITY_BEE_LOOP_AGGRESSIVE, 1.0f, 1.2f);
 
-            player.sendMessage("§a[Pet] §e🐝 REPRÉSAILLES! §7L'essaim contre-attaque!");
+            // Limiter les messages (1 message max toutes les 5 secondes)
+            long lastMsgTime = lastMessage.getOrDefault(uuid, 0L);
+            if (now - lastMsgTime >= MESSAGE_COOLDOWN_MS) {
+                lastMessage.put(uuid, now);
+                player.sendMessage("§a[Pet] §e🐝 REPRÉSAILLES! §7L'essaim contre-attaque!");
+            }
         }
     }
 
     private void animateBeeAttack(Player player, PetData petData, Location start, Monster target, double damage, double angleOffset) {
+        if (!target.isValid() || target.isDead()) return;
+
         World world = start.getWorld();
 
         new BukkitRunnable() {
@@ -4879,7 +4887,7 @@ class SwarmRetaliationPassive implements PetAbility {
 
                 ticks++;
             }
-        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+        }.runTaskTimer(JavaPlugin.getPlugin(ZombieZPlugin.class), 0L, 1L);
     }
 }
 
@@ -5060,12 +5068,14 @@ class SwarmFuryActive implements PetAbility {
 
                 ticksAlive++;
             }
-        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+        }.runTaskTimer(JavaPlugin.getPlugin(ZombieZPlugin.class), 0L, 1L);
 
         return true;
     }
 
     private void animateStingAttack(Location from, Monster target, double damage, Player player, PetData petData, World world) {
+        if (!target.isValid() || target.isDead()) return;
+
         Location targetLoc = target.getLocation().add(0, 1, 0);
         Vector direction = targetLoc.toVector().subtract(from.toVector()).normalize();
 
@@ -5102,7 +5112,7 @@ class SwarmFuryActive implements PetAbility {
 
                 ticks++;
             }
-        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+        }.runTaskTimer(JavaPlugin.getPlugin(ZombieZPlugin.class), 0L, 1L);
     }
 }
 
