@@ -27,27 +27,26 @@ import java.util.Map;
  * Layout (54 slots = 6 lignes):
  * - Ligne 0: Header avec titre et infos
  * - Ligne 1: Espace
- * - Ligne 2: [Slot Item] -> [Preview +1]
+ * - Ligne 2: [Slot Item] [FORGER] [Preview +1]
  * - Ligne 3: Infos (coût, chance, pénalité)
- * - Ligne 4: [Pierre Protection] [Pierre Chance] [FORGER]
+ * - Ligne 4: [Pierre Protection] [Pierre Bénie] [Pierre Chance]
  * - Ligne 5: Footer
  */
 public class ForgeGUI implements InventoryHolder {
 
-    private static final String TITLE = "§0\u2800\u2800\u2800\u2800\u2800\u2800\u2800🔨 Forge de l'Ancien";
+    private static final String TITLE = "§0\u2800\u2800\u2800\u2800\u2800\u2800\u2800🔨 Forge Maudite";
     private static final int SIZE = 54;
 
     // Slots
     private static final int SLOT_ITEM = 20;          // Item à forger
-    private static final int SLOT_ARROW = 22;         // Flèche
+    private static final int SLOT_FORGE = 22;         // Bouton forger (centre)
     private static final int SLOT_PREVIEW = 24;       // Preview du résultat
     private static final int SLOT_COST_INFO = 30;     // Info coût
     private static final int SLOT_CHANCE_INFO = 31;   // Info chance
     private static final int SLOT_PENALTY_INFO = 32;  // Info pénalité
-    private static final int SLOT_PROTECTION = 37;    // Pierre protection
-    private static final int SLOT_BLESSED = 39;       // Pierre bénie
-    private static final int SLOT_CHANCE = 41;        // Pierre chance
-    private static final int SLOT_FORGE = 43;         // Bouton forger
+    private static final int SLOT_PROTECTION = 38;    // Pierre protection
+    private static final int SLOT_BLESSED = 40;       // Pierre bénie
+    private static final int SLOT_CHANCE = 42;        // Pierre chance
     private static final int SLOT_POINTS = 4;         // Solde points
     private static final int SLOT_STATS = 49;         // Stats du joueur
     private static final int SLOT_CLOSE = 53;         // Fermer
@@ -93,10 +92,8 @@ public class ForgeGUI implements InventoryHolder {
         // Slot item (vide au départ)
         inventory.setItem(SLOT_ITEM, createItemSlot());
 
-        // Flèche
-        inventory.setItem(SLOT_ARROW, new ItemBuilder(Material.ARROW)
-            .name("§7→ §eRésultat")
-            .build());
+        // Bouton forger (au centre)
+        updateForgeButton();
 
         // Preview (vide au départ)
         inventory.setItem(SLOT_PREVIEW, createPreviewSlot());
@@ -106,9 +103,6 @@ public class ForgeGUI implements InventoryHolder {
 
         // Pierres
         updateStoneSlots();
-
-        // Bouton forger
-        updateForgeButton();
 
         // Stats du joueur
         updateStatsDisplay();
