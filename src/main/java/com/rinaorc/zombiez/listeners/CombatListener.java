@@ -301,6 +301,11 @@ public class CombatListener implements Listener {
     public void onDamageDisplayMonitor(EntityDamageByEntityEvent event) {
         Entity victim = event.getEntity();
 
+        // Nettoyage systématique des metadata de dégâts spéciaux (pet, beast)
+        // Doit être fait AVANT le return pour garantir le cleanup
+        victim.removeMetadata("zombiez_pet_damage", plugin);
+        victim.removeMetadata("zombiez_beast_damage", plugin);
+
         // Vérifier si on doit afficher un indicateur (metadata définie par les handlers HIGH)
         if (!victim.hasMetadata("zombiez_show_indicator")) return;
 
@@ -326,7 +331,7 @@ public class CombatListener implements Listener {
             PacketDamageIndicator.display(plugin, victim.getLocation(), finalDamage, isCritical, viewer);
         }
 
-        // Nettoyer les metadata
+        // Nettoyer les metadata d'indicateurs
         victim.removeMetadata("zombiez_show_indicator", plugin);
         victim.removeMetadata("zombiez_damage_critical", plugin);
         victim.removeMetadata("zombiez_damage_headshot", plugin);
