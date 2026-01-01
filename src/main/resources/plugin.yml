@@ -302,6 +302,7 @@ permissions:
       zombiez.class: true
       zombiez.pet.use: true
       zombiez.recycle: true
+      zombiez.forge: true
 
   zombiez.spawn:
     description: Utiliser /spawn
@@ -354,6 +355,14 @@ permissions:
   zombiez.recycle:
     description: Accès au système de recyclage
     default: true
+
+  zombiez.forge:
+    description: Accès au système de forge
+    default: true
+
+  zombiez.forge.admin:
+    description: Administration de la forge
+    default: op
 
   # Permissions VIP
   zombiez.vip.bronze:
