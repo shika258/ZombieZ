@@ -3649,35 +3649,64 @@ class SpiderAmbushActive implements PetAbility {
         world.playSound(playerLoc, Sound.ENTITY_SPIDER_AMBIENT, 1.0f, 0.5f);
         player.sendMessage("§a[Pet] §c§l\uD83D\uDD77 EMBUSCADE!");
 
-        // Animation du bond de l'araignée (de la position du joueur vers la cible)
-        Location spiderStart = playerLoc.clone().add(0, 1, 0);
-        Vector direction = targetLoc.toVector().subtract(spiderStart.toVector()).normalize();
+        // Spawn d'une araignée temporaire pour l'animation de bond
+        Location spiderStart = playerLoc.clone().add(0, 0.5, 0);
+        org.bukkit.entity.Spider leapSpider = (org.bukkit.entity.Spider) world.spawnEntity(spiderStart, org.bukkit.entity.EntityType.SPIDER);
+
+        // Configurer l'araignée temporaire
+        leapSpider.setAI(false);
+        leapSpider.setSilent(true);
+        leapSpider.setInvulnerable(true);
+        leapSpider.setPersistent(false);
+        leapSpider.setGravity(false);
+        leapSpider.setCustomName("§c§l🕷");
+        leapSpider.setCustomNameVisible(true);
+
+        // Réduire la taille si possible (via scale attribute)
+        if (leapSpider.getAttribute(org.bukkit.attribute.Attribute.SCALE) != null) {
+            leapSpider.getAttribute(org.bukkit.attribute.Attribute.SCALE).setBaseValue(0.7);
+        }
+
+        // Calculer la direction et la vitesse du bond
+        Vector direction = targetLoc.toVector().subtract(spiderStart.toVector());
+        double distance = direction.length();
+        int flightTicks = Math.max(8, (int) (distance * 1.5)); // Durée basée sur la distance
+        Vector velocity = direction.normalize().multiply(distance / flightTicks);
+        // Ajouter une courbe parabolique (arc de saut)
+        velocity.setY(velocity.getY() + 0.15);
 
         new BukkitRunnable() {
-            Location currentLoc = spiderStart.clone();
             int ticks = 0;
-            final int maxTicks = (int) (finalMinDist * 2); // Durée basée sur la distance
 
             @Override
             public void run() {
-                if (ticks >= maxTicks || !finalTarget.isValid()) {
+                if (ticks >= flightTicks || !finalTarget.isValid() || !leapSpider.isValid()) {
                     // Arrivée sur la cible - Impact!
+                    if (leapSpider.isValid()) {
+                        // Effet de disparition
+                        world.spawnParticle(Particle.POOF, leapSpider.getLocation(), 10, 0.3, 0.3, 0.3, 0.05);
+                        leapSpider.remove();
+                    }
                     executeImpact(player, petData, finalTarget, adjustedImmobilize, adjustedMarkDuration);
                     cancel();
                     return;
                 }
 
-                // Avancer l'araignée
-                currentLoc.add(direction.clone().multiply(0.5));
+                // Déplacer l'araignée
+                Location newLoc = leapSpider.getLocation().add(velocity);
+                // Courbe parabolique descendante après la moitié du trajet
+                if (ticks > flightTicks / 2) {
+                    newLoc.add(0, -0.08 * (ticks - flightTicks / 2), 0);
+                }
+                leapSpider.teleport(newLoc);
 
-                // Particules de l'araignée en mouvement
-                world.spawnParticle(Particle.BLOCK, currentLoc, 8, 0.2, 0.2, 0.2, 0,
+                // Particules de traînée
+                world.spawnParticle(Particle.BLOCK, newLoc, 3, 0.1, 0.1, 0.1, 0,
                     org.bukkit.Material.COBWEB.createBlockData());
-                world.spawnParticle(Particle.SMOKE, currentLoc, 3, 0.1, 0.1, 0.1, 0.02);
 
-                // Son de mouvement rapide
-                if (ticks % 4 == 0) {
-                    world.playSound(currentLoc, Sound.ENTITY_SPIDER_STEP, 0.5f, 1.5f);
+                // Son de saut
+                if (ticks % 5 == 0) {
+                    world.playSound(newLoc, Sound.ENTITY_SPIDER_STEP, 0.6f, 1.8f);
                 }
 
                 ticks++;
