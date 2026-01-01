@@ -3,6 +3,7 @@ package com.rinaorc.zombiez.forge;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.items.ZombieZItem;
 import com.rinaorc.zombiez.items.types.StatType;
+import com.rinaorc.zombiez.progression.journey.JourneyStep;
 import com.rinaorc.zombiez.utils.ItemBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -244,11 +245,13 @@ public class ForgeGUI implements InventoryHolder {
         Map<StatType, Double> baseStats = zItem.getBaseStats();
         List<ZombieZItem.RolledAffix> affixes = zItem.getAffixes();
 
-        // Map des stats de base
+        // Map des stats de base avec clé unique (displayName + format)
+        // Cela évite les conflits entre DAMAGE/DAMAGE_PERCENT, ATTACK_SPEED/ATTACK_SPEED_PERCENT, etc.
         Map<String, Map.Entry<Double, StatType>> baseStatsMap = new HashMap<>();
         for (var entry : baseStats.entrySet()) {
             if (entry.getKey().isBaseStat()) {
-                baseStatsMap.put(entry.getKey().getDisplayName(),
+                String uniqueKey = getUniqueStatKey(entry.getKey());
+                baseStatsMap.put(uniqueKey,
                     new java.util.AbstractMap.SimpleEntry<>(entry.getValue(), entry.getKey()));
             }
         }
@@ -267,7 +270,8 @@ public class ForgeGUI implements InventoryHolder {
                     currentAffixStats = new HashMap<>();
                     ZombieZItem.RolledAffix affix = affixes.get(currentAffixIndex);
                     for (var entry : affix.getRolledStats().entrySet()) {
-                        currentAffixStats.put(entry.getKey().getDisplayName(),
+                        String uniqueKey = getUniqueStatKey(entry.getKey());
+                        currentAffixStats.put(uniqueKey,
                             new java.util.AbstractMap.SimpleEntry<>(entry.getValue(), entry.getKey()));
                     }
                 }
@@ -280,9 +284,21 @@ public class ForgeGUI implements InventoryHolder {
                 if (colonIndex > 4) {
                     String statName = line.substring(4, colonIndex);
 
-                    Map.Entry<Double, StatType> statEntry = baseStatsMap.get(statName);
-                    if (statEntry == null && currentAffixStats != null) {
-                        statEntry = currentAffixStats.get(statName);
+                    // Déterminer si la valeur dans le lore est un pourcentage
+                    // en regardant si la ligne contient un % après le ":"
+                    String valueSection = line.substring(colonIndex);
+                    boolean isPercentInLore = valueSection.contains("%");
+
+                    // Construire la même clé unique utilisée pour indexer
+                    String lookupKey = statName + (isPercentInLore ? "_PCT" : "_FLAT");
+
+                    // Chercher d'abord dans l'affix courant, puis dans les stats de base
+                    Map.Entry<Double, StatType> statEntry = null;
+                    if (currentAffixStats != null) {
+                        statEntry = currentAffixStats.get(lookupKey);
+                    }
+                    if (statEntry == null) {
+                        statEntry = baseStatsMap.get(lookupKey);
                     }
 
                     if (statEntry != null) {
@@ -302,25 +318,45 @@ public class ForgeGUI implements InventoryHolder {
     }
 
     /**
+     * Génère une clé unique pour un StatType en combinant displayName et format
+     * Évite les conflits entre DAMAGE/DAMAGE_PERCENT, ATTACK_SPEED/ATTACK_SPEED_PERCENT, etc.
+     */
+    private String getUniqueStatKey(StatType statType) {
+        // Si le format contient %, c'est un pourcentage
+        boolean isPercentFormat = statType.getDisplayFormat().contains("%");
+        return statType.getDisplayName() + (isPercentFormat ? "_PCT" : "_FLAT");
+    }
+
+    /**
      * Met à jour ou ajoute la ligne de forge dans le lore de la preview
      */
     private void updatePreviewForgeLine(List<String> lore, int forgeLevel, int bonus) {
         int forgeLineIndex = -1;
+        int zoneLineIndex = -1;
         for (int i = 0; i < lore.size(); i++) {
-            if (lore.get(i).contains("§7Forge:") || lore.get(i).contains("§6✧ FORGE")) {
+            String line = lore.get(i);
+            if (line.contains("§7Forge:") || line.contains("✧ FORGE")) {
                 forgeLineIndex = i;
-                break;
+            }
+            if (line.contains("Requiert:")) {
+                zoneLineIndex = i;
             }
         }
 
-        String forgeLine = "§6✧ FORGE §e+" + forgeLevel + " §7(+" + bonus + "% stats)";
+        // FORGE en jaune (§e) pour différencier de STATS DE BASE (orange)
+        String forgeLine = "§e✧ FORGE §6+" + forgeLevel + " §7(+" + bonus + "% stats)";
 
         if (forgeLineIndex >= 0) {
             lore.set(forgeLineIndex, forgeLine);
-        } else if (lore.size() > 1) {
-            lore.add(1, forgeLine);
         } else {
-            lore.add(forgeLine);
+            // Ajouter après la ligne "Requiert: Zone X"
+            if (zoneLineIndex >= 0) {
+                lore.add(zoneLineIndex + 1, forgeLine);
+            } else if (lore.size() > 2) {
+                lore.add(3, forgeLine); // Fallback: après Item Score et Zone
+            } else {
+                lore.add(forgeLine);
+            }
         }
     }
 
@@ -798,6 +834,11 @@ public class ForgeGUI implements InventoryHolder {
             // Particules de succès
             player.getWorld().spawnParticle(org.bukkit.Particle.TOTEM_OF_UNDYING,
                 player.getLocation().add(0, 1, 0), 30, 0.5, 1, 0.5, 0.1);
+
+            // Tracker la progression Journey (étape forge)
+            if (plugin.getJourneyManager() != null) {
+                plugin.getJourneyManager().updateProgress(player, JourneyStep.StepType.FORGE_ITEM, 1);
+            }
         } else {
             if (result.type() == ForgeManager.ForgeResultType.PROTECTED) {
                 player.sendTitle("§d§l🛡 PROTÉGÉ", "§7Aucune perte!", 5, 30, 10);

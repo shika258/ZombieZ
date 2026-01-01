@@ -83,9 +83,9 @@ public enum JourneyStep {
         "Récupère 5 caisses - Coords: §b898, 90, 9469", StepType.COLLECT_SUPPLY_CRATES, 5,
         450, 12, Material.CHEST_MINECART),
 
-    STEP_2_8(JourneyChapter.CHAPTER_2, 8, "Explore la Zone 3 (50%)",
-        "Les champs du silence t'attendent", StepType.ZONE_EXPLORATION, 3,
-        500, 12, Material.FILLED_MAP),
+    STEP_2_8(JourneyChapter.CHAPTER_2, 8, "Améliore un objet",
+        "Découvre le système /forge", StepType.FORGE_ITEM, 1,
+        500, 12, Material.ANVIL),
 
     STEP_2_9(JourneyChapter.CHAPTER_2, 9, "Trouve le coffre mystérieux (Zone 3)",
         "Coordonnées: §b463, 121, 9440", StepType.DISCOVER_CHEST, 3,
@@ -484,6 +484,7 @@ public enum JourneyStep {
             case DELIVER_ANTIDOTE -> current >= 1 ? "✓ Antidote livré!" : "Livre l'antidote au PNJ";
             case DPS_CHECK -> current >= 1 ? "✓ Cristal détruit!" : "Détruis le Cristal de Corruption";
             case FIRE_MINIGAME -> current >= 1 ? "✓ Incendie éteint!" : "Éteins l'incendie du moulin";
+            case FORGE_ITEM -> current >= targetValue ? "✓ Objet amélioré!" : "Améliorez un objet §b/forge §7" + current + "/" + targetValue;
         };
     }
 
@@ -675,7 +676,10 @@ public enum JourneyStep {
         // Livraison d'antidote (Chapitre 4)
         DELIVER_ANTIDOTE("Livre un antidote au PNJ"),
         DPS_CHECK("Détruis le Cristal de Corruption"),
-        FIRE_MINIGAME("Éteins l'incendie du moulin");
+        FIRE_MINIGAME("Éteins l'incendie du moulin"),
+
+        // Forge
+        FORGE_ITEM("Améliore un objet avec la forge");
 
         private final String description;
 

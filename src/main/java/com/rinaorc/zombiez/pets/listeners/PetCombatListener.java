@@ -58,26 +58,60 @@ public class PetCombatListener implements Listener {
 
     /**
      * Empêche tous les mobs de cibler les pets des joueurs
+     * ET empêche les pets de cibler autre chose que les mobs ZombieZ
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onEntityTargetPet(EntityTargetLivingEntityEvent event) {
         if (event.getTarget() == null)
             return;
 
-        // Vérifier si la cible est un pet
+        // Vérifier si la cible est un pet - personne ne peut cibler un pet
         if (isPetEntity(event.getTarget())) {
             event.setCancelled(true);
+            return;
+        }
+
+        // Vérifier si un pet essaie de cibler quelque chose
+        if (isPetEntity(event.getEntity())) {
+            // Les pets ne peuvent cibler que les mobs ZombieZ (Monster avec tag)
+            if (!(event.getTarget() instanceof Monster)) {
+                event.setCancelled(true);
+                return;
+            }
+            // Vérifier que c'est un mob ZombieZ (pas un monstre vanilla ou autre pet)
+            if (!event.getTarget().getScoreboardTags().contains("zombiez_mob")) {
+                event.setCancelled(true);
+            }
         }
     }
 
     /**
      * Annule tous les dégâts reçus par les pets (protection totale)
+     * ET empêche les pets d'attaquer autre chose que les mobs ZombieZ
      */
     @EventHandler(priority = EventPriority.HIGHEST)
     public void onPetDamage(EntityDamageEvent event) {
-        // Vérifier si c'est un pet
+        // Vérifier si c'est un pet qui reçoit des dégâts
         if (isPetEntity(event.getEntity())) {
             event.setCancelled(true);
+            return;
+        }
+
+        // Vérifier si c'est un pet qui attaque (cas EntityDamageByEntityEvent)
+        if (event instanceof EntityDamageByEntityEvent damageByEntity) {
+            Entity damager = damageByEntity.getDamager();
+            // Si l'attaquant est un pet
+            if (isPetEntity(damager)) {
+                // Les pets ne peuvent attaquer que les mobs ZombieZ
+                if (!(event.getEntity() instanceof Monster)) {
+                    event.setCancelled(true);
+                    return;
+                }
+                // Vérifier que c'est un mob ZombieZ
+                if (!event.getEntity().getScoreboardTags().contains("zombiez_mob")) {
+                    event.setCancelled(true);
+                }
+            }
         }
     }
 
@@ -173,6 +207,16 @@ public class PetCombatListener implements Listener {
         double originalDamage = event.getDamage();
         double modifiedDamage = originalDamage;
 
+        // Vérifier si le joueur tient un arc/arbalète en mêlée (clic gauche direct)
+        // Dans ce cas, l'event sera cancelled par CombatListener, donc on doit faire des dégâts directs
+        boolean isRangedWeaponMelee = false;
+        if (event.getDamager() instanceof Player) {
+            org.bukkit.inventory.ItemStack heldItem = player.getInventory().getItemInMainHand();
+            if (heldItem != null && isRangedWeaponType(heldItem.getType())) {
+                isRangedWeaponMelee = true;
+            }
+        }
+
         // Appliquer les bonus de dégâts selon le pet
         PetAbility passive = plugin.getPetManager().getAbilityRegistry().getPassive(petType);
 
@@ -214,8 +258,10 @@ public class PetCombatListener implements Listener {
             int attackCount = map.getAttackCount();
             // Les attaques supplémentaires font des dégâts réduits
             // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
+            // Marquer comme dégâts de pet pour éviter le blocage avec arc/arbalète
             for (int i = 1; i < attackCount; i++) {
                 target.setMetadata("zombiez_secondary_damage", new FixedMetadataValue(plugin, true));
+                target.setMetadata("zombiez_pet_damage", new FixedMetadataValue(plugin, true));
                 target.damage(originalDamage * 0.3, player);
             }
         }
@@ -252,10 +298,26 @@ public class PetCombatListener implements Listener {
         }
 
         // Appliquer les dégâts modifiés
-        event.setDamage(modifiedDamage);
+        if (isRangedWeaponMelee) {
+            // Le joueur tient un arc/arbalète en mêlée - l'event sera cancelled par CombatListener
+            // On applique les dégâts du pet directement avec un marqueur pour éviter le blocage
+            target.setMetadata("zombiez_pet_damage", new FixedMetadataValue(plugin, true));
+            target.setMetadata("zombiez_secondary_damage", new FixedMetadataValue(plugin, true)); // Éviter double indicateur
+            target.damage(modifiedDamage, player);
+            // Ne pas modifier l'event original qui sera cancelled
+        } else {
+            event.setDamage(modifiedDamage);
+        }
 
         // Enregistrer les dégâts pour les stats
         petData.addDamage((long) modifiedDamage);
+    }
+
+    /**
+     * Vérifie si le matériau est une arme à distance (arc ou arbalète)
+     */
+    private boolean isRangedWeaponType(org.bukkit.Material material) {
+        return material == org.bukkit.Material.BOW || material == org.bukkit.Material.CROSSBOW;
     }
 
     /**
