@@ -173,6 +173,16 @@ public class PetCombatListener implements Listener {
         double originalDamage = event.getDamage();
         double modifiedDamage = originalDamage;
 
+        // Vérifier si le joueur tient un arc/arbalète en mêlée (clic gauche direct)
+        // Dans ce cas, l'event sera cancelled par CombatListener, donc on doit faire des dégâts directs
+        boolean isRangedWeaponMelee = false;
+        if (event.getDamager() instanceof Player) {
+            org.bukkit.inventory.ItemStack heldItem = player.getInventory().getItemInMainHand();
+            if (heldItem != null && isRangedWeaponType(heldItem.getType())) {
+                isRangedWeaponMelee = true;
+            }
+        }
+
         // Appliquer les bonus de dégâts selon le pet
         PetAbility passive = plugin.getPetManager().getAbilityRegistry().getPassive(petType);
 
@@ -214,8 +224,10 @@ public class PetCombatListener implements Listener {
             int attackCount = map.getAttackCount();
             // Les attaques supplémentaires font des dégâts réduits
             // Marquer comme dégâts secondaires pour éviter les indicateurs multiples
+            // Marquer comme dégâts de pet pour éviter le blocage avec arc/arbalète
             for (int i = 1; i < attackCount; i++) {
                 target.setMetadata("zombiez_secondary_damage", new FixedMetadataValue(plugin, true));
+                target.setMetadata("zombiez_pet_damage", new FixedMetadataValue(plugin, true));
                 target.damage(originalDamage * 0.3, player);
             }
         }
@@ -252,10 +264,26 @@ public class PetCombatListener implements Listener {
         }
 
         // Appliquer les dégâts modifiés
-        event.setDamage(modifiedDamage);
+        if (isRangedWeaponMelee) {
+            // Le joueur tient un arc/arbalète en mêlée - l'event sera cancelled par CombatListener
+            // On applique les dégâts du pet directement avec un marqueur pour éviter le blocage
+            target.setMetadata("zombiez_pet_damage", new FixedMetadataValue(plugin, true));
+            target.setMetadata("zombiez_secondary_damage", new FixedMetadataValue(plugin, true)); // Éviter double indicateur
+            target.damage(modifiedDamage, player);
+            // Ne pas modifier l'event original qui sera cancelled
+        } else {
+            event.setDamage(modifiedDamage);
+        }
 
         // Enregistrer les dégâts pour les stats
         petData.addDamage((long) modifiedDamage);
+    }
+
+    /**
+     * Vérifie si le matériau est une arme à distance (arc ou arbalète)
+     */
+    private boolean isRangedWeaponType(org.bukkit.Material material) {
+        return material == org.bukkit.Material.BOW || material == org.bukkit.Material.CROSSBOW;
     }
 
     /**
