@@ -1,17 +1,20 @@
 package com.rinaorc.zombiez.pets.abilities.impl;
 
+import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.pets.PetData;
 import com.rinaorc.zombiez.pets.abilities.PetAbility;
 import com.rinaorc.zombiez.pets.abilities.PetDamageUtils;
 import lombok.Getter;
 import org.bukkit.*;
 import org.bukkit.entity.*;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.util.Vector;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Abilities avec effets visuels spectaculaires
@@ -388,9 +391,9 @@ class ChromaticSpectrumPassive implements PetAbility {
     private final double baseLifestealPercent;       // 5% lifesteal (vert)
 
     // Couleurs: 0=Rouge, 1=Orange, 2=Jaune, 3=Vert, 4=Bleu, 5=Violet
-    private final Map<UUID, Integer> currentColor = new HashMap<>();
-    private final Map<UUID, Long> lastColorChange = new HashMap<>();
-    private final Map<UUID, Boolean> allBuffsActive = new HashMap<>(); // Pour l'ultimate
+    private final Map<UUID, Integer> currentColor = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> lastColorChange = new ConcurrentHashMap<>();
+    private final Map<UUID, Boolean> allBuffsActive = new ConcurrentHashMap<>(); // Pour l'ultimate
 
     // DyeColor correspondants
     private static final org.bukkit.DyeColor[] RAINBOW_COLORS = {
@@ -570,9 +573,9 @@ class ChromaticSpectrumPassive implements PetAbility {
             case 0 -> "§c🔴 ROUGE §7- §c+" + (int)((baseDamageBonus + (mult-1)*0.05) * 100) + "% dégâts";
             case 1 -> "§6🟠 ORANGE §7- §6+20% vitesse attaque";
             case 2 -> "§e🟡 JAUNE §7- §e+" + (int)((0.10 + (mult-1)*0.03) * 100) + "% crit";
-            case 3 -> "§a🟢 VERT §7- §a" + (int)((baseLifestealPercent + (mult-1)*0.02) * 100) + "% lifesteal";
+            case 3 -> "§a🟢 VERT §7- §a" + (int)((baseLifestealPercent + (mult-1)*0.02) * 100) + "% vol de vie";
             case 4 -> "§b🔵 BLEU §7- §b-" + (int)((0.10 + (mult-1)*0.03) * 100) + "% dégâts reçus";
-            case 5 -> "§d🟣 VIOLET §7- §dSlow les ennemis";
+            case 5 -> "§d🟣 VIOLET §7- §dRalentit les ennemis";
             default -> "§7?";
         };
     }
@@ -675,7 +678,7 @@ class PrismaticNovaActive implements PetAbility {
         for (int ring = 1; ring <= 4; ring++) {
             final int currentRing = ring;
             Bukkit.getScheduler().runTaskLater(
-                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                JavaPlugin.getPlugin(ZombieZPlugin.class),
                 () -> spawnRainbowRing(world, playerLoc, currentRing * 2.5),
                 ring * 4L
             );
@@ -710,7 +713,7 @@ class PrismaticNovaActive implements PetAbility {
 
         // Désactiver les buffs après la durée
         Bukkit.getScheduler().runTaskLater(
-            Bukkit.getPluginManager().getPlugin("ZombieZ"),
+            JavaPlugin.getPlugin(ZombieZPlugin.class),
             () -> {
                 spectrumPassive.setAllBuffsActive(uuid, false);
                 player.sendMessage("§a[Pet] §7Les bonus arc-en-ciel se dissipent...");
@@ -757,7 +760,7 @@ class PrismaticNovaActive implements PetAbility {
 
                 ticks++;
             }
-        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+        }.runTaskTimer(JavaPlugin.getPlugin(ZombieZPlugin.class), 0L, 1L);
     }
 
     private void spawnRainbowRing(World world, Location center, double radius) {
