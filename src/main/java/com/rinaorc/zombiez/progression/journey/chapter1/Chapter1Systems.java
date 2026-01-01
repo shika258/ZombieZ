@@ -2,30 +2,20 @@ package com.rinaorc.zombiez.progression.journey.chapter1;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.progression.journey.JourneyManager;
+import com.rinaorc.zombiez.progression.journey.JourneyNPCManager;
 import com.rinaorc.zombiez.progression.journey.JourneyStep;
 import com.rinaorc.zombiez.utils.ItemBuilder;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.format.NamedTextColor;
-import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.*;
 import org.bukkit.entity.*;
 import org.bukkit.event.EventHandler;
-import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
-import org.bukkit.event.entity.EntityDamageEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.event.inventory.InventoryCloseEvent;
-import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
-import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
-import org.bukkit.util.Transformation;
-import org.joml.AxisAngle4f;
-import org.joml.Vector3f;
 
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,27 +24,25 @@ import java.util.logging.Level;
 /**
  * Gère les systèmes spécifiques au Chapitre 1:
  * - Étape 7: Aide le Fermier - Mini-jeu GUI d'extinction d'incendie
+ *
+ * IMPORTANT: Utilise JourneyNPCManager pour les NPCs (Citizens API).
  */
 public class Chapter1Systems implements Listener {
 
     private final ZombieZPlugin plugin;
     private final JourneyManager journeyManager;
+    private final JourneyNPCManager npcManager;
 
-    // === CLÉS PDC ===
-    private final NamespacedKey FARMER_NPC_KEY;
+    // === NPC ID ===
+    private static final String FARMER_NPC_ID = "chapter1_farmer";
 
     // === POSITIONS ===
     private static final Location FARMER_LOCATION = new Location(null, 474.5, 95, 9999.5, -90, 0);
-    private static final double FARMER_DISPLAY_HEIGHT = 2.5;
 
     // === CONFIGURATION MINI-JEU ===
     private static final String FIRE_GUI_TITLE = "§c§l🔥 ÉTEINS L'INCENDIE! 🔥";
-    private static final int FIRE_COUNT = 9; // Nombre de flammes à éteindre
-    private static final int[] FIRE_SLOTS = { 10, 11, 12, 13, 14, 15, 16, 19, 25 }; // Slots des flammes
-
-    // === ENTITÉS ===
-    private Entity farmerEntity;
-    private TextDisplay farmerDisplay;
+    private static final int FIRE_COUNT = 9;
+    private static final int[] FIRE_SLOTS = { 10, 11, 12, 13, 14, 15, 16, 19, 25 };
 
     // === TRACKING JOUEURS ===
     private final Set<UUID> playersWhoCompletedFire = ConcurrentHashMap.newKeySet();
@@ -65,9 +53,7 @@ public class Chapter1Systems implements Listener {
     public Chapter1Systems(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.journeyManager = plugin.getJourneyManager();
-
-        // Initialiser les clés PDC
-        this.FARMER_NPC_KEY = new NamespacedKey(plugin, "farmer_npc");
+        this.npcManager = plugin.getJourneyNPCManager();
 
         // Enregistrer le listener
         Bukkit.getPluginManager().registerEvents(this, plugin);
@@ -91,207 +77,55 @@ public class Chapter1Systems implements Listener {
             return;
         }
 
-        // Nettoyer les anciennes entités
-        cleanupOldEntities(world);
-
-        // Spawn le fermier
+        // Spawn le fermier via JourneyNPCManager
         spawnFarmer(world);
 
-        // Démarrer le respawn checker
-        startFarmerRespawnChecker();
-
-        plugin.log(Level.INFO, "§a✓ Chapter1Systems initialisé (Fermier)");
+        plugin.log(Level.INFO, "§a✓ Chapter1Systems initialisé (Fermier via " +
+            (npcManager.isCitizensEnabled() ? "Citizens" : "Vanilla") + ")");
     }
 
     /**
-     * Nettoie TOUTES les anciennes entités du fermier dans le MONDE ENTIER.
-     * Garantit MAXMOBS=1 (une seule instance du fermier).
-     * Recherche globale, pas seulement à proximité.
-     */
-    private void cleanupOldEntities(World world) {
-        int removed = 0;
-
-        // RECHERCHE GLOBALE dans tout le monde pour garantir maxmobs=1
-        for (Entity entity : world.getEntities()) {
-            if (entity.getScoreboardTags().contains("chapter1_farmer")) {
-                entity.remove();
-                removed++;
-                continue;
-            }
-            if (entity.getScoreboardTags().contains("chapter1_farmer_display")) {
-                entity.remove();
-                removed++;
-                continue;
-            }
-            // Fallback: vérifier par PDC
-            if (entity instanceof Villager villager) {
-                if (villager.getPersistentDataContainer().has(FARMER_NPC_KEY, PersistentDataType.BYTE)) {
-                    villager.remove();
-                    removed++;
-                }
-            }
-        }
-
-        // Log supprimé pour éviter le spam
-    }
-
-    /**
-     * Spawn le PNJ fermier
+     * Spawn le PNJ fermier via JourneyNPCManager
      */
     private void spawnFarmer(World world) {
         Location loc = FARMER_LOCATION.clone();
         loc.setWorld(world);
 
-        // 1. Si entité en mémoire valide → ne rien faire
-        if (farmerEntity != null && farmerEntity.isValid() && !farmerEntity.isDead()) {
-            return;
-        }
-
-        // 2. Chercher entité existante dans le monde (persistée après reboot)
-        for (Entity entity : world.getNearbyEntities(loc, 50, 30, 50)) {
-            if (entity instanceof Villager v
-                    && v.getPersistentDataContainer().has(FARMER_NPC_KEY, PersistentDataType.BYTE)) {
-                farmerEntity = v;
-                // Chercher aussi le display associé
-                for (Entity e : world.getNearbyEntities(loc, 10, 10, 10)) {
-                    if (e instanceof TextDisplay td && e.getScoreboardTags().contains("chapter1_farmer_display")) {
-                        farmerDisplay = td;
-                        break;
-                    }
-                }
-                return; // Réutiliser l'existant
-            }
-        }
-
-        // 3. Sinon créer nouveau (UNE SEULE FOIS)
-        farmerEntity = world.spawn(loc, Villager.class, villager -> {
-            villager.customName(Component.text("Gérard le Fermier", NamedTextColor.GOLD, TextDecoration.BOLD));
-            villager.setCustomNameVisible(true);
-            villager.setAI(false);
-            villager.setInvulnerable(true);
-            villager.setSilent(true);
-            villager.setCollidable(false);
-            villager.setProfession(Villager.Profession.FARMER);
-            villager.setVillagerType(Villager.Type.PLAINS);
-
-            // Tags
-            villager.addScoreboardTag("chapter1_farmer");
-            villager.addScoreboardTag("no_trading");
-            villager.addScoreboardTag("zombiez_npc");
-
-            // PDC
-            villager.getPersistentDataContainer().set(FARMER_NPC_KEY, PersistentDataType.BYTE, (byte) 1);
-
-            // OBLIGATOIRE pour survivre au chunk unload
-            villager.setPersistent(true);
-
-            // Orientation
-            villager.setRotation(loc.getYaw(), 0);
+        // Créer le NPC via le manager centralisé
+        JourneyNPCManager.NPCConfig config = new JourneyNPCManager.NPCConfig(
+            FARMER_NPC_ID,
+            "§6§lGérard le Fermier",
+            loc
+        )
+        .entityType(EntityType.VILLAGER)
+        .profession(Villager.Profession.FARMER)
+        .lookClose(true)
+        .display(
+            "§e🌾 §6§lLE FERMIER §e🌾",
+            "§8─────────",
+            "§f▶ Clic droit"
+        )
+        .displayScale(1.8f)
+        .displayHeight(2.5)
+        .onInteract(event -> {
+            event.setCancelled(true);
+            handleFarmerInteraction(event.getPlayer());
         });
 
-        // Créer le TextDisplay au-dessus
-        createFarmerDisplay(world, loc);
-    }
-
-    /**
-     * Crée le TextDisplay au-dessus du fermier
-     */
-    private void createFarmerDisplay(World world, Location loc) {
-        Location displayLoc = loc.clone().add(0, FARMER_DISPLAY_HEIGHT, 0);
-
-        farmerDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
-            display.text(Component.text()
-                    .append(Component.text("🌾 ", NamedTextColor.YELLOW))
-                    .append(Component.text("LE FERMIER", NamedTextColor.GOLD, TextDecoration.BOLD))
-                    .append(Component.text(" 🌾", NamedTextColor.YELLOW))
-                    .append(Component.newline())
-                    .append(Component.text("─────────", NamedTextColor.DARK_GRAY))
-                    .append(Component.newline())
-                    .append(Component.text("▶ Clic droit", NamedTextColor.WHITE))
-                    .build());
-
-            display.setBillboard(Display.Billboard.CENTER);
-            display.setAlignment(TextDisplay.TextAlignment.CENTER);
-            display.setShadowed(true);
-            display.setSeeThrough(false);
-            display.setDefaultBackground(false);
-            display.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
-
-            display.setTransformation(new Transformation(
-                    new Vector3f(0, 0, 0),
-                    new AxisAngle4f(0, 0, 0, 1),
-                    new Vector3f(1.8f, 1.8f, 1.8f),
-                    new AxisAngle4f(0, 0, 0, 1)));
-
-            display.setViewRange(0.5f);
-            display.setPersistent(false);
-            display.addScoreboardTag("chapter1_farmer_display");
-        });
-    }
-
-    /**
-     * Démarre le vérificateur de respawn du fermier.
-     * SÉCURITÉ MAXMOBS=1: Respawne automatiquement le fermier avec nettoyage
-     * préalable.
-     */
-    private void startFarmerRespawnChecker() {
-        new BukkitRunnable() {
-            @Override
-            public void run() {
-                World world = Bukkit.getWorld("world");
-                if (world == null)
-                    return;
-
-                Location farmerLoc = FARMER_LOCATION.clone();
-                farmerLoc.setWorld(world);
-
-                // === SÉCURITÉ FERMIER (maxmobs=1) ===
-                // Ne respawn QUE si le chunk est déjà chargé par un joueur (évite boucle
-                // infinie)
-                if (farmerEntity == null || !farmerEntity.isValid() || farmerEntity.isDead()) {
-                    if (farmerLoc.getChunk().isLoaded()) {
-                        // Nettoyage global avant respawn pour garantir maxmobs=1
-                        cleanupOldEntities(world);
-                        spawnFarmer(world);
-                    }
-                }
-
-                // TextDisplay: même logique
-                if ((farmerDisplay == null || !farmerDisplay.isValid()) && farmerLoc.getChunk().isLoaded()) {
-                    createFarmerDisplay(world, farmerLoc);
-                }
-            }
-        }.runTaskTimer(plugin, 100L, 200L); // Intervalle augmenté pour réduire le spam
+        npcManager.createOrGetNPC(config);
     }
 
     // ==================== EVENT HANDLERS ====================
-
-    @EventHandler(priority = EventPriority.NORMAL)
-    public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
-        if (event.getHand() != EquipmentSlot.HAND)
-            return;
-
-        Entity entity = event.getRightClicked();
-        Player player = event.getPlayer();
-
-        // Interaction avec le fermier
-        if (entity.getPersistentDataContainer().has(FARMER_NPC_KEY, PersistentDataType.BYTE)) {
-            event.setCancelled(true);
-            handleFarmerInteraction(player);
-        }
-    }
 
     @EventHandler
     public void onInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player))
             return;
 
-        // Vérifier le titre du GUI avec getOriginalTitle()
         String title = event.getView().getOriginalTitle();
         if (!title.equals(FIRE_GUI_TITLE))
             return;
 
-        // IMPORTANT: Annuler l'événement EN PREMIER pour empêcher le vol d'items
         event.setCancelled(true);
 
         int slot = event.getRawSlot();
@@ -300,7 +134,6 @@ public class Chapter1Systems implements Listener {
         if (clicked == null || clicked.getType() == Material.AIR)
             return;
 
-        // Vérifier si c'est une flamme
         if (clicked.getType() == Material.CAMPFIRE) {
             handleFireClick(player, slot, event.getInventory());
         }
@@ -314,7 +147,6 @@ public class Chapter1Systems implements Listener {
         String title = event.getView().getOriginalTitle();
         if (title.equals(FIRE_GUI_TITLE)) {
             playersInFireMinigame.remove(player.getUniqueId());
-            // Reset les flammes éteintes si pas terminé
             if (!playersWhoCompletedFire.contains(player.getUniqueId())) {
                 playerExtinguishedFires.remove(player.getUniqueId());
             }
@@ -331,7 +163,6 @@ public class Chapter1Systems implements Listener {
                 if (!player.isOnline())
                     return;
 
-                // Recharger la progression
                 int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_1_7);
                 if (progress >= 1) {
                     playersWhoCompletedFire.add(player.getUniqueId());
@@ -350,29 +181,6 @@ public class Chapter1Systems implements Listener {
         playerExtinguishedFires.remove(uuid);
     }
 
-    /**
-     * Protège le fermier contre TOUS les types de dégâts.
-     * Même si setInvulnerable(true) est défini, certains plugins/explosions peuvent
-     * bypass.
-     */
-    @EventHandler(priority = EventPriority.LOWEST, ignoreCancelled = false)
-    public void onFarmerDamage(EntityDamageEvent event) {
-        Entity entity = event.getEntity();
-
-        // Vérifier par tag scoreboard (plus rapide)
-        if (entity.getScoreboardTags().contains("chapter1_farmer")) {
-            event.setCancelled(true);
-            return;
-        }
-
-        // Fallback: vérifier par PDC
-        if (entity instanceof Villager villager) {
-            if (villager.getPersistentDataContainer().has(FARMER_NPC_KEY, PersistentDataType.BYTE)) {
-                event.setCancelled(true);
-            }
-        }
-    }
-
     // ==================== FERMIER INTERACTION ====================
 
     /**
@@ -381,7 +189,6 @@ public class Chapter1Systems implements Listener {
     private void handleFarmerInteraction(Player player) {
         JourneyStep currentStep = journeyManager.getCurrentStep(player);
 
-        // Vérifier si déjà complété
         if (hasPlayerCompletedFire(player)) {
             player.sendMessage("");
             player.sendMessage("§6§lGérard: §f\"Merci encore pour ton aide, héros!\"");
@@ -391,7 +198,6 @@ public class Chapter1Systems implements Listener {
             return;
         }
 
-        // Si le joueur n'est pas à l'étape 7
         if (currentStep != JourneyStep.STEP_1_7) {
             player.sendMessage("");
             player.sendMessage("§6§lGérard: §f\"Bonjour voyageur!\"");
@@ -401,13 +207,11 @@ public class Chapter1Systems implements Listener {
             return;
         }
 
-        // Introduction si première fois
         if (!playersIntroducedToFarmer.contains(player.getUniqueId())) {
             introducePlayerToFarmer(player);
             return;
         }
 
-        // Ouvrir le mini-jeu
         openFireMinigame(player);
     }
 
@@ -445,7 +249,6 @@ public class Chapter1Systems implements Listener {
                         player.sendMessage("§e§l➤ §7Clique sur §cles flammes §7pour les éteindre!");
                         player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1f);
 
-                        // Ouvrir automatiquement le mini-jeu
                         new BukkitRunnable() {
                             @Override
                             public void run() {
@@ -469,14 +272,10 @@ public class Chapter1Systems implements Listener {
      */
     private void openFireMinigame(Player player) {
         playersInFireMinigame.add(player.getUniqueId());
-
-        // Reset les flammes éteintes
         playerExtinguishedFires.put(player.getUniqueId(), ConcurrentHashMap.newKeySet());
 
-        // Créer l'inventaire
         Inventory gui = Bukkit.createInventory(null, 27, FIRE_GUI_TITLE);
 
-        // Remplir avec du verre gris (mur du moulin)
         ItemStack wall = new ItemBuilder(Material.BROWN_STAINED_GLASS_PANE)
                 .name("§8Mur du moulin")
                 .build();
@@ -485,7 +284,6 @@ public class Chapter1Systems implements Listener {
             gui.setItem(i, wall);
         }
 
-        // Placer les flammes
         ItemStack fire = new ItemBuilder(Material.CAMPFIRE)
                 .name("§c§l🔥 FLAMME 🔥")
                 .lore("§7Clique pour éteindre!")
@@ -507,11 +305,9 @@ public class Chapter1Systems implements Listener {
 
         Set<Integer> extinguished = playerExtinguishedFires.computeIfAbsent(uuid, k -> ConcurrentHashMap.newKeySet());
 
-        // Vérifier si déjà éteinte
         if (extinguished.contains(slot))
             return;
 
-        // Vérifier si c'est un slot valide
         boolean isFireSlot = false;
         for (int fireSlot : FIRE_SLOTS) {
             if (fireSlot == slot) {
@@ -522,27 +318,22 @@ public class Chapter1Systems implements Listener {
         if (!isFireSlot)
             return;
 
-        // Éteindre la flamme
         extinguished.add(slot);
 
-        // Remplacer par de la fumée
         ItemStack smoke = new ItemBuilder(Material.GRAY_STAINED_GLASS_PANE)
                 .name("§7§l✓ Éteint!")
                 .lore("§aFlamme éteinte")
                 .build();
         gui.setItem(slot, smoke);
 
-        // Effets
         player.playSound(player.getLocation(), Sound.BLOCK_FIRE_EXTINGUISH, 1f, 1f);
 
         int remaining = FIRE_COUNT - extinguished.size();
 
-        // Message de progression
         if (remaining > 0) {
             player.sendMessage("§a✓ §7Flamme éteinte! §e" + remaining + " §7restante(s)");
         }
 
-        // Vérifier si toutes les flammes sont éteintes
         if (extinguished.size() >= FIRE_COUNT) {
             onFireMinigameComplete(player);
         }
@@ -554,23 +345,18 @@ public class Chapter1Systems implements Listener {
     private void onFireMinigameComplete(Player player) {
         UUID uuid = player.getUniqueId();
 
-        // Fermer l'inventaire
         player.closeInventory();
 
-        // Marquer comme complété
         playersWhoCompletedFire.add(uuid);
         playersInFireMinigame.remove(uuid);
         playerExtinguishedFires.remove(uuid);
 
-        // Mettre à jour la progression
         journeyManager.setStepProgress(player, JourneyStep.STEP_1_7, 1);
 
-        // Effets visuels et sonores
         player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1f, 0.8f);
         player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 50, 1, 1, 1, 0.2);
 
-        // Message de victoire
         player.sendTitle("§a§l✓ INCENDIE ÉTEINT!", "§7Le fermier te remercie!", 10, 60, 20);
 
         player.sendMessage("");
@@ -588,7 +374,6 @@ public class Chapter1Systems implements Listener {
         player.sendMessage("§8§m                                            ");
         player.sendMessage("");
 
-        // Compléter l'étape via JourneyManager
         journeyManager.onStepProgress(player, JourneyStep.STEP_1_7, 1);
     }
 

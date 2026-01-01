@@ -2,6 +2,7 @@ package com.rinaorc.zombiez.progression.journey.chapter3;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.progression.journey.JourneyManager;
+import com.rinaorc.zombiez.progression.journey.JourneyNPCManager;
 import com.rinaorc.zombiez.progression.journey.JourneyStep;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
@@ -54,6 +55,7 @@ public class Chapter3Systems implements Listener {
 
     private final ZombieZPlugin plugin;
     private final JourneyManager journeyManager;
+    private final JourneyNPCManager npcManager;
 
     // === CLÉS PDC ===
     private final NamespacedKey FORAIN_NPC_KEY;
@@ -114,6 +116,7 @@ public class Chapter3Systems implements Listener {
     private static final double SURVIVOR_MAX_DAMAGE = 100.0; // PV du survivant
 
     // === NPC CONFIG ===
+    private static final String FORAIN_NPC_ID = "chapter3_forain";
     private static final String FORAIN_NAME = "Marcel le Magnifique";
     private static final double FORAIN_DISPLAY_HEIGHT = 2.5;
     private static final double CAT_DISPLAY_HEIGHT = 1.2;
@@ -174,6 +177,7 @@ public class Chapter3Systems implements Listener {
     public Chapter3Systems(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.journeyManager = plugin.getJourneyManager();
+        this.npcManager = plugin.getJourneyNPCManager();
 
         // Initialiser les clés PDC
         this.FORAIN_NPC_KEY = new NamespacedKey(plugin, "forain_npc");
@@ -372,120 +376,41 @@ public class Chapter3Systems implements Listener {
     }
 
     /**
-     * Spawn le PNJ Forain Marcel
-     * SÉCURITÉ: Utilise setPersistent(true) et recherche d'entité existante
+     * Spawn le PNJ Forain Marcel via JourneyNPCManager (Citizens API).
      */
     private void spawnForain(World world) {
         Location loc = FORAIN_LOCATION.clone();
         loc.setWorld(world);
+        loc.setYaw(0); // Face au sud
 
-        // 1. Si entité en mémoire valide → ne rien faire
-        if (forainEntity != null && forainEntity.isValid() && !forainEntity.isDead()) {
-            return;
+        // Créer le NPC via JourneyNPCManager
+        JourneyNPCManager.NPCConfig config = new JourneyNPCManager.NPCConfig(
+            FORAIN_NPC_ID, "§d§l" + FORAIN_NAME, loc
+        )
+        .entityType(EntityType.VILLAGER)
+        .profession(Villager.Profession.NITWIT)
+        .lookClose(true)
+        .display("§d🎪 §6§lLE FORAIN §d🎪", "§8─────────", "§f▶ Clic droit")
+        .displayHeight(FORAIN_DISPLAY_HEIGHT)
+        .displayScale(1.8f)
+        .onInteract(event -> handleForainInteraction(event.getPlayer()));
+
+        Entity npcEntity = npcManager.createOrGetNPC(config);
+        if (npcEntity != null) {
+            forainEntity = npcEntity;
+
+            // Ajouter tag supplémentaire pour compatibilité avec l'ancien système
+            npcEntity.getPersistentDataContainer().set(FORAIN_NPC_KEY, PersistentDataType.BYTE, (byte) 1);
+            npcEntity.addScoreboardTag("chapter3_forain");
         }
-
-        // 2. S'assurer que le chunk est chargé avant la recherche
-        if (!loc.getChunk().isLoaded()) {
-            loc.getChunk().load();
-        }
-
-        // 3. Chercher entité existante dans le monde (persistée après reboot)
-        // Utiliser un rayon plus large pour trouver le Forain même s'il a été déplacé
-        for (Entity entity : world.getNearbyEntities(loc, 100, 50, 100)) {
-            if (entity instanceof Villager v && v.getPersistentDataContainer().has(FORAIN_NPC_KEY, PersistentDataType.BYTE)) {
-                if (forainEntity == null) {
-                    forainEntity = v;
-                    // S'assurer qu'il est bien configuré et à la bonne position
-                    v.teleport(loc);
-                    v.setRotation(0, 0);
-                    v.setPersistent(true); // Re-confirmer la persistance
-                } else {
-                    // Doublon trouvé, supprimer
-                    v.remove();
-                }
-            }
-        }
-
-        if (forainEntity != null) {
-            return;
-        }
-
-        // 4. Aucun Forain trouvé → Créer nouveau (UNE SEULE FOIS)
-
-        forainEntity = world.spawn(loc, Villager.class, villager -> {
-            villager.customName(Component.text(FORAIN_NAME, NamedTextColor.LIGHT_PURPLE, TextDecoration.BOLD));
-            villager.setCustomNameVisible(true);
-            villager.setAI(false);
-            villager.setInvulnerable(true);
-            villager.setSilent(true);
-            villager.setCollidable(false);
-            villager.setProfession(Villager.Profession.NITWIT);
-            villager.setVillagerType(Villager.Type.PLAINS);
-
-            // Tags
-            villager.addScoreboardTag("chapter3_forain");
-            villager.addScoreboardTag("no_trading");
-            villager.addScoreboardTag("zombiez_npc");
-
-            // PDC
-            villager.getPersistentDataContainer().set(FORAIN_NPC_KEY, PersistentDataType.BYTE, (byte) 1);
-
-            // CRITIQUE: Persister pour survivre au chunk unload
-            villager.setPersistent(true);
-
-            // Orientation
-            villager.setRotation(0, 0);
-        });
-
-        // Créer le TextDisplay au-dessus
-        createForainDisplay(world, loc);
-    }
-
-    /**
-     * Crée le TextDisplay au-dessus du Forain
-     */
-    private void createForainDisplay(World world, Location loc) {
-        Location displayLoc = loc.clone().add(0, FORAIN_DISPLAY_HEIGHT, 0);
-
-        forainDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
-            display.text(Component.text()
-                    .append(Component.text("🎪 ", NamedTextColor.LIGHT_PURPLE))
-                    .append(Component.text("LE FORAIN", NamedTextColor.GOLD, TextDecoration.BOLD))
-                    .append(Component.text(" 🎪", NamedTextColor.LIGHT_PURPLE))
-                    .append(Component.newline())
-                    .append(Component.text("─────────", NamedTextColor.DARK_GRAY))
-                    .append(Component.newline())
-                    .append(Component.text("▶ Clic droit", NamedTextColor.WHITE))
-                    .build());
-
-            display.setBillboard(Display.Billboard.CENTER);
-            display.setAlignment(TextDisplay.TextAlignment.CENTER);
-            display.setShadowed(true);
-            display.setSeeThrough(false);
-            display.setDefaultBackground(false);
-            display.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
-
-            display.setTransformation(new Transformation(
-                    new Vector3f(0, 0, 0),
-                    new AxisAngle4f(0, 0, 0, 1),
-                    new Vector3f(1.8f, 1.8f, 1.8f),
-                    new AxisAngle4f(0, 0, 0, 1)));
-
-            display.setViewRange(0.5f);
-            display.setPersistent(false);
-            display.addScoreboardTag("chapter3_forain_display");
-        });
     }
 
     /**
      * Démarre le vérificateur de respawn du Forain.
-     * SÉCURITÉ: Vérifie uniquement si le chunk est chargé par un joueur.
-     * FIX: Vérifie la présence PHYSIQUE du Villager, pas seulement la référence Java.
+     * Utilise JourneyNPCManager pour la récupération/création automatique.
      */
     private void startForainRespawnChecker() {
         new BukkitRunnable() {
-            private int checkCount = 0;
-
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -502,108 +427,17 @@ public class Chapter3Systems implements Listener {
                     return;
                 }
 
-                checkCount++;
-
-                // Skip si chunk non chargé (mais logger l'info toutes les 5 checks)
+                // Skip si chunk non chargé
                 if (!forainLoc.getChunk().isLoaded()) {
-                    if (checkCount % 5 == 0) {
-                        plugin.log(Level.INFO, "§e[Forain Checker] Chunk non chargé, skip (check #" + checkCount + ")");
-                    }
                     return;
                 }
 
-                // Vérifier la présence PHYSIQUE du Villager (pas seulement la référence)
-                boolean villagerPhysicallyPresent = isForainPhysicallyPresent(world, forainLoc);
-
-                // Si le Villager n'est pas physiquement présent, reset la référence et respawn
-                if (!villagerPhysicallyPresent) {
-                    plugin.log(Level.WARNING, "§c[Forain Checker] Forain NON trouvé physiquement! Respawn en cours...");
-                    forainEntity = null;
-                    forainDisplay = null; // Reset aussi le display pour les recréer ensemble
-                    spawnForain(world);
-                    return;
-                }
-
-                // TextDisplay uniquement si le Villager existe mais pas le display
-                if (forainDisplay == null || !forainDisplay.isValid()) {
-                    plugin.log(Level.INFO, "§e[Forain Checker] TextDisplay manquant, création...");
-                    createForainDisplay(world, forainLoc);
+                // Vérifier si le NPC est valide via JourneyNPCManager
+                if (forainEntity == null || !forainEntity.isValid()) {
+                    spawnForain(world); // Utilise JourneyNPCManager
                 }
             }
         }.runTaskTimer(plugin, 100L, 200L);
-    }
-
-    /**
-     * Vérifie si le Forain (Villager) est physiquement présent près de sa location.
-     * Cette méthode scanne les entités proches au lieu de se fier à la référence Java.
-     * FIX: Rayon augmenté à 50 blocs et téléportation si trouvé loin
-     */
-    private boolean isForainPhysicallyPresent(World world, Location expectedLoc) {
-        // Chercher un Villager avec notre tag/PDC dans un rayon élargi de 50 blocs
-        for (Entity entity : world.getNearbyEntities(expectedLoc, 50, 30, 50)) {
-            if (entity instanceof Villager villager) {
-                if (villager.getScoreboardTags().contains("chapter3_forain") ||
-                        villager.getPersistentDataContainer().has(FORAIN_NPC_KEY, PersistentDataType.BYTE)) {
-                    // Mettre à jour la référence si trouvé
-                    forainEntity = villager;
-
-                    // Si le Forain est trop loin de sa position, le téléporter
-                    double distSq = villager.getLocation().distanceSquared(expectedLoc);
-                    if (distSq > 4) { // Plus de 2 blocs
-                        villager.teleport(expectedLoc);
-                        villager.setRotation(0, 0);
-                        plugin.log(Level.INFO, "§e[Forain Checker] Forain trouvé à " +
-                            String.format("%.1f", Math.sqrt(distSq)) + " blocs, téléporté à la position correcte");
-                    }
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    /**
-     * Nettoie les forains en DOUBLON (garde une seule entité, maxmobs=1)
-     */
-    private void cleanupForainEntities(World world) {
-        int removed = 0;
-        boolean foundFirst = false;
-
-        for (Entity entity : world.getEntities()) {
-            boolean hasForainTag = entity.getScoreboardTags().contains("chapter3_forain") ||
-                    (entity instanceof Villager v && v.getPersistentDataContainer().has(FORAIN_NPC_KEY, PersistentDataType.BYTE));
-
-            if (hasForainTag) {
-                // FIX: Vérifier que c'est bien un Villager
-                if (entity instanceof Villager villager) {
-                    if (foundFirst) {
-                        // Doublon - supprimer
-                        entity.remove();
-                        removed++;
-                    } else {
-                        // Premier Villager trouvé - garder
-                        foundFirst = true;
-                        forainEntity = villager;
-                    }
-                } else {
-                    // Entité avec le tag mais pas un Villager = corruption, supprimer
-                    entity.remove();
-                    removed++;
-                }
-            }
-
-            // Nettoyer les TextDisplays orphelins (doublons seulement)
-            if (entity.getScoreboardTags().contains("chapter3_forain_display") && entity != forainDisplay) {
-                if (forainDisplay != null && forainDisplay.isValid()) {
-                    entity.remove();
-                    removed++;
-                }
-            }
-        }
-
-        if (removed > 0) {
-            plugin.log(Level.INFO, "§e⚠ Nettoyage doublons: " + removed + " forain(s) en doublon supprimé(s)");
-        }
     }
 
     // ==================== CHAT PERDU (STEP 5) ====================
@@ -2464,12 +2298,7 @@ public class Chapter3Systems implements Listener {
         Entity entity = event.getRightClicked();
         Player player = event.getPlayer();
 
-        // Interaction avec le Forain
-        if (entity.getScoreboardTags().contains("chapter3_forain")) {
-            event.setCancelled(true);
-            handleForainInteraction(player);
-            return;
-        }
+        // NOTE: Le Forain est géré par JourneyNPCManager
 
         // Interaction avec le chat perdu
         if (entity.getScoreboardTags().contains("chapter3_lost_cat")) {
@@ -2511,8 +2340,8 @@ public class Chapter3Systems implements Listener {
             return;
 
         // Empêcher les mobs de cibler nos entités
-        if (target.getScoreboardTags().contains("chapter3_forain") ||
-                target.getScoreboardTags().contains("chapter3_lost_cat") ||
+        // NOTE: Le Forain est protégé par Citizens (setProtected)
+        if (target.getScoreboardTags().contains("chapter3_lost_cat") ||
                 target.getScoreboardTags().contains("chapter3_investigation_clue") ||
                 target.getScoreboardTags().contains("chapter3_village_survivor") ||
                 target.getScoreboardTags().contains("chapter3_zeppelin_control")) {
@@ -2530,8 +2359,8 @@ public class Chapter3Systems implements Listener {
     @EventHandler
     public void onEntityDamage(EntityDamageEvent event) {
         // Nos entités sont invulnérables
-        if (event.getEntity().getScoreboardTags().contains("chapter3_forain") ||
-                event.getEntity().getScoreboardTags().contains("chapter3_lost_cat") ||
+        // NOTE: Le Forain est protégé par Citizens (setProtected)
+        if (event.getEntity().getScoreboardTags().contains("chapter3_lost_cat") ||
                 event.getEntity().getScoreboardTags().contains("chapter3_investigation_clue") ||
                 event.getEntity().getScoreboardTags().contains("chapter3_village_survivor") ||
                 event.getEntity().getScoreboardTags().contains("chapter3_zeppelin_control")) {

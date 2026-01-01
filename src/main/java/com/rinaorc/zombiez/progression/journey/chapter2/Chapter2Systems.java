@@ -2,6 +2,7 @@ package com.rinaorc.zombiez.progression.journey.chapter2;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.progression.journey.JourneyManager;
+import com.rinaorc.zombiez.progression.journey.JourneyNPCManager;
 import com.rinaorc.zombiez.progression.journey.JourneyStep;
 import net.kyori.adventure.text.Component;
 import org.bukkit.*;
@@ -54,6 +55,7 @@ public class Chapter2Systems implements Listener {
 
     private final ZombieZPlugin plugin;
     private final JourneyManager journeyManager;
+    private final JourneyNPCManager npcManager;
 
     // === CLÉS PDC ===
     private final NamespacedKey INJURED_MINER_KEY;
@@ -63,6 +65,10 @@ public class Chapter2Systems implements Listener {
     private final NamespacedKey BOSS_CONTRIBUTORS_KEY;
     private final NamespacedKey SUPPLY_CRATE_KEY;
     private final NamespacedKey CRATE_OWNER_KEY;
+
+    // === NPC IDs (pour JourneyNPCManager) ===
+    private static final String MINER_NPC_ID = "chapter2_injured_miner";
+    private static final String IGOR_NPC_ID = "chapter2_igor";
 
     // === POSITIONS ===
     private static final Location MINER_LOCATION = new Location(null, 1036.5, 82, 9627.5);
@@ -138,6 +144,7 @@ public class Chapter2Systems implements Listener {
     public Chapter2Systems(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.journeyManager = plugin.getJourneyManager();
+        this.npcManager = plugin.getJourneyNPCManager();
 
         // Initialiser les clés PDC
         INJURED_MINER_KEY = new NamespacedKey(plugin, "injured_miner");
@@ -474,53 +481,44 @@ public class Chapter2Systems implements Listener {
     }
 
     /**
-     * Fait spawn le mineur blessé
-     * IMPORTANT: Nettoie tous les villageois orphelins avec la clé PDC avant de
-     * spawner
+     * Fait spawn le mineur blessé via JourneyNPCManager (Citizens API).
+     * NOTE: TextDisplay per-player géré séparément car visibilité dynamique selon progression.
      */
     private void spawnInjuredMiner(World world) {
         Location loc = MINER_LOCATION.clone();
         loc.setWorld(world);
+        loc.setYaw(-90); // Face à l'ouest
 
         // Ne spawner que si le chunk est chargé
         if (!loc.getChunk().isLoaded()) {
             return;
         }
 
-        // Supprimer l'ancien si existant
-        if (injuredMinerEntity != null && injuredMinerEntity.isValid()) {
-            injuredMinerEntity.remove();
+        // Créer le NPC via JourneyNPCManager (pas de display car on gère per-player)
+        JourneyNPCManager.NPCConfig config = new JourneyNPCManager.NPCConfig(
+            MINER_NPC_ID, "§c❤ Mineur Blessé §c❤", loc
+        )
+        .entityType(EntityType.VILLAGER)
+        .profession(Villager.Profession.TOOLSMITH)
+        .lookClose(true)
+        .mainHand(new ItemStack(Material.IRON_PICKAXE))
+        .onInteract(event -> handleMinerInteraction(event.getPlayer()));
+
+        Entity npcEntity = npcManager.createOrGetNPC(config);
+        if (npcEntity != null) {
+            injuredMinerEntity = npcEntity;
+
+            // Ajouter tag supplémentaire pour compatibilité avec l'ancien système
+            npcEntity.getPersistentDataContainer().set(INJURED_MINER_KEY, PersistentDataType.BYTE, (byte) 1);
+            npcEntity.addScoreboardTag("zombiez_injured_miner");
+
+            // Ajouter l'effet visuel de blessure
+            if (npcEntity instanceof LivingEntity living) {
+                living.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, Integer.MAX_VALUE, 1, false, false));
+                // Cacher le nom par défaut (TextDisplay per-player utilisé)
+                living.setCustomNameVisible(false);
+            }
         }
-
-        // CLEANUP CRITIQUE: Supprimer TOUS les villageois orphelins avec la clé PDC
-        // Cela évite la duplication en cas de bug, explosion AOE, ou rechargement de
-        // chunk
-        cleanupOrphanedInjuredMiners(world);
-
-        // Créer un villageois comme NPC
-        Villager miner = world.spawn(loc, Villager.class, npc -> {
-            // NE PAS mettre de customName visible - on utilise un TextDisplay per-player
-            npc.setCustomNameVisible(false);
-            npc.setProfession(Villager.Profession.TOOLSMITH);
-            npc.setVillagerLevel(1);
-            npc.setAI(false); // Immobile
-            npc.setInvulnerable(true); // Invincible
-            npc.setSilent(true);
-            npc.setCollidable(false);
-
-            // Équiper avec une pioche
-            npc.getEquipment().setItemInMainHand(new ItemStack(Material.IRON_PICKAXE));
-
-            // Marquer comme notre NPC (PDC + tag pour cleanup facile)
-            npc.getPersistentDataContainer().set(INJURED_MINER_KEY, PersistentDataType.BYTE, (byte) 1);
-            npc.addScoreboardTag("zombiez_injured_miner");
-            npc.setPersistent(false); // Ne pas persister entre les redémarrages
-
-            // Ajouter l'effet visuel de blessure (particules)
-            npc.addPotionEffect(new PotionEffect(PotionEffectType.SLOWNESS, Integer.MAX_VALUE, 1, false, false));
-        });
-
-        injuredMinerEntity = miner;
 
         // Créer les deux TextDisplays pour la visibilité per-player
         spawnMinerTextDisplays(world, loc);
@@ -543,6 +541,61 @@ public class Chapter2Systems implements Listener {
                 }
             }
         }.runTaskTimer(plugin, 0L, 60L);
+    }
+
+    /**
+     * Gère l'interaction avec le mineur blessé (utiliser un bandage)
+     */
+    private void handleMinerInteraction(Player player) {
+        // Vérifier si le joueur est à l'étape 4 du chapitre 2
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        if (currentStep == null || currentStep != JourneyStep.STEP_2_4) {
+            player.sendMessage("§7Le mineur te regarde avec gratitude...");
+            player.sendMessage("§8(Tu as déjà aidé ce pauvre homme)");
+            return;
+        }
+
+        // Vérifier si le joueur a un bandage dans la main
+        ItemStack handItem = player.getInventory().getItemInMainHand();
+        if (!isBandage(handItem)) {
+            player.sendMessage("");
+            player.sendMessage("§c§l⚠ §eLe mineur a besoin d'un bandage!");
+            player.sendMessage("§7Utilise un §fbandage §7sur lui pour le soigner.");
+            player.sendMessage("");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
+            return;
+        }
+
+        // Consommer le bandage
+        handItem.setAmount(handItem.getAmount() - 1);
+
+        // Animation de soin
+        Location loc = injuredMinerEntity.getLocation();
+        player.getWorld().spawnParticle(Particle.HEART, loc.add(0, 1.5, 0), 10, 0.5, 0.5, 0.5, 0);
+        player.getWorld().playSound(loc, Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.5f);
+
+        // Message de remerciement
+        player.sendMessage("");
+        player.sendMessage("§a§l✓ §eLe mineur blessé: §f\"Merci, survivant! Tu m'as sauvé la vie!\"");
+        player.sendMessage("§7Il te tend une vieille carte de la zone...");
+        player.sendMessage("");
+
+        // Valider l'étape
+        journeyManager.updateProgress(player, JourneyStep.StepType.HEAL_NPC, 1);
+
+        // Marquer le joueur comme ayant soigné le mineur et mettre à jour sa visibilité
+        if (injuredMinerEntity instanceof LivingEntity living) {
+            living.removePotionEffect(PotionEffectType.SLOWNESS);
+
+            // Ajouter au set des joueurs ayant soigné
+            playersWhoHealedMiner.add(player.getUniqueId());
+
+            // Mettre à jour IMMÉDIATEMENT la visibilité des TextDisplays pour ce joueur
+            updateMinerDisplayVisibilityForPlayer(player, true);
+
+            // Feedback visuel de l'hologramme mis à jour
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.8f, 1.5f);
+        }
     }
 
     /**
@@ -679,42 +732,77 @@ public class Chapter2Systems implements Listener {
     }
 
     /**
-     * Fait spawn Igor le survivant
-     * IMPORTANT: Nettoie les orphelins et ajoute les protections
+     * Fait spawn Igor le survivant via JourneyNPCManager (Citizens API).
      */
     private void spawnIgor(World world) {
         Location loc = IGOR_LOCATION.clone();
         loc.setWorld(world);
+        loc.setYaw(90); // Face à l'est
 
-        // Supprimer l'ancien si existant
-        if (igorEntity != null && igorEntity.isValid()) {
-            igorEntity.remove();
+        // Créer le NPC via JourneyNPCManager
+        JourneyNPCManager.NPCConfig config = new JourneyNPCManager.NPCConfig(
+            IGOR_NPC_ID, "§6§lIgor le Survivant", loc
+        )
+        .entityType(EntityType.VILLAGER)
+        .profession(Villager.Profession.MASON)
+        .lookClose(true)
+        .mainHand(new ItemStack(Material.IRON_AXE))
+        .display("§e⚒ §6§lIGOR §e⚒", "§7Le Survivant", "§8─────────", "§f▶ Clic droit")
+        .displayHeight(2.8)
+        .onInteract(event -> handleIgorInteraction(event.getPlayer()));
+
+        Entity npcEntity = npcManager.createOrGetNPC(config);
+        if (npcEntity != null) {
+            igorEntity = npcEntity;
+
+            // Ajouter tag supplémentaire pour compatibilité avec l'ancien système
+            npcEntity.getPersistentDataContainer().set(IGOR_NPC_KEY, PersistentDataType.BYTE, (byte) 1);
+            npcEntity.addScoreboardTag("zombiez_igor_npc");
+        }
+    }
+
+    /**
+     * Gère l'interaction avec Igor pour afficher la progression des caisses
+     */
+    private void handleIgorInteraction(Player player) {
+        // Vérifier si le joueur est à l'étape 7 du chapitre 2
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        if (currentStep == null || currentStep != JourneyStep.STEP_2_7) {
+            player.sendMessage("§6§lIgor: §f\"Merci pour ton aide, survivant!\"");
+            return;
         }
 
-        // CLEANUP: Supprimer les Igor orphelins
-        cleanupOrphanedIgor(world);
+        int currentProgress = journeyManager.getStepProgress(player, currentStep);
 
-        // Créer un villageois comme NPC
-        Villager igor = world.spawn(loc, Villager.class, npc -> {
-            npc.setCustomName("§6§lIgor le Survivant");
-            npc.setCustomNameVisible(true);
-            npc.setProfession(Villager.Profession.MASON);
-            npc.setVillagerLevel(3);
-            npc.setAI(false);
-            npc.setInvulnerable(true);
-            npc.setSilent(true);
-            npc.setCollidable(false);
+        if (currentProgress >= SUPPLY_CRATE_COUNT) {
+            player.sendMessage("");
+            player.sendMessage("§6§lIgor: §f\"Merci infiniment! Grâce à ces ravitaillements, je peux tenir!\"");
+            if (igorEntity != null) {
+                player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, igorEntity.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0);
+            }
+            player.sendMessage("");
+            return;
+        }
 
-            // Équiper avec une hache
-            npc.getEquipment().setItemInMainHand(new ItemStack(Material.IRON_AXE));
-
-            // Marquer comme notre NPC (PDC + tag pour cleanup facile)
-            npc.getPersistentDataContainer().set(IGOR_NPC_KEY, PersistentDataType.BYTE, (byte) 1);
-            npc.addScoreboardTag("zombiez_igor_npc");
-            npc.setPersistent(false); // Ne pas persister entre les redémarrages
-        });
-
-        igorEntity = igor;
+        // Vérifier si les caisses ont été spawnées pour ce joueur
+        List<Entity> crates = playerSupplyCrates.get(player.getUniqueId());
+        if (crates == null || crates.isEmpty() || crates.stream().noneMatch(Entity::isValid)) {
+            // Spawner de nouvelles caisses
+            spawnSupplyCratesForPlayer(player);
+            player.sendMessage("");
+            player.sendMessage("§6§lIgor: §f\"J'ai besoin de récupérer des caisses de ravitaillement!\"");
+            player.sendMessage("§7Des §ecaisses lumineuses §7sont apparues autour de moi.");
+            player.sendMessage("§7Trouve-les et §eclique dessus §7pour les récupérer!");
+            player.sendMessage("§7Progression: §e" + currentProgress + "§7/§e" + SUPPLY_CRATE_COUNT + " §7caisses");
+            player.sendMessage("");
+        } else {
+            long remainingCrates = crates.stream().filter(Entity::isValid).count();
+            player.sendMessage("");
+            player.sendMessage("§6§lIgor: §f\"Il reste encore §e" + remainingCrates + " §fcaisse(s) à récupérer!\"");
+            player.sendMessage("§7Progression: §e" + currentProgress + "§7/§e" + SUPPLY_CRATE_COUNT + " §7caisses");
+            player.sendMessage("§8(Cherche les caisses lumineuses autour de moi)");
+            player.sendMessage("");
+        }
     }
 
     /**
@@ -742,71 +830,6 @@ public class Chapter2Systems implements Listener {
         // Log supprimé pour éviter le spam
     }
 
-    /**
-     * Gère l'interaction avec le mineur blessé (utiliser un bandage)
-     */
-    @EventHandler(priority = EventPriority.HIGH)
-    public void onPlayerInteractMiner(PlayerInteractEntityEvent event) {
-        Entity entity = event.getRightClicked();
-        Player player = event.getPlayer();
-
-        // Vérifier si c'est le mineur blessé
-        if (!entity.getPersistentDataContainer().has(INJURED_MINER_KEY, PersistentDataType.BYTE)) {
-            return;
-        }
-
-        event.setCancelled(true);
-
-        // Vérifier si le joueur est à l'étape 4 du chapitre 2
-        JourneyStep currentStep = journeyManager.getCurrentStep(player);
-        if (currentStep == null || currentStep != JourneyStep.STEP_2_4) {
-            player.sendMessage("§7Le mineur te regarde avec gratitude...");
-            player.sendMessage("§8(Tu as déjà aidé ce pauvre homme)");
-            return;
-        }
-
-        // Vérifier si le joueur a un bandage dans la main
-        ItemStack handItem = player.getInventory().getItemInMainHand();
-        if (!isBandage(handItem)) {
-            player.sendMessage("");
-            player.sendMessage("§c§l⚠ §eLe mineur a besoin d'un bandage!");
-            player.sendMessage("§7Utilise un §fbandage §7sur lui pour le soigner.");
-            player.sendMessage("");
-            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
-            return;
-        }
-
-        // Consommer le bandage
-        handItem.setAmount(handItem.getAmount() - 1);
-
-        // Animation de soin
-        Location loc = entity.getLocation();
-        player.getWorld().spawnParticle(Particle.HEART, loc.add(0, 1.5, 0), 10, 0.5, 0.5, 0.5, 0);
-        player.getWorld().playSound(loc, Sound.ENTITY_PLAYER_LEVELUP, 1f, 1.5f);
-
-        // Message de remerciement
-        player.sendMessage("");
-        player.sendMessage("§a§l✓ §eLe mineur blessé: §f\"Merci, survivant! Tu m'as sauvé la vie!\"");
-        player.sendMessage("§7Il te tend une vieille carte de la zone...");
-        player.sendMessage("");
-
-        // Valider l'étape
-        journeyManager.updateProgress(player, JourneyStep.StepType.HEAL_NPC, 1);
-
-        // Marquer le joueur comme ayant soigné le mineur et mettre à jour sa visibilité
-        if (entity instanceof Villager villager) {
-            villager.removePotionEffect(PotionEffectType.SLOWNESS);
-
-            // Ajouter au set des joueurs ayant soigné
-            playersWhoHealedMiner.add(player.getUniqueId());
-
-            // Mettre à jour IMMÉDIATEMENT la visibilité des TextDisplays pour ce joueur
-            updateMinerDisplayVisibilityForPlayer(player, true);
-
-            // Feedback visuel de l'hologramme mis à jour
-            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.8f, 1.5f);
-        }
-    }
 
     /**
      * Protège les NPCs du Chapitre 2 contre TOUS les types de dégâts.
@@ -857,61 +880,7 @@ public class Chapter2Systems implements Listener {
         return false;
     }
 
-    // ==================== IGOR ET CAISSES DE RAVITAILLEMENT (ÉTAPE 7)
-    // ====================
-
-    /**
-     * Gère l'interaction avec Igor pour afficher la progression
-     */
-    @EventHandler(priority = EventPriority.HIGH)
-    public void onPlayerInteractIgor(PlayerInteractEntityEvent event) {
-        Entity entity = event.getRightClicked();
-        Player player = event.getPlayer();
-
-        if (!entity.getPersistentDataContainer().has(IGOR_NPC_KEY, PersistentDataType.BYTE)) {
-            return;
-        }
-
-        event.setCancelled(true);
-
-        // Vérifier si le joueur est à l'étape 7 du chapitre 2
-        JourneyStep currentStep = journeyManager.getCurrentStep(player);
-        if (currentStep == null || currentStep != JourneyStep.STEP_2_7) {
-            player.sendMessage("§6§lIgor: §f\"Merci pour ton aide, survivant!\"");
-            return;
-        }
-
-        int currentProgress = journeyManager.getStepProgress(player, currentStep);
-
-        if (currentProgress >= SUPPLY_CRATE_COUNT) {
-            player.sendMessage("");
-            player.sendMessage("§6§lIgor: §f\"Merci infiniment! Grâce à ces ravitaillements, je peux tenir!\"");
-            player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, entity.getLocation().add(0, 1, 0), 20, 0.5, 0.5,
-                    0.5, 0);
-            player.sendMessage("");
-            return;
-        }
-
-        // Vérifier si les caisses ont été spawnées pour ce joueur
-        List<Entity> crates = playerSupplyCrates.get(player.getUniqueId());
-        if (crates == null || crates.isEmpty() || crates.stream().noneMatch(Entity::isValid)) {
-            // Spawner de nouvelles caisses
-            spawnSupplyCratesForPlayer(player);
-            player.sendMessage("");
-            player.sendMessage("§6§lIgor: §f\"J'ai besoin de récupérer des caisses de ravitaillement!\"");
-            player.sendMessage("§7Des §ecaisses lumineuses §7sont apparues autour de moi.");
-            player.sendMessage("§7Trouve-les et §eclique dessus §7pour les récupérer!");
-            player.sendMessage("§7Progression: §e" + currentProgress + "§7/§e" + SUPPLY_CRATE_COUNT + " §7caisses");
-            player.sendMessage("");
-        } else {
-            long remainingCrates = crates.stream().filter(Entity::isValid).count();
-            player.sendMessage("");
-            player.sendMessage("§6§lIgor: §f\"Il reste encore §e" + remainingCrates + " §fcaisse(s) à récupérer!\"");
-            player.sendMessage("§7Progression: §e" + currentProgress + "§7/§e" + SUPPLY_CRATE_COUNT + " §7caisses");
-            player.sendMessage("§8(Cherche les caisses lumineuses autour de moi)");
-            player.sendMessage("");
-        }
-    }
+    // ==================== CAISSES DE RAVITAILLEMENT (ÉTAPE 7) ====================
 
     // Hauteur maximum pour les caisses par rapport à Igor (évite les spawns dans
     // les arbres)
@@ -1551,13 +1520,9 @@ public class Chapter2Systems implements Listener {
     // visibilité per-player
 
     /**
-     * Démarre le système de TextDisplay per-player et le respawn automatique des
-     * NPCs.
-     * Utilise deux TextDisplays fixes (Blessé / Soigné) et gère la visibilité
-     * per-player via l'API Paper showEntity/hideEntity.
-     *
-     * SÉCURITÉ MAXMOBS=1: Respawne automatiquement les NPCs s'ils sont invalides,
-     * avec nettoyage préalable pour garantir une seule instance.
+     * Démarre le système de TextDisplay per-player pour le Mineur Blessé.
+     * Les NPCs sont gérés par JourneyNPCManager (Citizens API).
+     * Ce système gère uniquement les TextDisplays per-player pour le mineur.
      */
     private void startNPCNameUpdater() {
         new BukkitRunnable() {
@@ -1572,24 +1537,14 @@ public class Chapter2Systems implements Listener {
                 Location igorLoc = IGOR_LOCATION.clone();
                 igorLoc.setWorld(world);
 
-                // === SÉCURITÉ MINEUR BLESSÉ (maxmobs=1) ===
-                // Ne respawn QUE si le chunk est déjà chargé par un joueur (évite boucle
-                // infinie)
-                if (injuredMinerEntity == null || !injuredMinerEntity.isValid()) {
-                    if (minerLoc.getChunk().isLoaded()) {
-                        cleanupOrphanedInjuredMiners(world);
-                        spawnInjuredMiner(world);
-                    }
+                // === RÉCUPÉRATION DES NPCs VIA JNPCMANAGER ===
+                // JourneyNPCManager gère la création/récupération automatique
+                if ((injuredMinerEntity == null || !injuredMinerEntity.isValid()) && minerLoc.getChunk().isLoaded()) {
+                    spawnInjuredMiner(world); // Utilise JourneyNPCManager
                 }
 
-                // === SÉCURITÉ IGOR (maxmobs=1) ===
-                // Ne respawn QUE si le chunk est déjà chargé par un joueur (évite boucle
-                // infinie)
-                if (igorEntity == null || !igorEntity.isValid()) {
-                    if (igorLoc.getChunk().isLoaded()) {
-                        cleanupOrphanedIgor(world);
-                        spawnIgor(world);
-                    }
+                if ((igorEntity == null || !igorEntity.isValid()) && igorLoc.getChunk().isLoaded()) {
+                    spawnIgor(world); // Utilise JourneyNPCManager
                 }
 
                 // Si le mineur n'est toujours pas valide, on arrête ici
@@ -1597,7 +1552,7 @@ public class Chapter2Systems implements Listener {
                     return;
                 }
 
-                // Vérifier et recréer les displays si nécessaire (seulement si chunk chargé)
+                // Vérifier et recréer les displays per-player si nécessaire
                 if ((minerDisplayInjured == null || !minerDisplayInjured.isValid() ||
                         minerDisplayHealed == null || !minerDisplayHealed.isValid()) &&
                         minerLoc.getChunk().isLoaded()) {
@@ -1627,7 +1582,7 @@ public class Chapter2Systems implements Listener {
                     }
                 }
             }
-        }.runTaskTimer(plugin, 20L, 20L); // Augmenté à toutes les 20 ticks (1 sec) pour réduire le spam
+        }.runTaskTimer(plugin, 20L, 20L);
     }
 
     /**
@@ -1768,20 +1723,24 @@ public class Chapter2Systems implements Listener {
     }
 
     /**
-     * Nettoie les ressources lors de la désactivation du plugin
+     * Nettoie les ressources lors de la désactivation du plugin.
+     * NOTE: Les NPCs Citizens sont persistants (gérés par JourneyNPCManager).
      */
     public void cleanup() {
-        // Détruire les TextDisplays per-player
+        // Détruire les TextDisplays per-player du mineur (custom)
         destroyAllMinerDisplays();
 
-        if (injuredMinerEntity != null)
-            injuredMinerEntity.remove();
-        if (igorEntity != null)
-            igorEntity.remove();
+        // Le boss et son display ne sont pas gérés par JourneyNPCManager
         if (manorBossEntity != null)
             manorBossEntity.remove();
         if (bossSpawnDisplay != null)
             bossSpawnDisplay.remove();
-        cleanupAllSupplyCrates(); // Nettoyer toutes les caisses de ravitaillement
+
+        // Nettoyer toutes les caisses de ravitaillement
+        cleanupAllSupplyCrates();
+
+        // Les NPCs (Mineur, Igor) sont persistants via Citizens - pas de suppression
+        injuredMinerEntity = null;
+        igorEntity = null;
     }
 }

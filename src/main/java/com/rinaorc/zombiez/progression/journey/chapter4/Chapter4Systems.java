@@ -6,6 +6,7 @@ import com.rinaorc.zombiez.consumables.ConsumableType;
 import com.rinaorc.zombiez.items.ZombieZItem;
 import com.rinaorc.zombiez.items.types.StatType;
 import com.rinaorc.zombiez.progression.journey.JourneyManager;
+import com.rinaorc.zombiez.progression.journey.JourneyNPCManager;
 import com.rinaorc.zombiez.progression.journey.JourneyStep;
 import com.rinaorc.zombiez.zombies.ZombieManager;
 import com.rinaorc.zombiez.zombies.types.ZombieType;
@@ -60,6 +61,7 @@ public class Chapter4Systems implements Listener {
 
     private final ZombieZPlugin plugin;
     private final JourneyManager journeyManager;
+    private final JourneyNPCManager npcManager;
 
     // === CLÉS PDC ===
     // Fossoyeur
@@ -112,6 +114,11 @@ public class Chapter4Systems implements Listener {
     private static final int SOUL_ZONE_MAX_Y = 87;
     private static final int SOUL_ZONE_MIN_Z = 8607;
     private static final int SOUL_ZONE_MAX_Z = 8673;
+
+    // === NPC IDs (pour JourneyNPCManager) ===
+    private static final String PRIEST_NPC_ID = "chapter4_priest";
+    private static final String MUSHROOM_COLLECTOR_NPC_ID = "chapter4_mushroom_collector";
+    private static final String ALCHEMIST_NPC_ID = "chapter4_alchemist";
 
     // === CONFIGURATION ===
     private static final int HITS_TO_DIG = 10; // Nombre de coups pour creuser une tombe
@@ -315,6 +322,7 @@ public class Chapter4Systems implements Listener {
     public Chapter4Systems(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.journeyManager = plugin.getJourneyManager();
+        this.npcManager = plugin.getJourneyNPCManager();
 
         // Initialiser les clés PDC
         this.PRIEST_NPC_KEY = new NamespacedKey(plugin, "gravedigger_priest");
@@ -516,102 +524,37 @@ public class Chapter4Systems implements Listener {
     // ==================== PRÊTRE (PHASE 1) ====================
 
     /**
-     * Spawn le PNJ prêtre
+     * Spawn le PNJ prêtre via JourneyNPCManager (Citizens API).
      */
     private void spawnPriest(World world) {
         Location loc = PRIEST_LOCATION.clone();
         loc.setWorld(world);
 
-        // 1. Si entité en mémoire valide → ne rien faire
-        if (priestEntity != null && priestEntity.isValid() && !priestEntity.isDead()) {
-            return;
+        // Créer le NPC via JourneyNPCManager
+        JourneyNPCManager.NPCConfig config = new JourneyNPCManager.NPCConfig(
+            PRIEST_NPC_ID, "§6§lPère Augustin", loc
+        )
+        .entityType(EntityType.VILLAGER)
+        .profession(Villager.Profession.CLERIC)
+        .lookClose(true)
+        .display("§f✝ §6§lLE PRÊTRE §f✝", "§8─────────", "§f▶ Clic droit")
+        .displayHeight(PRIEST_DISPLAY_HEIGHT)
+        .displayScale(1.8f)
+        .onInteract(event -> handlePriestInteraction(event.getPlayer()));
+
+        Entity npcEntity = npcManager.createOrGetNPC(config);
+        if (npcEntity != null) {
+            priestEntity = npcEntity;
+
+            // Ajouter tag supplémentaire pour compatibilité avec l'ancien système
+            npcEntity.getPersistentDataContainer().set(PRIEST_NPC_KEY, PersistentDataType.BYTE, (byte) 1);
+            npcEntity.addScoreboardTag("chapter4_priest");
         }
-
-        // 2. Chercher entité existante dans le monde (persistée après reboot)
-        for (Entity entity : world.getNearbyEntities(loc, 50, 30, 50)) {
-            if (entity instanceof Villager v
-                    && v.getPersistentDataContainer().has(PRIEST_NPC_KEY, PersistentDataType.BYTE)) {
-                priestEntity = v;
-                // Chercher aussi le display associé
-                for (Entity e : world.getNearbyEntities(loc, 10, 10, 10)) {
-                    if (e instanceof TextDisplay td && e.getScoreboardTags().contains("chapter4_priest_display")) {
-                        priestDisplay = td;
-                        break;
-                    }
-                }
-                return; // Réutiliser l'existant
-            }
-        }
-
-        // 3. Sinon créer nouveau (UNE SEULE FOIS)
-        priestEntity = world.spawn(loc, Villager.class, villager -> {
-            villager.customName(Component.text("Père Augustin", NamedTextColor.GOLD, TextDecoration.BOLD));
-            villager.setCustomNameVisible(true);
-            villager.setAI(false);
-            villager.setInvulnerable(true);
-            villager.setSilent(true);
-            villager.setCollidable(false);
-            villager.setProfession(Villager.Profession.CLERIC);
-            villager.setVillagerType(Villager.Type.PLAINS);
-
-            // Tags
-            villager.addScoreboardTag("chapter4_priest");
-            villager.addScoreboardTag("no_trading");
-            villager.addScoreboardTag("zombiez_npc");
-
-            // PDC
-            villager.getPersistentDataContainer().set(PRIEST_NPC_KEY, PersistentDataType.BYTE, (byte) 1);
-
-            // OBLIGATOIRE pour survivre au chunk unload
-            villager.setPersistent(true);
-
-            // Orientation
-            villager.setRotation(-90, 0);
-        });
-
-        // Créer le TextDisplay au-dessus
-        createPriestDisplay(world, loc);
-    }
-
-    /**
-     * Crée le TextDisplay au-dessus du prêtre
-     */
-    private void createPriestDisplay(World world, Location loc) {
-        Location displayLoc = loc.clone().add(0, PRIEST_DISPLAY_HEIGHT, 0);
-
-        priestDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
-            display.text(Component.text()
-                    .append(Component.text("✝ ", NamedTextColor.WHITE))
-                    .append(Component.text("LE PRÊTRE", NamedTextColor.GOLD, TextDecoration.BOLD))
-                    .append(Component.text(" ✝", NamedTextColor.WHITE))
-                    .append(Component.newline())
-                    .append(Component.text("─────────", NamedTextColor.DARK_GRAY))
-                    .append(Component.newline())
-                    .append(Component.text("▶ Clic droit", NamedTextColor.WHITE))
-                    .build());
-
-            display.setBillboard(Display.Billboard.CENTER);
-            display.setAlignment(TextDisplay.TextAlignment.CENTER);
-            display.setShadowed(true);
-            display.setSeeThrough(false);
-            display.setDefaultBackground(false);
-            display.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
-
-            display.setTransformation(new Transformation(
-                    new Vector3f(0, 0, 0),
-                    new AxisAngle4f(0, 0, 0, 1),
-                    new Vector3f(1.8f, 1.8f, 1.8f),
-                    new AxisAngle4f(0, 0, 0, 1)));
-
-            display.setViewRange(0.5f);
-            display.setPersistent(false);
-            display.addScoreboardTag("chapter4_priest_display");
-        });
     }
 
     /**
      * Démarre le vérificateur de respawn du prêtre.
-     * SÉCURITÉ MAXMOBS=1: Respawne automatiquement avec nettoyage préalable.
+     * Utilise JourneyNPCManager pour la récupération/création automatique.
      */
     private void startPriestRespawnChecker() {
         new BukkitRunnable() {
@@ -624,19 +567,14 @@ public class Chapter4Systems implements Listener {
                 Location priestLoc = PRIEST_LOCATION.clone();
                 priestLoc.setWorld(world);
 
-                // === SÉCURITÉ PRÊTRE (maxmobs=1) ===
-                // Ne respawn QUE si le chunk est déjà chargé par un joueur (évite boucle
-                // infinie)
-                if (priestEntity == null || !priestEntity.isValid() || priestEntity.isDead()) {
-                    if (priestLoc.getChunk().isLoaded()) {
-                        cleanupPriestEntities(world);
-                        spawnPriest(world);
-                    }
+                // Skip si chunk non chargé
+                if (!priestLoc.getChunk().isLoaded()) {
+                    return;
                 }
 
-                // TextDisplay: même logique
-                if ((priestDisplay == null || !priestDisplay.isValid()) && priestLoc.getChunk().isLoaded()) {
-                    createPriestDisplay(world, priestLoc);
+                // Vérifier si le NPC est valide via JourneyNPCManager
+                if (priestEntity == null || !priestEntity.isValid()) {
+                    spawnPriest(world); // Utilise JourneyNPCManager
                 }
             }
         }.runTaskTimer(plugin, 100L, 200L);
@@ -1464,103 +1402,37 @@ public class Chapter4Systems implements Listener {
     // ==================== ÉTAPE 3: LA RÉCOLTE MAUDITE ====================
 
     /**
-     * Spawn le PNJ collecteur de champignons
+     * Spawn le PNJ collecteur de champignons via JourneyNPCManager (Citizens API).
      */
     private void spawnMushroomCollector(World world) {
         Location loc = MUSHROOM_COLLECTOR_LOCATION.clone();
         loc.setWorld(world);
 
-        // 1. Si entité en mémoire valide → ne rien faire
-        if (mushroomCollectorEntity != null && mushroomCollectorEntity.isValid() && !mushroomCollectorEntity.isDead()) {
-            return;
+        // Créer le NPC via JourneyNPCManager
+        JourneyNPCManager.NPCConfig config = new JourneyNPCManager.NPCConfig(
+            MUSHROOM_COLLECTOR_NPC_ID, "§5§lMère Cueillette", loc
+        )
+        .entityType(EntityType.VILLAGER)
+        .profession(Villager.Profession.FARMER)
+        .lookClose(true)
+        .display("§c🍄 §5§lLA CUEILLEUSE §c🍄", "§8─────────────", "§f▶ Clic droit")
+        .displayHeight(2.5)
+        .displayScale(1.8f)
+        .onInteract(event -> handleMushroomCollectorInteraction(event.getPlayer()));
+
+        Entity npcEntity = npcManager.createOrGetNPC(config);
+        if (npcEntity != null) {
+            mushroomCollectorEntity = npcEntity;
+
+            // Ajouter tag supplémentaire pour compatibilité avec l'ancien système
+            npcEntity.getPersistentDataContainer().set(MUSHROOM_COLLECTOR_KEY, PersistentDataType.BYTE, (byte) 1);
+            npcEntity.addScoreboardTag("chapter4_mushroom_collector");
         }
-
-        // 2. Chercher entité existante dans le monde (persistée après reboot)
-        for (Entity entity : world.getNearbyEntities(loc, 50, 30, 50)) {
-            if (entity instanceof Villager v
-                    && v.getPersistentDataContainer().has(MUSHROOM_COLLECTOR_KEY, PersistentDataType.BYTE)) {
-                mushroomCollectorEntity = v;
-                // Chercher aussi le display associé
-                for (Entity e : world.getNearbyEntities(loc, 10, 10, 10)) {
-                    if (e instanceof TextDisplay td
-                            && e.getScoreboardTags().contains("chapter4_mushroom_collector_display")) {
-                        mushroomCollectorDisplay = td;
-                        break;
-                    }
-                }
-                return; // Réutiliser l'existant
-            }
-        }
-
-        // 3. Sinon créer nouveau (UNE SEULE FOIS)
-        mushroomCollectorEntity = world.spawn(loc, Villager.class, villager -> {
-            villager.customName(Component.text("Mère Cueillette", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD));
-            villager.setCustomNameVisible(true);
-            villager.setAI(false);
-            villager.setInvulnerable(true);
-            villager.setSilent(true);
-            villager.setCollidable(false);
-            villager.setProfession(Villager.Profession.FARMER);
-            villager.setVillagerType(Villager.Type.SWAMP);
-
-            // Tags
-            villager.addScoreboardTag("chapter4_mushroom_collector");
-            villager.addScoreboardTag("no_trading");
-            villager.addScoreboardTag("zombiez_npc");
-
-            // PDC
-            villager.getPersistentDataContainer().set(MUSHROOM_COLLECTOR_KEY, PersistentDataType.BYTE, (byte) 1);
-
-            // OBLIGATOIRE pour survivre au chunk unload
-            villager.setPersistent(true);
-
-            // Orientation
-            villager.setRotation(-90, 0);
-        });
-
-        // Créer le TextDisplay au-dessus
-        createMushroomCollectorDisplay(world, loc);
-    }
-
-    /**
-     * Crée le TextDisplay au-dessus du collecteur
-     */
-    private void createMushroomCollectorDisplay(World world, Location loc) {
-        Location displayLoc = loc.clone().add(0, 2.5, 0);
-
-        mushroomCollectorDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
-            display.text(Component.text()
-                    .append(Component.text("🍄 ", NamedTextColor.RED))
-                    .append(Component.text("LA CUEILLEUSE", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD))
-                    .append(Component.text(" 🍄", NamedTextColor.RED))
-                    .append(Component.newline())
-                    .append(Component.text("─────────────", NamedTextColor.DARK_GRAY))
-                    .append(Component.newline())
-                    .append(Component.text("▶ Clic droit", NamedTextColor.WHITE))
-                    .build());
-
-            display.setBillboard(Display.Billboard.CENTER);
-            display.setAlignment(TextDisplay.TextAlignment.CENTER);
-            display.setShadowed(true);
-            display.setSeeThrough(false);
-            display.setDefaultBackground(false);
-            display.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
-
-            display.setTransformation(new Transformation(
-                    new Vector3f(0, 0, 0),
-                    new AxisAngle4f(0, 0, 0, 1),
-                    new Vector3f(1.8f, 1.8f, 1.8f),
-                    new AxisAngle4f(0, 0, 0, 1)));
-
-            display.setViewRange(0.5f);
-            display.setPersistent(false);
-            display.addScoreboardTag("chapter4_mushroom_collector_display");
-        });
     }
 
     /**
      * Démarre le vérificateur de respawn du collecteur.
-     * SÉCURITÉ MAXMOBS=1: Respawne automatiquement avec nettoyage préalable.
+     * Utilise JourneyNPCManager pour la récupération/création automatique.
      */
     private void startMushroomCollectorRespawnChecker() {
         new BukkitRunnable() {
@@ -1573,21 +1445,14 @@ public class Chapter4Systems implements Listener {
                 Location collectorLoc = MUSHROOM_COLLECTOR_LOCATION.clone();
                 collectorLoc.setWorld(world);
 
-                // === SÉCURITÉ COLLECTEUR (maxmobs=1) ===
-                // Ne respawn QUE si le chunk est déjà chargé par un joueur (évite boucle
-                // infinie)
-                if (mushroomCollectorEntity == null || !mushroomCollectorEntity.isValid()
-                        || mushroomCollectorEntity.isDead()) {
-                    if (collectorLoc.getChunk().isLoaded()) {
-                        cleanupMushroomCollectorEntities(world);
-                        spawnMushroomCollector(world);
-                    }
+                // Skip si chunk non chargé
+                if (!collectorLoc.getChunk().isLoaded()) {
+                    return;
                 }
 
-                // TextDisplay: même logique
-                if ((mushroomCollectorDisplay == null || !mushroomCollectorDisplay.isValid())
-                        && collectorLoc.getChunk().isLoaded()) {
-                    createMushroomCollectorDisplay(world, collectorLoc);
+                // Vérifier si le NPC est valide via JourneyNPCManager
+                if (mushroomCollectorEntity == null || !mushroomCollectorEntity.isValid()) {
+                    spawnMushroomCollector(world); // Utilise JourneyNPCManager
                 }
             }
         }.runTaskTimer(plugin, 100L, 200L);
@@ -2113,34 +1978,7 @@ public class Chapter4Systems implements Listener {
 
     // ==================== EVENT HANDLERS ====================
 
-    @EventHandler(priority = EventPriority.NORMAL)
-    public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
-        if (event.getHand() != EquipmentSlot.HAND)
-            return;
-
-        Entity entity = event.getRightClicked();
-        Player player = event.getPlayer();
-
-        // Interaction avec le prêtre
-        if (entity.getPersistentDataContainer().has(PRIEST_NPC_KEY, PersistentDataType.BYTE)) {
-            event.setCancelled(true);
-            handlePriestInteraction(player);
-            return;
-        }
-
-        // Interaction avec le collecteur de champignons
-        if (entity.getPersistentDataContainer().has(MUSHROOM_COLLECTOR_KEY, PersistentDataType.BYTE)) {
-            event.setCancelled(true);
-            handleMushroomCollectorInteraction(player);
-            return;
-        }
-
-        // Interaction avec l'alchimiste
-        if (entity.getPersistentDataContainer().has(ANTIDOTE_NPC_KEY, PersistentDataType.BYTE)) {
-            event.setCancelled(true);
-            handleAlchemistInteraction(player);
-        }
-    }
+    // NOTE: Les interactions Priest, MushroomCollector et Alchemist sont gérées par JourneyNPCManager
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
     public void onEntityDamage(EntityDamageByEntityEvent event) {
@@ -3896,102 +3734,37 @@ public class Chapter4Systems implements Listener {
     // ==================== ÉTAPE 9: LIVRAISON ANTIDOTE ====================
 
     /**
-     * Spawn le PNJ Alchimiste
+     * Spawn le PNJ Alchimiste via JourneyNPCManager (Citizens API).
      */
     private void spawnAlchemistNpc(World world) {
         Location loc = ALCHEMIST_NPC_LOCATION.clone();
         loc.setWorld(world);
 
-        // 1. Si entité en mémoire valide → ne rien faire
-        if (alchemistNpcEntity != null && alchemistNpcEntity.isValid() && !alchemistNpcEntity.isDead()) {
-            return;
+        // Créer le NPC via JourneyNPCManager
+        JourneyNPCManager.NPCConfig config = new JourneyNPCManager.NPCConfig(
+            ALCHEMIST_NPC_ID, "§5§lMaître Elric", loc
+        )
+        .entityType(EntityType.VILLAGER)
+        .profession(Villager.Profession.CLERIC)
+        .lookClose(true)
+        .display("§d⚗ §5§lL'ALCHIMISTE §d⚗", "§8─────────", "§f▶ Clic droit")
+        .displayHeight(ALCHEMIST_DISPLAY_HEIGHT)
+        .displayScale(1.8f)
+        .onInteract(event -> handleAlchemistInteraction(event.getPlayer()));
+
+        Entity npcEntity = npcManager.createOrGetNPC(config);
+        if (npcEntity != null) {
+            alchemistNpcEntity = npcEntity;
+
+            // Ajouter tag supplémentaire pour compatibilité avec l'ancien système
+            npcEntity.getPersistentDataContainer().set(ANTIDOTE_NPC_KEY, PersistentDataType.BYTE, (byte) 1);
+            npcEntity.addScoreboardTag("chapter4_alchemist");
         }
-
-        // 2. Chercher entité existante dans le monde (persistée après reboot)
-        for (Entity entity : world.getNearbyEntities(loc, 50, 30, 50)) {
-            if (entity instanceof Villager v
-                    && v.getPersistentDataContainer().has(ANTIDOTE_NPC_KEY, PersistentDataType.BYTE)) {
-                alchemistNpcEntity = v;
-                // Chercher aussi le display associé
-                for (Entity e : world.getNearbyEntities(loc, 10, 10, 10)) {
-                    if (e instanceof TextDisplay td && e.getScoreboardTags().contains("chapter4_alchemist_display")) {
-                        alchemistNpcDisplay = td;
-                        break;
-                    }
-                }
-                return; // Réutiliser l'existant
-            }
-        }
-
-        // 3. Sinon créer nouveau (UNE SEULE FOIS)
-        alchemistNpcEntity = world.spawn(loc, Villager.class, villager -> {
-            villager.customName(Component.text("Maître Elric", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD));
-            villager.setCustomNameVisible(true);
-            villager.setAI(false);
-            villager.setInvulnerable(true);
-            villager.setSilent(true);
-            villager.setCollidable(false);
-            villager.setProfession(Villager.Profession.CLERIC);
-            villager.setVillagerType(Villager.Type.SWAMP);
-
-            // Tags
-            villager.addScoreboardTag("chapter4_alchemist");
-            villager.addScoreboardTag("no_trading");
-            villager.addScoreboardTag("zombiez_npc");
-
-            // PDC
-            villager.getPersistentDataContainer().set(ANTIDOTE_NPC_KEY, PersistentDataType.BYTE, (byte) 1);
-
-            // OBLIGATOIRE pour survivre au chunk unload
-            villager.setPersistent(true);
-
-            // Orientation
-            villager.setRotation(loc.getYaw(), 0);
-        });
-
-        // Créer le TextDisplay au-dessus
-        createAlchemistDisplay(world, loc);
-    }
-
-    /**
-     * Crée le TextDisplay au-dessus de l'alchimiste
-     */
-    private void createAlchemistDisplay(World world, Location loc) {
-        Location displayLoc = loc.clone().add(0, ALCHEMIST_DISPLAY_HEIGHT, 0);
-
-        alchemistNpcDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
-            display.text(Component.text()
-                    .append(Component.text("⚗ ", NamedTextColor.LIGHT_PURPLE))
-                    .append(Component.text("L'ALCHIMISTE", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD))
-                    .append(Component.text(" ⚗", NamedTextColor.LIGHT_PURPLE))
-                    .append(Component.newline())
-                    .append(Component.text("─────────", NamedTextColor.DARK_GRAY))
-                    .append(Component.newline())
-                    .append(Component.text("▶ Clic droit", NamedTextColor.WHITE))
-                    .build());
-
-            display.setBillboard(Display.Billboard.CENTER);
-            display.setAlignment(TextDisplay.TextAlignment.CENTER);
-            display.setShadowed(true);
-            display.setSeeThrough(false);
-            display.setDefaultBackground(false);
-            display.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
-
-            display.setTransformation(new Transformation(
-                    new Vector3f(0, 0, 0),
-                    new AxisAngle4f(0, 0, 0, 1),
-                    new Vector3f(1.8f, 1.8f, 1.8f),
-                    new AxisAngle4f(0, 0, 0, 1)));
-
-            display.setViewRange(0.5f);
-            display.setPersistent(false);
-            display.addScoreboardTag("chapter4_alchemist_display");
-        });
     }
 
     /**
      * Démarre le vérificateur de respawn de l'alchimiste.
-     * SÉCURITÉ MAXMOBS=1: Respawne automatiquement avec nettoyage préalable.
+     * Utilise JourneyNPCManager pour la récupération/création automatique.
      */
     private void startAlchemistNpcRespawnChecker() {
         new BukkitRunnable() {
@@ -4004,20 +3777,14 @@ public class Chapter4Systems implements Listener {
                 Location alchemistLoc = ALCHEMIST_NPC_LOCATION.clone();
                 alchemistLoc.setWorld(world);
 
-                // === SÉCURITÉ ALCHIMISTE (maxmobs=1) ===
-                // Ne respawn QUE si le chunk est déjà chargé par un joueur (évite boucle
-                // infinie)
-                if (alchemistNpcEntity == null || !alchemistNpcEntity.isValid() || alchemistNpcEntity.isDead()) {
-                    if (alchemistLoc.getChunk().isLoaded()) {
-                        cleanupAlchemistEntities(world);
-                        spawnAlchemistNpc(world);
-                    }
+                // Skip si chunk non chargé
+                if (!alchemistLoc.getChunk().isLoaded()) {
+                    return;
                 }
 
-                // TextDisplay: même logique
-                if ((alchemistNpcDisplay == null || !alchemistNpcDisplay.isValid())
-                        && alchemistLoc.getChunk().isLoaded()) {
-                    createAlchemistDisplay(world, alchemistLoc);
+                // Vérifier si le NPC est valide via JourneyNPCManager
+                if (alchemistNpcEntity == null || !alchemistNpcEntity.isValid()) {
+                    spawnAlchemistNpc(world); // Utilise JourneyNPCManager
                 }
             }
         }.runTaskTimer(plugin, 100L, 200L);

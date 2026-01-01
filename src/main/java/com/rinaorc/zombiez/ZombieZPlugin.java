@@ -230,6 +230,8 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter
     private com.rinaorc.zombiez.progression.journey.JourneyListener journeyListener;
     @Getter
+    private com.rinaorc.zombiez.progression.journey.JourneyNPCManager journeyNPCManager;
+    @Getter
     private com.rinaorc.zombiez.progression.journey.chapter1.Chapter1Systems chapter1Systems;
     @Getter
     private com.rinaorc.zombiez.progression.journey.chapter2.Chapter2Systems chapter2Systems;
@@ -449,6 +451,11 @@ public class ZombieZPlugin extends JavaPlugin {
             journeyManager.shutdown();
         }
 
+        // Cleanup Journey NPC Manager (Citizens)
+        if (journeyNPCManager != null) {
+            journeyNPCManager.shutdown();
+        }
+
         // Cleanup Chapter 2 Systems
         if (chapter2Systems != null) {
             chapter2Systems.cleanup();
@@ -587,6 +594,9 @@ public class ZombieZPlugin extends JavaPlugin {
         // Journey Manager - Progression guidée avec blocage de zones
         journeyManager = new com.rinaorc.zombiez.progression.journey.JourneyManager(this);
         journeyManager.start(); // Démarre le système de coffres mystères
+
+        // Journey NPC Manager - Gestion des NPCs via Citizens API
+        journeyNPCManager = new com.rinaorc.zombiez.progression.journey.JourneyNPCManager(this);
 
         // Chapter 1 Systems - Fermier et mini-jeu incendie
         chapter1Systems = new com.rinaorc.zombiez.progression.journey.chapter1.Chapter1Systems(this);
@@ -807,6 +817,11 @@ public class ZombieZPlugin extends JavaPlugin {
         com.rinaorc.zombiez.worldboss.WorldBossAdminCommand worldBossCmd = new com.rinaorc.zombiez.worldboss.WorldBossAdminCommand(this);
         getCommand("zzworldboss").setExecutor(worldBossCmd);
         getCommand("zzworldboss").setTabCompleter(worldBossCmd);
+
+        // Commandes Admin Économie (points/gemmes)
+        com.rinaorc.zombiez.commands.admin.EconomyAdminCommand ecoCmd = new com.rinaorc.zombiez.commands.admin.EconomyAdminCommand(this);
+        getCommand("zzeco").setExecutor(ecoCmd);
+        getCommand("zzeco").setTabCompleter(ecoCmd);
 
         // Commandes Joueur - Base
         getCommand("spawn").setExecutor(new SpawnCommand(this));
