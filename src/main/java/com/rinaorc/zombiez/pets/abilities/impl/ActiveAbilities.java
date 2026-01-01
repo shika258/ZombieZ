@@ -47,13 +47,16 @@ class EchoScanActive implements PetAbility {
         int adjustedRadius = (int) (radius * petData.getStatMultiplier());
         Collection<Entity> nearby = player.getNearbyEntities(adjustedRadius, adjustedRadius, adjustedRadius);
 
-        // Effet d'onde
+        // Effet sonore d'écholocation
         player.playSound(player.getLocation(), Sound.ENTITY_BAT_TAKEOFF, 1.0f, 0.5f);
+        player.playSound(player.getLocation(), Sound.BLOCK_BEACON_AMBIENT, 0.8f, 2.0f);
 
+        int enemiesFound = 0;
         for (Entity entity : nearby) {
             if (entity instanceof Monster monster) {
                 // Marquer avec effet glowing
                 monster.setGlowing(true);
+                enemiesFound++;
                 Bukkit.getScheduler().runTaskLater(
                     Bukkit.getPluginManager().getPlugin("ZombieZ"),
                     () -> monster.setGlowing(false),
@@ -62,29 +65,42 @@ class EchoScanActive implements PetAbility {
             }
         }
 
-        // Particules d'onde
-        for (int i = 0; i < adjustedRadius; i++) {
-            final int ring = i;
+        // Particules d'onde - OPTIMISÉ : seulement 3 anneaux espacés
+        int ringCount = 3;
+        int ringSpacing = Math.max(1, adjustedRadius / ringCount);
+        for (int i = 1; i <= ringCount; i++) {
+            final int ringRadius = i * ringSpacing;
             Bukkit.getScheduler().runTaskLater(
                 Bukkit.getPluginManager().getPlugin("ZombieZ"),
-                () -> spawnRing(player.getLocation(), ring),
-                i * 2L
+                () -> spawnRing(player.getLocation(), ringRadius),
+                i * 4L // Espacement temporel plus visible
             );
+        }
+
+        // Feedback au joueur
+        if (enemiesFound > 0) {
+            player.sendMessage("§d[Pet] §7Écho-Scan: §e" + enemiesFound + " §7ennemi(s) détecté(s)!");
+        } else {
+            player.sendMessage("§d[Pet] §7Écho-Scan: §aAucun ennemi à proximité.");
         }
 
         return true;
     }
 
     private void spawnRing(Location center, int radius) {
-        for (int angle = 0; angle < 360; angle += 10) {
+        // Particules légères : END_ROD au lieu de SONIC_BOOM
+        // 12 points par anneau au lieu de 36
+        for (int angle = 0; angle < 360; angle += 30) {
             double rad = Math.toRadians(angle);
             Location loc = center.clone().add(
                 Math.cos(rad) * radius,
                 0.5,
                 Math.sin(rad) * radius
             );
-            center.getWorld().spawnParticle(Particle.SONIC_BOOM, loc, 1);
+            center.getWorld().spawnParticle(Particle.END_ROD, loc, 3, 0.1, 0.2, 0.1, 0.02);
         }
+        // Son d'écho à chaque anneau
+        center.getWorld().playSound(center, Sound.BLOCK_NOTE_BLOCK_CHIME, 0.5f, 1.5f + (radius * 0.05f));
     }
 }
 
