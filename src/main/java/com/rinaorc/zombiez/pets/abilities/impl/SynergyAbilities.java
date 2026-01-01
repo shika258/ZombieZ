@@ -4423,8 +4423,7 @@ class InkPuddlePassive implements PetAbility {
     private final double damagePerSecondPercent; // % des dégâts du joueur par seconde
     private final int puddleDurationTicks;       // 3s = 60 ticks
     private final double puddleRadius;           // Rayon de la flaque
-    private final Map<UUID, Integer> attackCounters = new HashMap<>();
-    private final List<InkPuddle> activePuddles = new ArrayList<>();
+    private final Map<UUID, Integer> attackCounters = new ConcurrentHashMap<>();
 
     public InkPuddlePassive(String id, String name, String desc, int attacksNeeded,
                             double slowPct, double dmgPct, int duration, double radius) {
@@ -4547,22 +4546,11 @@ class InkPuddlePassive implements PetAbility {
 
                 ticksAlive++;
             }
-        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+        }.runTaskTimer(JavaPlugin.getPlugin(ZombieZPlugin.class), 0L, 1L);
     }
 
     public int getAttackCount(UUID uuid) {
         return attackCounters.getOrDefault(uuid, 0);
-    }
-
-    // Classe interne pour tracker les flaques actives
-    private static class InkPuddle {
-        final Location center;
-        final long endTime;
-
-        InkPuddle(Location center, long endTime) {
-            this.center = center;
-            this.endTime = endTime;
-        }
     }
 }
 
@@ -4605,7 +4593,7 @@ class DarknessCloudActive implements PetAbility {
         // Collecter tous les monstres dans le rayon
         List<Monster> affectedMonsters = new ArrayList<>();
         for (Entity entity : player.getNearbyEntities(adjustedRadius, adjustedRadius, adjustedRadius)) {
-            if (entity instanceof Monster monster) {
+            if (entity instanceof Monster monster && monster.isValid() && !monster.isDead()) {
                 double distSq = entity.getLocation().distanceSquared(center);
                 if (distSq <= adjustedRadius * adjustedRadius) {
                     affectedMonsters.add(monster);
@@ -4626,15 +4614,29 @@ class DarknessCloudActive implements PetAbility {
         player.sendMessage("§a[Pet] §8§l🦑 NUAGE D'OBSCURITÉ! §7" + affectedMonsters.size() +
             " zombies confus s'attaquent entre eux!");
 
-        // Appliquer la confusion à tous les monstres
-        for (Monster monster : affectedMonsters) {
+        // Appliquer la confusion à tous les monstres et les faire se cibler entre eux
+        for (int i = 0; i < affectedMonsters.size(); i++) {
+            Monster monster = affectedMonsters.get(i);
+
             // Aveuglement pour l'effet visuel
             monster.addPotionEffect(new PotionEffect(
                 PotionEffectType.BLINDNESS, adjustedConfusion, 0, false, false));
             // Lenteur légère
             monster.addPotionEffect(new PotionEffect(
                 PotionEffectType.SLOWNESS, adjustedConfusion, 0, false, false));
+
+            // Faire cibler un autre monstre (rotation circulaire)
+            if (affectedMonsters.size() >= 2) {
+                Monster target = affectedMonsters.get((i + 1) % affectedMonsters.size());
+                if (monster instanceof Mob mob) {
+                    mob.setTarget(target);
+                }
+            }
         }
+
+        // Calculer les dégâts d'infight (basés sur les dégâts du joueur)
+        final double playerDamage = PetDamageUtils.getEffectiveDamage(player);
+        final double infightDamage = playerDamage * 0.3 * petData.getStatMultiplier();
 
         // Animation du nuage d'encre et combat entre monstres
         new BukkitRunnable() {
@@ -4645,7 +4647,12 @@ class DarknessCloudActive implements PetAbility {
             @Override
             public void run() {
                 if (ticksAlive >= cloudDuration) {
-                    // Dissipation du nuage
+                    // Dissipation du nuage - remettre le ciblage normal
+                    for (Monster monster : affectedMonsters) {
+                        if (monster.isValid() && !monster.isDead() && monster instanceof Mob mob) {
+                            mob.setTarget(player); // Remettre le joueur comme cible
+                        }
+                    }
                     world.spawnParticle(Particle.SMOKE, center.clone().add(0, 1, 0),
                         50, adjustedRadius * 0.5, 1, adjustedRadius * 0.5, 0.05);
                     world.playSound(center, Sound.BLOCK_FIRE_EXTINGUISH, 0.8f, 0.5f);
@@ -4677,15 +4684,12 @@ class DarknessCloudActive implements PetAbility {
                     affectedMonsters.removeIf(m -> !m.isValid() || m.isDead());
 
                     if (affectedMonsters.size() >= 2) {
-                        // Calculer les dégâts d'infight (basés sur les dégâts du joueur)
-                        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
-                        double infightDamage = playerDamage * 0.3 * petData.getStatMultiplier();
-
                         // Chaque monstre attaque un voisin aléatoire
-                        for (Monster attacker : new ArrayList<>(affectedMonsters)) {
+                        for (int i = 0; i < affectedMonsters.size(); i++) {
+                            Monster attacker = affectedMonsters.get(i);
                             if (!attacker.isValid() || attacker.isDead()) continue;
 
-                            // Trouver une cible proche
+                            // Trouver la cible la plus proche
                             Monster target = null;
                             double minDist = Double.MAX_VALUE;
                             for (Monster potential : affectedMonsters) {
@@ -4698,17 +4702,31 @@ class DarknessCloudActive implements PetAbility {
                                 }
                             }
 
-                            if (target != null && minDist < 25) { // 5 blocs max
-                                // Attaquer!
-                                target.damage(infightDamage, attacker);
+                            if (target != null && minDist < 36) { // 6 blocs max
+                                // Maintenir le ciblage
+                                if (attacker instanceof Mob mob) {
+                                    mob.setTarget(target);
+                                }
+
+                                // Appliquer les dégâts (attribués au joueur pour le système ZombieZ)
+                                target.damage(infightDamage, player);
                                 petData.addDamage((long) infightDamage);
 
                                 // Effet visuel de l'attaque
-                                Location midPoint = attacker.getLocation().add(
-                                    target.getLocation()).multiply(0.5).add(0, 1, 0);
+                                Location attackerLoc = attacker.getLocation();
+                                Location targetLoc = target.getLocation();
+                                Location midPoint = attackerLoc.clone().add(targetLoc).multiply(0.5).add(0, 1, 0);
+
                                 world.spawnParticle(Particle.SWEEP_ATTACK, midPoint, 1, 0, 0, 0, 0);
-                                world.spawnParticle(Particle.SQUID_INK, target.getLocation().add(0, 1, 0),
-                                    5, 0.2, 0.2, 0.2, 0.05);
+                                world.spawnParticle(Particle.SQUID_INK, targetLoc.add(0, 1, 0),
+                                    8, 0.3, 0.3, 0.3, 0.05);
+                                world.spawnParticle(Particle.DAMAGE_INDICATOR, targetLoc,
+                                    3, 0.2, 0.2, 0.2, 0.1);
+
+                                // Son d'attaque
+                                if (Math.random() < 0.3) {
+                                    world.playSound(targetLoc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.5f, 0.8f);
+                                }
                             }
                         }
                     }
@@ -4716,7 +4734,7 @@ class DarknessCloudActive implements PetAbility {
 
                 ticksAlive++;
             }
-        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+        }.runTaskTimer(JavaPlugin.getPlugin(ZombieZPlugin.class), 0L, 1L);
 
         // Effet visuel initial (explosion d'encre)
         world.spawnParticle(Particle.SQUID_INK, center.clone().add(0, 1, 0),
