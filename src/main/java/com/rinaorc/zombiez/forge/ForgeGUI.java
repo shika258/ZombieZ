@@ -3,6 +3,7 @@ package com.rinaorc.zombiez.forge;
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.items.ZombieZItem;
 import com.rinaorc.zombiez.items.types.StatType;
+import com.rinaorc.zombiez.progression.journey.JourneyStep;
 import com.rinaorc.zombiez.utils.ItemBuilder;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
@@ -833,6 +834,11 @@ public class ForgeGUI implements InventoryHolder {
             // Particules de succès
             player.getWorld().spawnParticle(org.bukkit.Particle.TOTEM_OF_UNDYING,
                 player.getLocation().add(0, 1, 0), 30, 0.5, 1, 0.5, 0.1);
+
+            // Tracker la progression Journey (étape forge)
+            if (plugin.getJourneyManager() != null) {
+                plugin.getJourneyManager().updateProgress(player, JourneyStep.StepType.FORGE_ITEM, 1);
+            }
         } else {
             if (result.type() == ForgeManager.ForgeResultType.PROTECTED) {
                 player.sendTitle("§d§l🛡 PROTÉGÉ", "§7Aucune perte!", 5, 30, 10);
