@@ -37,7 +37,7 @@ public class RavenStrikeActive implements PetAbility {
 
     @Override
     public int getCooldown() {
-        return 25;
+        return 15;
     }
 
     @Override
