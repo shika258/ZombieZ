@@ -6,6 +6,9 @@ import com.rinaorc.zombiez.pets.abilities.PetAbility;
 import com.rinaorc.zombiez.pets.abilities.PetDamageUtils;
 import lombok.Getter;
 import org.bukkit.*;
+import org.bukkit.attribute.Attribute;
+import org.bukkit.attribute.AttributeInstance;
+import org.bukkit.attribute.AttributeModifier;
 import org.bukkit.entity.*;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
@@ -395,6 +398,8 @@ class ChromaticSpectrumPassive implements PetAbility {
     private final Map<UUID, Long> lastColorChange = new ConcurrentHashMap<>();
     private final Map<UUID, Boolean> allBuffsActive = new ConcurrentHashMap<>(); // Pour l'ultimate
 
+    private static final NamespacedKey ORANGE_ATTACK_SPEED_KEY = new NamespacedKey("zombiez", "orange_attack_speed");
+
     // DyeColor correspondants
     private static final org.bukkit.DyeColor[] RAINBOW_COLORS = {
         org.bukkit.DyeColor.RED,
@@ -446,9 +451,39 @@ class ChromaticSpectrumPassive implements PetAbility {
             // Changer la couleur du mouton
             updateSheepColor(player, newColor);
 
+            // Appliquer/retirer le bonus de vitesse d'attaque (Orange)
+            if (newColor == 1) {
+                applyOrangeAttackSpeed(player, petData);
+            } else {
+                removeOrangeAttackSpeed(player);
+            }
+
             // Message avec l'effet actif
             String colorInfo = getColorInfo(newColor, petData);
             player.sendMessage("§a[Pet] " + colorInfo);
+        }
+    }
+
+    private void applyOrangeAttackSpeed(Player player, PetData petData) {
+        AttributeInstance attackSpeed = player.getAttribute(Attribute.ATTACK_SPEED);
+        if (attackSpeed != null) {
+            removeOrangeAttackSpeed(player);
+            double bonus = 0.20 + (petData.getStatMultiplier() - 1) * 0.05; // 20% + bonus niveau
+            AttributeModifier modifier = new AttributeModifier(
+                ORANGE_ATTACK_SPEED_KEY,
+                bonus,
+                AttributeModifier.Operation.MULTIPLY_SCALAR_1
+            );
+            attackSpeed.addModifier(modifier);
+        }
+    }
+
+    private void removeOrangeAttackSpeed(Player player) {
+        AttributeInstance attackSpeed = player.getAttribute(Attribute.ATTACK_SPEED);
+        if (attackSpeed != null) {
+            attackSpeed.getModifiers().stream()
+                .filter(m -> m.getKey().equals(ORANGE_ATTACK_SPEED_KEY))
+                .forEach(attackSpeed::removeModifier);
         }
     }
 
@@ -706,23 +741,88 @@ class PrismaticNovaActive implements PetAbility {
         player.addPotionEffect(new PotionEffect(PotionEffectType.SPEED, adjustedDuration, 1, false, true));
         player.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, adjustedDuration, 0, false, true));
         player.addPotionEffect(new PotionEffect(PotionEffectType.REGENERATION, adjustedDuration, 0, false, true));
+        player.addPotionEffect(new PotionEffect(PotionEffectType.HASTE, adjustedDuration, 1, false, true)); // Orange: vitesse attaque
+
+        // Appliquer le bonus de vitesse d'attaque (Orange)
+        applyAttackSpeedBonus(player, 0.20); // +20% vitesse attaque
 
         // Son d'explosion
         world.playSound(playerLoc, Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);
         world.playSound(playerLoc, Sound.BLOCK_NOTE_BLOCK_CHIME, 1.0f, 1.0f);
+
+        // Animation arc-en-ciel persistante pendant le buff
+        startPersistentRainbowAnimation(player, adjustedDuration);
 
         // Désactiver les buffs après la durée
         Bukkit.getScheduler().runTaskLater(
             JavaPlugin.getPlugin(ZombieZPlugin.class),
             () -> {
                 spectrumPassive.setAllBuffsActive(uuid, false);
+                removeAttackSpeedBonus(player); // Retirer le bonus vitesse attaque
                 player.sendMessage("§a[Pet] §7Les bonus arc-en-ciel se dissipent...");
-                world.playSound(playerLoc, Sound.BLOCK_BEACON_DEACTIVATE, 0.8f, 1.2f);
+                world.playSound(player.getLocation(), Sound.BLOCK_BEACON_DEACTIVATE, 0.8f, 1.2f);
             },
             adjustedDuration
         );
 
         return true;
+    }
+
+    private static final NamespacedKey ATTACK_SPEED_MODIFIER_KEY = new NamespacedKey("zombiez", "rainbow_attack_speed");
+
+    private void applyAttackSpeedBonus(Player player, double bonus) {
+        AttributeInstance attackSpeed = player.getAttribute(Attribute.ATTACK_SPEED);
+        if (attackSpeed != null) {
+            // Retirer l'ancien modifier s'il existe
+            removeAttackSpeedBonus(player);
+
+            // Ajouter le nouveau modifier (+20% vitesse attaque)
+            AttributeModifier modifier = new AttributeModifier(
+                ATTACK_SPEED_MODIFIER_KEY,
+                bonus,
+                AttributeModifier.Operation.MULTIPLY_SCALAR_1
+            );
+            attackSpeed.addModifier(modifier);
+        }
+    }
+
+    private void removeAttackSpeedBonus(Player player) {
+        AttributeInstance attackSpeed = player.getAttribute(Attribute.ATTACK_SPEED);
+        if (attackSpeed != null) {
+            attackSpeed.getModifiers().stream()
+                .filter(m -> m.getKey().equals(ATTACK_SPEED_MODIFIER_KEY))
+                .forEach(attackSpeed::removeModifier);
+        }
+    }
+
+    private void startPersistentRainbowAnimation(Player player, int durationTicks) {
+        UUID uuid = player.getUniqueId();
+        String ownerTag = "pet_owner_" + uuid;
+
+        new BukkitRunnable() {
+            int ticks = 0;
+
+            @Override
+            public void run() {
+                if (ticks >= durationTicks || !player.isOnline()) {
+                    cancel();
+                    return;
+                }
+
+                // Spawner l'arc-en-ciel au-dessus du mouton toutes les 10 ticks
+                if (ticks % 10 == 0) {
+                    for (Entity entity : player.getNearbyEntities(20, 10, 20)) {
+                        if (entity instanceof org.bukkit.entity.Sheep sheep
+                            && entity.getScoreboardTags().contains(ownerTag)) {
+                            spawnRainbowArcAboveSheep(sheep.getLocation(), sheep.getWorld());
+                            break;
+                        }
+                    }
+                }
+
+                ticks++;
+            }
+        }.runTaskTimer(JavaPlugin.getPlugin(ZombieZPlugin.class), 0L, 1L);
     }
 
     private void cycleSheepColorsRapidly(Player player, int durationTicks) {
@@ -740,27 +840,79 @@ class PrismaticNovaActive implements PetAbility {
                     return;
                 }
 
-                // Changer la couleur toutes les 2 ticks
-                if (ticks % 2 == 0) {
-                    for (Entity entity : player.getNearbyEntities(20, 10, 20)) {
-                        if (entity instanceof org.bukkit.entity.Sheep sheep
-                            && entity.getScoreboardTags().contains(ownerTag)) {
+                // Trouver le mouton
+                org.bukkit.entity.Sheep foundSheep = null;
+                for (Entity entity : player.getNearbyEntities(20, 10, 20)) {
+                    if (entity instanceof org.bukkit.entity.Sheep sheep
+                        && entity.getScoreboardTags().contains(ownerTag)) {
+                        foundSheep = sheep;
+                        break;
+                    }
+                }
 
-                            org.bukkit.DyeColor[] colors = {
-                                org.bukkit.DyeColor.RED, org.bukkit.DyeColor.ORANGE,
-                                org.bukkit.DyeColor.YELLOW, org.bukkit.DyeColor.LIME,
-                                org.bukkit.DyeColor.LIGHT_BLUE, org.bukkit.DyeColor.PURPLE
-                            };
-                            sheep.setColor(colors[colorIndex % 6]);
-                            colorIndex++;
-                            break;
-                        }
+                if (foundSheep != null) {
+                    // Changer la couleur toutes les 2 ticks
+                    if (ticks % 2 == 0) {
+                        org.bukkit.DyeColor[] colors = {
+                            org.bukkit.DyeColor.RED, org.bukkit.DyeColor.ORANGE,
+                            org.bukkit.DyeColor.YELLOW, org.bukkit.DyeColor.LIME,
+                            org.bukkit.DyeColor.LIGHT_BLUE, org.bukkit.DyeColor.PURPLE
+                        };
+                        foundSheep.setColor(colors[colorIndex % 6]);
+                        colorIndex++;
+                    }
+
+                    // Spawner l'arc-en-ciel au-dessus du mouton
+                    if (ticks % 4 == 0) {
+                        spawnRainbowArcAboveSheep(foundSheep.getLocation(), foundSheep.getWorld());
                     }
                 }
 
                 ticks++;
             }
         }.runTaskTimer(JavaPlugin.getPlugin(ZombieZPlugin.class), 0L, 1L);
+    }
+
+    /**
+     * Crée un arc-en-ciel (forme d'arc) au-dessus du mouton
+     */
+    private void spawnRainbowArcAboveSheep(Location sheepLoc, World world) {
+        // Les couleurs de l'arc-en-ciel avec leurs particules dust
+        org.bukkit.Color[] rainbowColors = {
+            org.bukkit.Color.fromRGB(255, 0, 0),     // Rouge
+            org.bukkit.Color.fromRGB(255, 127, 0),   // Orange
+            org.bukkit.Color.fromRGB(255, 255, 0),   // Jaune
+            org.bukkit.Color.fromRGB(0, 255, 0),     // Vert
+            org.bukkit.Color.fromRGB(0, 127, 255),   // Bleu
+            org.bukkit.Color.fromRGB(139, 0, 255)    // Violet
+        };
+
+        // Centre de l'arc au-dessus du mouton
+        Location arcCenter = sheepLoc.clone().add(0, 2.5, 0);
+        double baseRadius = 1.5;
+
+        // Dessiner l'arc-en-ciel (demi-cercle avec plusieurs couches de couleurs)
+        for (int colorLayer = 0; colorLayer < rainbowColors.length; colorLayer++) {
+            double layerRadius = baseRadius - (colorLayer * 0.15);
+            if (layerRadius <= 0) continue;
+
+            org.bukkit.Color color = rainbowColors[colorLayer];
+            Particle.DustOptions dustOptions = new Particle.DustOptions(color, 0.8f);
+
+            // Dessiner un demi-cercle (arc de 180°)
+            for (int angle = 0; angle <= 180; angle += 15) {
+                double rad = Math.toRadians(angle);
+                // L'arc est orienté vers le joueur (sur l'axe X-Y)
+                double x = Math.cos(rad) * layerRadius;
+                double y = Math.sin(rad) * layerRadius * 0.6; // Aplati un peu pour un bel arc
+
+                Location particleLoc = arcCenter.clone().add(x, y, 0);
+                world.spawnParticle(Particle.DUST, particleLoc, 1, 0, 0, 0, 0, dustOptions);
+            }
+        }
+
+        // Ajouter quelques étoiles scintillantes autour
+        world.spawnParticle(Particle.END_ROD, arcCenter.clone().add(0, 0.5, 0), 3, 0.8, 0.4, 0.8, 0.02);
     }
 
     private void spawnRainbowRing(World world, Location center, double radius) {
