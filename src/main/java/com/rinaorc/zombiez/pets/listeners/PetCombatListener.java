@@ -181,6 +181,12 @@ public class PetCombatListener implements Listener {
      */
     @EventHandler(priority = EventPriority.NORMAL)
     public void onDamageDealt(EntityDamageByEntityEvent event) {
+        // Éviter la récursion infinie - ignorer les dégâts déjà traités par le système de pet
+        if (event.getEntity().hasMetadata("zombiez_pet_damage")) {
+            event.getEntity().removeMetadata("zombiez_pet_damage", plugin);
+            return;
+        }
+
         Player player = getPlayerDamager(event.getDamager());
         if (player == null)
             return;
