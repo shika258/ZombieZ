@@ -280,9 +280,15 @@ public class ForgeGUI implements InventoryHolder {
                 if (colonIndex > 4) {
                     String statName = line.substring(4, colonIndex);
 
-                    Map.Entry<Double, StatType> statEntry = baseStatsMap.get(statName);
-                    if (statEntry == null && currentAffixStats != null) {
+                    // IMPORTANT: Si on est dans une section d'affix, chercher d'abord dans l'affix
+                    // car les stats d'affix (ex: DAMAGE_PERCENT) peuvent avoir le même displayName
+                    // que les stats de base (ex: DAMAGE)
+                    Map.Entry<Double, StatType> statEntry = null;
+                    if (currentAffixStats != null) {
                         statEntry = currentAffixStats.get(statName);
+                    }
+                    if (statEntry == null) {
+                        statEntry = baseStatsMap.get(statName);
                     }
 
                     if (statEntry != null) {
