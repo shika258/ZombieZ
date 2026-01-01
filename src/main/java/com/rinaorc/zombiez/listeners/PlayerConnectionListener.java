@@ -99,7 +99,7 @@ public class PlayerConnectionListener implements Listener {
             // Nouveau joueur - téléporter au spawn de départ
             Location spawnLocation = new Location(
                 player.getWorld(),
-                728.5, 95, 9979.5,
+                728.5, 94, 9987.5,
                 180f, 0f
             );
             player.teleport(spawnLocation);

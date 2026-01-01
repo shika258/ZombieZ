@@ -1,11 +1,13 @@
 package com.rinaorc.zombiez.pets.abilities.impl;
 
+import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.pets.PetData;
 import com.rinaorc.zombiez.pets.abilities.PetAbility;
 import com.rinaorc.zombiez.pets.abilities.PetDamageUtils;
 import lombok.Getter;
 import org.bukkit.*;
 import org.bukkit.entity.*;
+import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -987,11 +989,14 @@ class ElementalCatalystPassive implements PetAbility {
     private final int reactionCooldownMs;             // Cooldown entre réactions sur même cible
 
     // 0=Fire (LUCY), 1=Ice (CYAN), 2=Lightning (GOLD)
-    private final Map<UUID, Integer> currentElement = new HashMap<>();
-    private final Map<UUID, Long> lastRotation = new HashMap<>();
+    private final Map<UUID, Integer> currentElement = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> lastRotation = new ConcurrentHashMap<>();
     // Marques élémentaires sur les mobs: EntityUUID -> Set d'éléments (0,1,2)
-    private final Map<UUID, Set<Integer>> elementalMarks = new HashMap<>();
-    private final Map<UUID, Long> lastReactionTime = new HashMap<>();
+    private final Map<UUID, Set<Integer>> elementalMarks = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> lastReactionTime = new ConcurrentHashMap<>();
+
+    // Protection anti-récursion pour éviter les boucles infinies
+    private final Set<UUID> processingReaction = ConcurrentHashMap.newKeySet();
 
     public ElementalCatalystPassive(String id, String name, String desc, double reactionDmg,
                                      int cycleTicks, int reactionCooldown) {
@@ -1036,16 +1041,26 @@ class ElementalCatalystPassive implements PetAbility {
 
     @Override
     public double onDamageDealt(Player player, PetData petData, double damage, LivingEntity target) {
+        // Vérifier que la cible est valide et un Monster
+        if (!(target instanceof Monster) || !target.isValid() || target.isDead()) {
+            return damage;
+        }
+
         UUID playerUuid = player.getUniqueId();
         UUID targetUuid = target.getUniqueId();
+
+        // Protection anti-récursion : ignorer si on est déjà en train de traiter une réaction pour ce joueur
+        if (processingReaction.contains(playerUuid)) {
+            return damage;
+        }
+
         int currentEl = currentElement.getOrDefault(playerUuid, 0);
         World world = target.getWorld();
 
         // Récupérer les marques existantes sur la cible
-        Set<Integer> marks = elementalMarks.computeIfAbsent(targetUuid, k -> new HashSet<>());
+        Set<Integer> marks = elementalMarks.computeIfAbsent(targetUuid, k -> ConcurrentHashMap.newKeySet());
 
         // Vérifier si on peut déclencher une réaction
-        boolean reactionTriggered = false;
         double bonusDamage = 0;
 
         if (!marks.isEmpty() && !marks.contains(currentEl)) {
@@ -1057,40 +1072,57 @@ class ElementalCatalystPassive implements PetAbility {
             adjustedCooldown = Math.max(adjustedCooldown, 1500); // Min 1.5s
 
             if (now - lastReaction >= adjustedCooldown) {
-                // Déclencher la réaction!
-                for (int existingMark : marks) {
-                    bonusDamage += triggerReaction(player, petData, target, existingMark, currentEl);
-                    reactionTriggered = true;
-                }
+                // Activer la protection anti-récursion AVANT de déclencher la réaction
+                processingReaction.add(playerUuid);
 
-                if (reactionTriggered) {
-                    lastReactionTime.put(targetUuid, now);
-                    // Nettoyer les marques après réaction
+                try {
+                    // Copier les marques pour éviter ConcurrentModificationException
+                    Set<Integer> marksCopy = new HashSet<>(marks);
+
+                    // Nettoyer les marques AVANT la réaction pour éviter les boucles
                     marks.clear();
+                    lastReactionTime.put(targetUuid, now);
+
+                    // Déclencher la réaction avec les marques copiées
+                    for (int existingMark : marksCopy) {
+                        bonusDamage += triggerReaction(player, petData, target, existingMark, currentEl);
+                    }
+                } finally {
+                    // Désactiver la protection anti-récursion
+                    processingReaction.remove(playerUuid);
                 }
             }
         }
 
-        // Ajouter la nouvelle marque
-        marks.add(currentEl);
+        // Ajouter la nouvelle marque seulement si la cible est encore valide
+        if (target.isValid() && !target.isDead()) {
+            marks.add(currentEl);
 
-        // Effet visuel de marquage
-        Particle markParticle = getElementParticle(currentEl);
-        world.spawnParticle(markParticle, target.getLocation().add(0, 1.5, 0), 8, 0.2, 0.2, 0.2, 0.02);
+            // Effet visuel de marquage (léger)
+            Particle markParticle = getElementParticle(currentEl);
+            world.spawnParticle(markParticle, target.getLocation().add(0, 1.5, 0), 5, 0.2, 0.2, 0.2, 0.02);
 
-        // Appliquer l'effet élémentaire de base
-        applyElementEffect(target, currentEl);
+            // Appliquer l'effet élémentaire de base
+            applyElementEffect(target, currentEl);
+        }
 
-        // Nettoyer les marques des mobs morts
-        cleanupDeadMarks();
+        // Nettoyer les marques des mobs morts (moins fréquemment)
+        if (Math.random() < 0.1) {
+            cleanupDeadMarks();
+        }
 
         return damage + bonusDamage;
     }
 
     private double triggerReaction(Player player, PetData petData, LivingEntity target,
                                     int element1, int element2) {
+        // Vérifier que la cible est valide
+        if (!target.isValid() || target.isDead()) {
+            return 0;
+        }
+
         World world = target.getWorld();
-        Location loc = target.getLocation();
+        Location loc = target.getLocation().clone();
 
         // Calculer les dégâts de réaction
         double playerDamage = PetDamageUtils.getEffectiveDamage(player);
@@ -1103,8 +1135,9 @@ class ElementalCatalystPassive implements PetAbility {
 
         if (min == 0 && max == 1) {
             // VAPORISATION (Feu + Glace) - Burst de dégâts
+            double actualDamage = Math.min(reactionDamage, target.getHealth() + 10);
             target.damage(reactionDamage, player);
-            petData.addDamage((long) reactionDamage);
+            petData.addDamage((long) actualDamage);
 
             // Effet visuel de vapeur
             world.spawnParticle(Particle.CLOUD, loc.add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.1);
@@ -1119,11 +1152,15 @@ class ElementalCatalystPassive implements PetAbility {
         } else if (min == 0 && max == 2) {
             // SURCHARGE (Feu + Foudre) - Explosion AoE + knockback
             double aoeDamage = reactionDamage * 0.6;
+            int hitCount = 0;
+            double totalAoeDamage = 0;
 
             for (Entity entity : target.getNearbyEntities(4, 3, 4)) {
-                if (entity instanceof Monster monster) {
+                if (entity instanceof Monster monster && monster.isValid() && !monster.isDead()) {
+                    double actualDamage = Math.min(aoeDamage, monster.getHealth() + 10);
                     monster.damage(aoeDamage, player);
-                    petData.addDamage((long) aoeDamage);
+                    totalAoeDamage += actualDamage;
+                    hitCount++;
 
                     // Knockback
                     Vector knockback = monster.getLocation().toVector()
@@ -1136,6 +1173,8 @@ class ElementalCatalystPassive implements PetAbility {
                 }
             }
 
+            petData.addDamage((long) totalAoeDamage);
+
             // Effet central
             world.spawnParticle(Particle.EXPLOSION_EMITTER, loc, 1);
             world.spawnParticle(Particle.ELECTRIC_SPARK, loc, 30, 1, 1, 1, 0.3);
@@ -1143,14 +1182,20 @@ class ElementalCatalystPassive implements PetAbility {
             world.playSound(loc, Sound.ENTITY_GENERIC_EXPLODE, 1.0f, 1.2f);
             world.playSound(loc, Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.8f, 1.5f);
 
-            player.sendMessage("§a[Pet] §e§l⚡ SURCHARGE! §7Explosion AoE + knockback!");
+            if (hitCount > 0) {
+                player.sendMessage("§a[Pet] §e§l⚡ SURCHARGE! §7" + hitCount + " cibles touchées (§c" + (int)totalAoeDamage + " §7dégâts AoE)");
+            } else {
+                player.sendMessage("§a[Pet] §e§l⚡ SURCHARGE! §7Explosion!");
+            }
 
-            return aoeDamage;
+            return totalAoeDamage;
 
         } else if (min == 1 && max == 2) {
             // SUPRACONDUCTION (Glace + Foudre) - Réduction de défense
-            target.damage(reactionDamage * 0.5, player);
-            petData.addDamage((long) (reactionDamage * 0.5));
+            double supraconductionDamage = reactionDamage * 0.5;
+            double actualDamage = Math.min(supraconductionDamage, target.getHealth() + 10);
+            target.damage(supraconductionDamage, player);
+            petData.addDamage((long) actualDamage);
 
             // Appliquer la réduction de défense (via Weakness)
             int weaknessDuration = (int) (100 + (petData.getStatMultiplier() - 1) * 40); // 5s+
@@ -1167,9 +1212,9 @@ class ElementalCatalystPassive implements PetAbility {
             world.playSound(loc, Sound.BLOCK_GLASS_BREAK, 1.0f, 1.5f);
             world.playSound(loc, Sound.ENTITY_PLAYER_HURT_FREEZE, 1.0f, 0.8f);
 
-            player.sendMessage("§a[Pet] §b§l❄ SUPRACONDUCTION! §7-20% défense pendant 5s!");
+            player.sendMessage("§a[Pet] §b§l❄ SUPRACONDUCTION! §c+" + (int)supraconductionDamage + " §7dégâts, -20% défense 5s!");
 
-            return reactionDamage * 0.5;
+            return supraconductionDamage;
         }
 
         return 0;
@@ -3773,7 +3818,7 @@ class PredatorInstinctPassive implements PetAbility {
     private final String description;
     private final double healthThreshold;       // 50% = 0.50
     private final double bonusDamageOnMarked;   // +20% = 0.20
-    private final Set<UUID> markedEntities = new HashSet<>();
+    private final Set<UUID> markedEntities = ConcurrentHashMap.newKeySet();
 
     public PredatorInstinctPassive(String id, String name, String desc, double threshold, double bonus) {
         this.id = id;
@@ -3811,7 +3856,7 @@ class PredatorInstinctPassive implements PetAbility {
 
             // Expire si la cible meurt ou après 15 secondes
             Bukkit.getScheduler().runTaskLater(
-                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                JavaPlugin.getPlugin(ZombieZPlugin.class),
                 () -> {
                     markedEntities.remove(target.getUniqueId());
                     if (target.isValid()) target.setGlowing(false);
@@ -3925,9 +3970,8 @@ class DeadlyDiveActive implements PetAbility {
 
         final Monster finalTarget = target;
         final Location targetLoc = target.getLocation();
-        final double targetHealthPercent = target.getHealth() / target.getMaxHealth();
 
-        // Seuil d'exécution ajusté par niveau
+        // Seuil d'exécution ajusté par niveau (20% base, jusqu'à 25% au niveau max)
         double adjustedExecuteThreshold = executeThreshold + (petData.getStatMultiplier() - 1) * 0.05;
 
         // Animation du plongeon du phantom
@@ -3966,12 +4010,12 @@ class DeadlyDiveActive implements PetAbility {
 
                 ticks++;
             }
-        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+        }.runTaskTimer(JavaPlugin.getPlugin(ZombieZPlugin.class), 0L, 1L);
 
         return true;
     }
 
-    private void executeImpact(Player player, PetData petData, Monster target, double executeThreshold) {
+    private void executeImpact(Player player, PetData petData, Monster target, double adjustedExecuteThreshold) {
         Location impactLoc = target.getLocation();
         World world = impactLoc.getWorld();
 
@@ -3981,7 +4025,7 @@ class DeadlyDiveActive implements PetAbility {
 
         // Vérifier si c'est une exécution
         double healthPercent = target.getHealth() / target.getMaxHealth();
-        boolean isExecute = healthPercent <= executeThreshold;
+        boolean isExecute = healthPercent <= adjustedExecuteThreshold;
 
         if (isExecute) {
             // EXÉCUTION! Dégâts massifs pour tuer instantanément
@@ -3994,6 +4038,16 @@ class DeadlyDiveActive implements PetAbility {
             world.playSound(impactLoc, Sound.ENTITY_WITHER_BREAK_BLOCK, 0.5f, 1.5f);
 
             player.sendMessage("§a[Pet] §c§l💀 EXÉCUTION! §7La proie a été achevée!");
+
+            // Starpower: L'exécution soigne 20% HP au joueur si le pet a des étoiles
+            if (petData.getStarPower() > 0) {
+                double healAmount = player.getMaxHealth() * 0.20;
+                double newHealth = Math.min(player.getMaxHealth(), player.getHealth() + healAmount);
+                player.setHealth(newHealth);
+                player.sendMessage("§a[Pet] §d✦ Starpower: §a+" + (int)healAmount + " HP §7récupérés!");
+                world.spawnParticle(Particle.HEART, player.getLocation().add(0, 1.5, 0), 8, 0.3, 0.3, 0.3, 0);
+                world.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f);
+            }
         } else {
             // Dégâts normaux
             world.spawnParticle(Particle.CRIT, impactLoc.add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.1);
@@ -4002,7 +4056,7 @@ class DeadlyDiveActive implements PetAbility {
             world.playSound(impactLoc, Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.8f);
 
             player.sendMessage("§a[Pet] §c\uD83E\uDD87 " + (int)damage + " §7dégâts! §8(Execute si <" +
-                (int)(executeThreshold * 100) + "% HP)");
+                (int)(adjustedExecuteThreshold * 100) + "% HP)");
         }
 
         // Appliquer les dégâts
@@ -4319,7 +4373,7 @@ class ArcticRoarActive implements PetAbility {
         for (int ring = 1; ring <= 3; ring++) {
             final int currentRing = ring;
             Bukkit.getScheduler().runTaskLater(
-                Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                JavaPlugin.getPlugin(ZombieZPlugin.class),
                 () -> spawnIceRing(world, playerLoc, currentRing * 3),
                 ring * 3L
             );
@@ -4369,8 +4423,7 @@ class InkPuddlePassive implements PetAbility {
     private final double damagePerSecondPercent; // % des dégâts du joueur par seconde
     private final int puddleDurationTicks;       // 3s = 60 ticks
     private final double puddleRadius;           // Rayon de la flaque
-    private final Map<UUID, Integer> attackCounters = new HashMap<>();
-    private final List<InkPuddle> activePuddles = new ArrayList<>();
+    private final Map<UUID, Integer> attackCounters = new ConcurrentHashMap<>();
 
     public InkPuddlePassive(String id, String name, String desc, int attacksNeeded,
                             double slowPct, double dmgPct, int duration, double radius) {
@@ -4493,22 +4546,11 @@ class InkPuddlePassive implements PetAbility {
 
                 ticksAlive++;
             }
-        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+        }.runTaskTimer(JavaPlugin.getPlugin(ZombieZPlugin.class), 0L, 1L);
     }
 
     public int getAttackCount(UUID uuid) {
         return attackCounters.getOrDefault(uuid, 0);
-    }
-
-    // Classe interne pour tracker les flaques actives
-    private static class InkPuddle {
-        final Location center;
-        final long endTime;
-
-        InkPuddle(Location center, long endTime) {
-            this.center = center;
-            this.endTime = endTime;
-        }
     }
 }
 
@@ -4551,7 +4593,7 @@ class DarknessCloudActive implements PetAbility {
         // Collecter tous les monstres dans le rayon
         List<Monster> affectedMonsters = new ArrayList<>();
         for (Entity entity : player.getNearbyEntities(adjustedRadius, adjustedRadius, adjustedRadius)) {
-            if (entity instanceof Monster monster) {
+            if (entity instanceof Monster monster && monster.isValid() && !monster.isDead()) {
                 double distSq = entity.getLocation().distanceSquared(center);
                 if (distSq <= adjustedRadius * adjustedRadius) {
                     affectedMonsters.add(monster);
@@ -4572,15 +4614,29 @@ class DarknessCloudActive implements PetAbility {
         player.sendMessage("§a[Pet] §8§l🦑 NUAGE D'OBSCURITÉ! §7" + affectedMonsters.size() +
             " zombies confus s'attaquent entre eux!");
 
-        // Appliquer la confusion à tous les monstres
-        for (Monster monster : affectedMonsters) {
+        // Appliquer la confusion à tous les monstres et les faire se cibler entre eux
+        for (int i = 0; i < affectedMonsters.size(); i++) {
+            Monster monster = affectedMonsters.get(i);
+
             // Aveuglement pour l'effet visuel
             monster.addPotionEffect(new PotionEffect(
                 PotionEffectType.BLINDNESS, adjustedConfusion, 0, false, false));
             // Lenteur légère
             monster.addPotionEffect(new PotionEffect(
                 PotionEffectType.SLOWNESS, adjustedConfusion, 0, false, false));
+
+            // Faire cibler un autre monstre (rotation circulaire)
+            if (affectedMonsters.size() >= 2) {
+                Monster target = affectedMonsters.get((i + 1) % affectedMonsters.size());
+                if (monster instanceof Mob mob) {
+                    mob.setTarget(target);
+                }
+            }
         }
+
+        // Calculer les dégâts d'infight (basés sur les dégâts du joueur)
+        final double playerDamage = PetDamageUtils.getEffectiveDamage(player);
+        final double infightDamage = playerDamage * 0.3 * petData.getStatMultiplier();
 
         // Animation du nuage d'encre et combat entre monstres
         new BukkitRunnable() {
@@ -4591,7 +4647,12 @@ class DarknessCloudActive implements PetAbility {
             @Override
             public void run() {
                 if (ticksAlive >= cloudDuration) {
-                    // Dissipation du nuage
+                    // Dissipation du nuage - remettre le ciblage normal
+                    for (Monster monster : affectedMonsters) {
+                        if (monster.isValid() && !monster.isDead() && monster instanceof Mob mob) {
+                            mob.setTarget(player); // Remettre le joueur comme cible
+                        }
+                    }
                     world.spawnParticle(Particle.SMOKE, center.clone().add(0, 1, 0),
                         50, adjustedRadius * 0.5, 1, adjustedRadius * 0.5, 0.05);
                     world.playSound(center, Sound.BLOCK_FIRE_EXTINGUISH, 0.8f, 0.5f);
@@ -4623,15 +4684,12 @@ class DarknessCloudActive implements PetAbility {
                     affectedMonsters.removeIf(m -> !m.isValid() || m.isDead());
 
                     if (affectedMonsters.size() >= 2) {
-                        // Calculer les dégâts d'infight (basés sur les dégâts du joueur)
-                        double playerDamage = PetDamageUtils.getEffectiveDamage(player);
-                        double infightDamage = playerDamage * 0.3 * petData.getStatMultiplier();
-
                         // Chaque monstre attaque un voisin aléatoire
-                        for (Monster attacker : new ArrayList<>(affectedMonsters)) {
+                        for (int i = 0; i < affectedMonsters.size(); i++) {
+                            Monster attacker = affectedMonsters.get(i);
                             if (!attacker.isValid() || attacker.isDead()) continue;
 
-                            // Trouver une cible proche
+                            // Trouver la cible la plus proche
                             Monster target = null;
                             double minDist = Double.MAX_VALUE;
                             for (Monster potential : affectedMonsters) {
@@ -4644,17 +4702,31 @@ class DarknessCloudActive implements PetAbility {
                                 }
                             }
 
-                            if (target != null && minDist < 25) { // 5 blocs max
-                                // Attaquer!
-                                target.damage(infightDamage, attacker);
+                            if (target != null && minDist < 36) { // 6 blocs max
+                                // Maintenir le ciblage
+                                if (attacker instanceof Mob mob) {
+                                    mob.setTarget(target);
+                                }
+
+                                // Appliquer les dégâts (attribués au joueur pour le système ZombieZ)
+                                target.damage(infightDamage, player);
                                 petData.addDamage((long) infightDamage);
 
                                 // Effet visuel de l'attaque
-                                Location midPoint = attacker.getLocation().add(
-                                    target.getLocation()).multiply(0.5).add(0, 1, 0);
+                                Location attackerLoc = attacker.getLocation();
+                                Location targetLoc = target.getLocation();
+                                Location midPoint = attackerLoc.clone().add(targetLoc).multiply(0.5).add(0, 1, 0);
+
                                 world.spawnParticle(Particle.SWEEP_ATTACK, midPoint, 1, 0, 0, 0, 0);
-                                world.spawnParticle(Particle.SQUID_INK, target.getLocation().add(0, 1, 0),
-                                    5, 0.2, 0.2, 0.2, 0.05);
+                                world.spawnParticle(Particle.SQUID_INK, targetLoc.add(0, 1, 0),
+                                    8, 0.3, 0.3, 0.3, 0.05);
+                                world.spawnParticle(Particle.DAMAGE_INDICATOR, targetLoc,
+                                    3, 0.2, 0.2, 0.2, 0.1);
+
+                                // Son d'attaque
+                                if (Math.random() < 0.3) {
+                                    world.playSound(targetLoc, Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.5f, 0.8f);
+                                }
                             }
                         }
                     }
@@ -4662,7 +4734,7 @@ class DarknessCloudActive implements PetAbility {
 
                 ticksAlive++;
             }
-        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+        }.runTaskTimer(JavaPlugin.getPlugin(ZombieZPlugin.class), 0L, 1L);
 
         // Effet visuel initial (explosion d'encre)
         world.spawnParticle(Particle.SQUID_INK, center.clone().add(0, 1, 0),
@@ -4683,7 +4755,9 @@ class SwarmRetaliationPassive implements PetAbility {
     private final String description;
     private final double damagePercent;          // 15% des dégâts du joueur
     private final long baseCooldownMs;           // 2000ms = 2s
-    private final Map<UUID, Long> lastRetaliation = new HashMap<>();
+    private final Map<UUID, Long> lastRetaliation = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> lastMessage = new ConcurrentHashMap<>();
+    private static final long MESSAGE_COOLDOWN_MS = 5000; // 5s entre les messages
 
     public SwarmRetaliationPassive(String id, String name, String desc, double dmgPercent, long cooldownMs) {
         this.id = id;
@@ -4692,6 +4766,7 @@ class SwarmRetaliationPassive implements PetAbility {
         this.damagePercent = dmgPercent;
         this.baseCooldownMs = cooldownMs;
         PassiveAbilityCleanup.registerForCleanup(lastRetaliation);
+        PassiveAbilityCleanup.registerForCleanup(lastMessage);
     }
 
     @Override
@@ -4727,7 +4802,7 @@ class SwarmRetaliationPassive implements PetAbility {
         double closestDist = Double.MAX_VALUE;
 
         for (Entity entity : player.getNearbyEntities(5, 5, 5)) {
-            if (entity instanceof Monster monster) {
+            if (entity instanceof Monster monster && monster.isValid() && !monster.isDead()) {
                 double dist = entity.getLocation().distanceSquared(playerLoc);
                 if (dist < closestDist) {
                     closestDist = dist;
@@ -4739,15 +4814,13 @@ class SwarmRetaliationPassive implements PetAbility {
         if (target != null) {
             // Animation des 3 mini-abeilles qui attaquent
             final Monster finalTarget = target;
-            final Location targetLoc = target.getLocation();
 
             // Créer 3 trajectoires d'abeilles animées
             for (int i = 0; i < 3; i++) {
-                final int beeIndex = i;
                 final double angleOffset = (2 * Math.PI / 3) * i;
 
                 Bukkit.getScheduler().runTaskLater(
-                    Bukkit.getPluginManager().getPlugin("ZombieZ"),
+                    JavaPlugin.getPlugin(ZombieZPlugin.class),
                     () -> animateBeeAttack(player, petData, playerLoc.clone(), finalTarget, retaliationDamage / 3, angleOffset),
                     i * 2L
                 );
@@ -4756,11 +4829,18 @@ class SwarmRetaliationPassive implements PetAbility {
             // Son de l'essaim
             world.playSound(playerLoc, Sound.ENTITY_BEE_LOOP_AGGRESSIVE, 1.0f, 1.2f);
 
-            player.sendMessage("§a[Pet] §e🐝 REPRÉSAILLES! §7L'essaim contre-attaque!");
+            // Limiter les messages (1 message max toutes les 5 secondes)
+            long lastMsgTime = lastMessage.getOrDefault(uuid, 0L);
+            if (now - lastMsgTime >= MESSAGE_COOLDOWN_MS) {
+                lastMessage.put(uuid, now);
+                player.sendMessage("§a[Pet] §e🐝 REPRÉSAILLES! §7L'essaim contre-attaque!");
+            }
         }
     }
 
     private void animateBeeAttack(Player player, PetData petData, Location start, Monster target, double damage, double angleOffset) {
+        if (!target.isValid() || target.isDead()) return;
+
         World world = start.getWorld();
 
         new BukkitRunnable() {
@@ -4807,7 +4887,7 @@ class SwarmRetaliationPassive implements PetAbility {
 
                 ticks++;
             }
-        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+        }.runTaskTimer(JavaPlugin.getPlugin(ZombieZPlugin.class), 0L, 1L);
     }
 }
 
@@ -4988,12 +5068,14 @@ class SwarmFuryActive implements PetAbility {
 
                 ticksAlive++;
             }
-        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+        }.runTaskTimer(JavaPlugin.getPlugin(ZombieZPlugin.class), 0L, 1L);
 
         return true;
     }
 
     private void animateStingAttack(Location from, Monster target, double damage, Player player, PetData petData, World world) {
+        if (!target.isValid() || target.isDead()) return;
+
         Location targetLoc = target.getLocation().add(0, 1, 0);
         Vector direction = targetLoc.toVector().subtract(from.toVector()).normalize();
 
@@ -5030,7 +5112,7 @@ class SwarmFuryActive implements PetAbility {
 
                 ticks++;
             }
-        }.runTaskTimer(Bukkit.getPluginManager().getPlugin("ZombieZ"), 0L, 1L);
+        }.runTaskTimer(JavaPlugin.getPlugin(ZombieZPlugin.class), 0L, 1L);
     }
 }
 

@@ -91,8 +91,8 @@ public class ZoneManager {
         if (world == null) world = Bukkit.getWorlds().get(0);
 
         double x = config.getDouble("gameplay.spawn.x", 728.5);
-        double y = config.getDouble("gameplay.spawn.y", 95);
-        double z = config.getDouble("gameplay.spawn.z", 9979.5);
+        double y = config.getDouble("gameplay.spawn.y", 94);
+        double z = config.getDouble("gameplay.spawn.z", 9987.5);
         float yaw = (float) config.getDouble("gameplay.spawn.yaw", 180);
         float pitch = (float) config.getDouble("gameplay.spawn.pitch", 0);
 

@@ -7,6 +7,7 @@ import org.bukkit.*;
 import org.bukkit.entity.*;
 
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Capacité passive de renaissance - sauve le joueur de la mort
@@ -18,7 +19,7 @@ public class RebornPassive implements PetAbility {
     private final String description;
     private final double healthPercent;
     private final int cooldownSeconds;
-    private final Map<UUID, Long> lastReborn = new HashMap<>();
+    private final Map<UUID, Long> lastReborn = new ConcurrentHashMap<>();
 
     public RebornPassive(String id, String name, String desc, double health, int cooldown) {
         this.id = id;

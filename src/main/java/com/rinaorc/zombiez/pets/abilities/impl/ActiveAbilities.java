@@ -516,12 +516,17 @@ class FireNovaActive implements PetAbility {
 
         Collection<Entity> nearby = player.getNearbyEntities(adjustedRadius, adjustedRadius, adjustedRadius);
         for (Entity entity : nearby) {
-            if (entity instanceof Monster monster) {
+            if (entity instanceof Monster monster && monster.isValid() && !monster.isDead()) {
+                // Calculer les dégâts réels infligés
+                double healthBefore = monster.getHealth();
                 monster.damage(adjustedDamage, player);
+                double healthAfter = monster.isDead() ? 0 : monster.getHealth();
+                double actualDamage = healthBefore - healthAfter;
+
                 monster.setFireTicks(100); // 5 secondes de feu
-                petData.addDamage((long) adjustedDamage);
+                petData.addDamage((long) actualDamage);
                 hitCount++;
-                totalDamage += adjustedDamage;
+                totalDamage += actualDamage;
 
                 // Particules sur chaque cible touchée
                 world.spawnParticle(Particle.FLAME, monster.getLocation().add(0, 1, 0),
