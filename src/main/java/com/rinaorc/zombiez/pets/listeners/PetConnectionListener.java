@@ -4,6 +4,7 @@ import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.pets.PlayerPetData;
 import com.rinaorc.zombiez.pets.abilities.impl.CombatRegenPassive;
 import com.rinaorc.zombiez.pets.abilities.impl.PassiveAbilityCleanup;
+import com.rinaorc.zombiez.pets.display.PetDisplayManager;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.Player;
@@ -51,6 +52,9 @@ public class PetConnectionListener implements Listener {
 
         // Nettoyer les BukkitRunnable de CombatRegenPassive
         CombatRegenPassive.cleanupPlayer(event.getPlayer().getUniqueId());
+
+        // Nettoyer les maps de tracking de combat (playerTargets, targetTimestamps)
+        PetCombatListener.cleanupPlayer(event.getPlayer().getUniqueId());
     }
 
     /**
@@ -95,11 +99,17 @@ public class PetConnectionListener implements Listener {
 
     /**
      * Nettoie les pets quand un chunk est déchargé
+     * Supprime aussi les entrées dans les maps du DisplayManager pour éviter les fuites mémoire
      */
     @EventHandler
     public void onChunkUnload(ChunkUnloadEvent event) {
+        PetDisplayManager displayManager = plugin.getPetManager().getDisplayManager();
         for (Entity entity : event.getChunk().getEntities()) {
             if (isPetEntity(entity)) {
+                // Trouver le propriétaire du pet et nettoyer les maps
+                if (displayManager != null) {
+                    displayManager.cleanupEntityFromMaps(entity.getUniqueId());
+                }
                 entity.remove();
             }
         }

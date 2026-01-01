@@ -132,6 +132,13 @@ commands:
     permission: zombiez.recycle
     aliases: [recycler, recyclage, rec]
 
+  # Commandes Forge
+  forge:
+    description: Système de forge pour améliorer les équipements (+1 à +10)
+    usage: /<command> [admin]
+    permission: zombiez.forge
+    aliases: [forgeron, enhancement, ameliorer]
+
   # Commandes Économie
   prestige:
     description: Système de prestige

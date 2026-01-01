@@ -328,6 +328,7 @@ public class ItemManager {
 
     /**
      * Calcule les stats totales d'un joueur basées sur son équipement
+     * Inclut le bonus de forge sur chaque pièce d'équipement
      */
     public Map<StatType, Double> calculatePlayerStats(Player player) {
         UUID playerUuid = player.getUniqueId();
@@ -345,8 +346,10 @@ public class ItemManager {
             if (item != null && ZombieZItem.isZombieZItem(item)) {
                 ZombieZItem zItem = getOrRestoreItem(item);
                 if (zItem != null) {
+                    double forgeMultiplier = getForgeMultiplier(item);
                     for (var entry : zItem.getTotalStats().entrySet()) {
-                        totalStats.merge(entry.getKey(), entry.getValue(), Double::sum);
+                        double value = entry.getValue() * forgeMultiplier;
+                        totalStats.merge(entry.getKey(), value, Double::sum);
                     }
                 }
             }
@@ -357,8 +360,10 @@ public class ItemManager {
         if (ZombieZItem.isZombieZItem(mainHand)) {
             ZombieZItem zItem = getOrRestoreItem(mainHand);
             if (zItem != null) {
+                double forgeMultiplier = getForgeMultiplier(mainHand);
                 for (var entry : zItem.getTotalStats().entrySet()) {
-                    totalStats.merge(entry.getKey(), entry.getValue(), Double::sum);
+                    double value = entry.getValue() * forgeMultiplier;
+                    totalStats.merge(entry.getKey(), value, Double::sum);
                 }
             }
         }
@@ -368,8 +373,10 @@ public class ItemManager {
         if (ZombieZItem.isZombieZItem(offHand)) {
             ZombieZItem zItem = getOrRestoreItem(offHand);
             if (zItem != null) {
+                double forgeMultiplier = getForgeMultiplier(offHand);
                 for (var entry : zItem.getTotalStats().entrySet()) {
-                    totalStats.merge(entry.getKey(), entry.getValue(), Double::sum);
+                    double value = entry.getValue() * forgeMultiplier;
+                    totalStats.merge(entry.getKey(), value, Double::sum);
                 }
             }
         }
@@ -442,7 +449,7 @@ public class ItemManager {
     /**
      * Obtient un ZombieZItem depuis le cache, ou le restaure depuis le PDC si non trouvé
      */
-    private ZombieZItem getOrRestoreItem(ItemStack itemStack) {
+    public ZombieZItem getOrRestoreItem(ItemStack itemStack) {
         UUID uuid = ZombieZItem.getItemUUID(itemStack);
         if (uuid == null) return null;
 
@@ -636,6 +643,16 @@ public class ItemManager {
      */
     public com.rinaorc.zombiez.items.sets.SetBonusManager getSetBonusManager() {
         return plugin.getSetBonusManager();
+    }
+
+    /**
+     * Obtient le multiplicateur de forge pour un item
+     * Délègue au ForgeManager si disponible
+     */
+    private double getForgeMultiplier(ItemStack item) {
+        var forgeManager = plugin.getForgeManager();
+        if (forgeManager == null) return 1.0;
+        return forgeManager.getForgeMultiplier(item);
     }
     
     /**

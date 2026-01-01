@@ -94,6 +94,23 @@ public enum MicroEventType {
         100,            // Points de base (le jackpot donne plus)
         40,             // XP
         15              // Poids
+    ),
+
+    /**
+     * Colis Express - Un colis tombe du ciel
+     * Version mini du largage de ravitaillement, claim direct
+     */
+    SUPPLY_DROP(
+        "Colis Express",
+        "supply_drop",
+        "\uD83D\uDCE6", // 📦
+        "§b",
+        "Un colis tombe du ciel! Reclamez-le!",
+        Sound.ENTITY_FIREWORK_ROCKET_LAUNCH,
+        30 * 20,        // 30 secondes
+        150,            // Points de base
+        50,             // XP
+        20              // Poids
     );
 
     private final String displayName;

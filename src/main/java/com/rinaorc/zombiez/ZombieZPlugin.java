@@ -216,6 +216,10 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter
     private com.rinaorc.zombiez.recycling.RecycleGUI recycleGUI;
 
+    // Système de Forge (Enhancement +1 à +10)
+    @Getter
+    private com.rinaorc.zombiez.forge.ForgeManager forgeManager;
+
     // Système World Boss (événements aléatoires)
     @Getter
     private com.rinaorc.zombiez.worldboss.WorldBossManager worldBossManager;
@@ -431,6 +435,12 @@ public class ZombieZPlugin extends JavaPlugin {
         if (recycleManager != null) {
             log(Level.INFO, "§7Arrêt du système de recyclage...");
             recycleManager.shutdown();
+        }
+
+        // Cleanup du système de forge
+        if (forgeManager != null) {
+            log(Level.INFO, "§7Arrêt du système de forge...");
+            forgeManager.shutdown();
         }
 
         // Cleanup du système de parcours (Journey)
@@ -729,6 +739,12 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Recycle GUI - Interface de configuration du recyclage
         recycleGUI = new com.rinaorc.zombiez.recycling.RecycleGUI(this, recycleManager);
+
+        // ===== Système de Forge =====
+
+        // Forge Manager - Enhancement des items (+1 à +10)
+        forgeManager = new com.rinaorc.zombiez.forge.ForgeManager(this);
+        forgeManager.init();
     }
 
     /**
@@ -861,6 +877,11 @@ public class ZombieZPlugin extends JavaPlugin {
         com.rinaorc.zombiez.recycling.RecycleCommand recycleCmd = new com.rinaorc.zombiez.recycling.RecycleCommand(this);
         getCommand("recycle").setExecutor(recycleCmd);
         getCommand("recycle").setTabCompleter(recycleCmd);
+
+        // Commande Joueur - Forge
+        com.rinaorc.zombiez.forge.ForgeCommand forgeCmd = new com.rinaorc.zombiez.forge.ForgeCommand(this);
+        getCommand("forge").setExecutor(forgeCmd);
+        getCommand("forge").setTabCompleter(forgeCmd);
     }
 
     /**
@@ -1033,6 +1054,11 @@ public class ZombieZPlugin extends JavaPlugin {
         // Listener système World Boss
         if (worldBossManager != null) {
             pm.registerEvents(new com.rinaorc.zombiez.worldboss.WorldBossListener(this, worldBossManager), this);
+        }
+
+        // Listener système Forge
+        if (forgeManager != null) {
+            pm.registerEvents(new com.rinaorc.zombiez.forge.ForgeListener(this), this);
         }
     }
 

@@ -153,11 +153,8 @@ public class PerforationListener implements Listener {
         }
 
         // === T2: CHARGE GLACIALE - Bonus rebond sur Tir Glacial ===
-        if (perforationManager.isGlacialShot(uuid)) {
-            Talent chargeTalent = getActiveTalent(player, Talent.TalentEffectType.CALIBER);
-            if (chargeTalent != null) {
-                maxBounces += (int) chargeTalent.getValue(3); // +1 rebond supplémentaire
-            }
+        if (perforationManager.isGlacialShot(uuid) && chargeTalent != null) {
+            maxBounces += (int) chargeTalent.getValue(3); // +1 rebond supplémentaire
         }
 
         // === T8: HIVER ÉTERNEL - Rebonds étendus (avec cap pour éviter boucle infinie) ===
@@ -166,7 +163,6 @@ public class PerforationListener implements Listener {
         }
 
         // === T3: LIGNE DE GLACE - Créer ligne si 2+ rebonds (une seule fois par tir) ===
-        Talent iceTalent = getActiveTalent(player, Talent.TalentEffectType.FATAL_TRAJECTORY);
         if (iceTalent != null && !iceLineCreated && bounceCount >= (int) iceTalent.getValue(0)) {
             perforationManager.createIceLine(player, firstTargetLoc, target.getLocation());
             iceLineCreated = true;
