@@ -39,9 +39,10 @@ public class ForgeGUI implements InventoryHolder {
     private static final int SLOT_COST_INFO = 30;     // Info coût
     private static final int SLOT_CHANCE_INFO = 31;   // Info chance
     private static final int SLOT_PENALTY_INFO = 32;  // Info pénalité
-    private static final int SLOT_PROTECTION = 38;    // Pierre protection
-    private static final int SLOT_CHANCE = 40;        // Pierre chance
-    private static final int SLOT_FORGE = 42;         // Bouton forger
+    private static final int SLOT_PROTECTION = 37;    // Pierre protection
+    private static final int SLOT_BLESSED = 39;       // Pierre bénie
+    private static final int SLOT_CHANCE = 41;        // Pierre chance
+    private static final int SLOT_FORGE = 43;         // Bouton forger
     private static final int SLOT_POINTS = 4;         // Solde points
     private static final int SLOT_STATS = 49;         // Stats du joueur
     private static final int SLOT_CLOSE = 53;         // Fermer
@@ -55,6 +56,7 @@ public class ForgeGUI implements InventoryHolder {
     private ItemStack itemToForge = null;
     private boolean useProtection = false;
     private boolean useChance = false;
+    private boolean useBlessed = false;
 
     private static final DecimalFormat PERCENT_FORMAT = new DecimalFormat("0.#");
 
@@ -224,9 +226,13 @@ public class ForgeGUI implements InventoryHolder {
         double chance = forgeManager.getSuccessChance(itemToForge);
         int penalty = forgeManager.getFailurePenalty(itemToForge);
 
+        // La pierre bénie active les deux effets
+        boolean effectiveProtection = useProtection || useBlessed;
+        boolean effectiveChance = useChance || useBlessed;
+
         // Ajuster la chance si pierre utilisée
         double displayChance = chance;
-        if (useChance) {
+        if (effectiveChance) {
             displayChance = Math.min(1.0, chance + 0.15);
         }
 
@@ -249,8 +255,12 @@ public class ForgeGUI implements InventoryHolder {
         List<String> chanceLore = new ArrayList<>();
         chanceLore.add("");
         chanceLore.add("§7Chance de base: §f" + PERCENT_FORMAT.format(chance * 100) + "%");
-        if (useChance) {
-            chanceLore.add("§b+15% Pierre de Chance");
+        if (effectiveChance) {
+            if (useBlessed) {
+                chanceLore.add("§6+15% Pierre Bénie");
+            } else {
+                chanceLore.add("§b+15% Pierre de Chance");
+            }
             chanceLore.add("");
             chanceLore.add("§7Total: " + chanceColor + PERCENT_FORMAT.format(displayChance * 100) + "%");
         }
@@ -272,12 +282,16 @@ public class ForgeGUI implements InventoryHolder {
             penaltyLore.add("§7Phase §a§lSAFE§7:");
             penaltyLore.add("§7Pas de perte en cas d'échec!");
         } else {
-            if (useProtection) {
+            if (effectiveProtection) {
                 penaltyText = "§d§l🛡 Protégé";
                 penaltyMat = Material.AMETHYST_SHARD;
                 penaltyLore.add("");
                 penaltyLore.add("§7Pénalité normale: §c-" + penalty + " niveau(x)");
-                penaltyLore.add("§d→ Pierre de Protection active");
+                if (useBlessed) {
+                    penaltyLore.add("§6→ Pierre Bénie active");
+                } else {
+                    penaltyLore.add("§d→ Pierre de Protection active");
+                }
                 penaltyLore.add("§a→ Aucune perte en cas d'échec!");
             } else {
                 penaltyText = "§c§l⚠ -" + penalty + " niveau(x)";
@@ -302,6 +316,9 @@ public class ForgeGUI implements InventoryHolder {
      * Met à jour les slots des pierres
      */
     private void updateStoneSlots() {
+        // Désactiver les pierres simples si bénie active
+        boolean blockedByBlessed = useBlessed;
+
         // Pierre de protection
         int protectionCount = forgeManager.countProtectionStones(player);
         boolean hasProtection = protectionCount > 0;
@@ -313,7 +330,10 @@ public class ForgeGUI implements InventoryHolder {
         protLore.add("");
         protLore.add("§7Vous avez: " + (hasProtection ? "§a" : "§c") + protectionCount);
         protLore.add("");
-        if (useProtection) {
+        if (blockedByBlessed) {
+            protLore.add("§6§l★ Pierre Bénie active");
+            protLore.add("§8(Protection incluse)");
+        } else if (useProtection) {
             protLore.add("§a§l✓ ACTIVÉE");
             protLore.add("§7Clic pour désactiver");
         } else if (hasProtection) {
@@ -323,10 +343,40 @@ public class ForgeGUI implements InventoryHolder {
             protLore.add("§c§l✗ Aucune pierre");
         }
 
-        inventory.setItem(SLOT_PROTECTION, new ItemBuilder(useProtection ? Material.AMETHYST_BLOCK : Material.AMETHYST_SHARD)
-            .name((useProtection ? "§d§l" : "§7") + "🛡 Pierre de Protection")
+        inventory.setItem(SLOT_PROTECTION, new ItemBuilder(useProtection || blockedByBlessed ? Material.AMETHYST_BLOCK : Material.AMETHYST_SHARD)
+            .name((useProtection || blockedByBlessed ? "§d§l" : "§7") + "🛡 Pierre de Protection")
             .lore(protLore)
-            .glow(useProtection)
+            .glow(useProtection || blockedByBlessed)
+            .build());
+
+        // Pierre bénie (protection + chance)
+        int blessedCount = forgeManager.countBlessedStones(player);
+        boolean hasBlessed = blessedCount > 0;
+
+        List<String> blessedLore = new ArrayList<>();
+        blessedLore.add("");
+        blessedLore.add("§6Pierre Légendaire!");
+        blessedLore.add("§7Combine §dProtection §7+ §bChance§7.");
+        blessedLore.add("");
+        blessedLore.add("§d• Protection anti-perte");
+        blessedLore.add("§b• +15% chance de succès");
+        blessedLore.add("");
+        blessedLore.add("§7Vous avez: " + (hasBlessed ? "§a" : "§c") + blessedCount);
+        blessedLore.add("");
+        if (useBlessed) {
+            blessedLore.add("§6§l✓ ACTIVÉE");
+            blessedLore.add("§7Clic pour désactiver");
+        } else if (hasBlessed) {
+            blessedLore.add("§e§l○ Non utilisée");
+            blessedLore.add("§7Clic pour activer");
+        } else {
+            blessedLore.add("§c§l✗ Aucune pierre");
+        }
+
+        inventory.setItem(SLOT_BLESSED, new ItemBuilder(useBlessed ? Material.NETHER_STAR : Material.GLOWSTONE_DUST)
+            .name((useBlessed ? "§6§l" : "§7") + "✦ Pierre Bénie")
+            .lore(blessedLore)
+            .glow(useBlessed)
             .build());
 
         // Pierre de chance
@@ -340,7 +390,10 @@ public class ForgeGUI implements InventoryHolder {
         chanceLore.add("");
         chanceLore.add("§7Vous avez: " + (hasChance ? "§a" : "§c") + chanceCount);
         chanceLore.add("");
-        if (useChance) {
+        if (blockedByBlessed) {
+            chanceLore.add("§6§l★ Pierre Bénie active");
+            chanceLore.add("§8(Chance incluse)");
+        } else if (useChance) {
             chanceLore.add("§b§l✓ ACTIVÉE");
             chanceLore.add("§7Clic pour désactiver");
         } else if (hasChance) {
@@ -350,10 +403,10 @@ public class ForgeGUI implements InventoryHolder {
             chanceLore.add("§c§l✗ Aucune pierre");
         }
 
-        inventory.setItem(SLOT_CHANCE, new ItemBuilder(useChance ? Material.PRISMARINE_SHARD : Material.PRISMARINE_CRYSTALS)
-            .name((useChance ? "§b§l" : "§7") + "🍀 Pierre de Chance")
+        inventory.setItem(SLOT_CHANCE, new ItemBuilder(useChance || blockedByBlessed ? Material.PRISMARINE_SHARD : Material.PRISMARINE_CRYSTALS)
+            .name((useChance || blockedByBlessed ? "§b§l" : "§7") + "🍀 Pierre de Chance")
             .lore(chanceLore)
-            .glow(useChance)
+            .glow(useChance || blockedByBlessed)
             .build());
     }
 
@@ -489,6 +542,13 @@ public class ForgeGUI implements InventoryHolder {
      * Toggle pierre de protection
      */
     public void toggleProtection() {
+        // Désactiver si pierre bénie active
+        if (useBlessed) {
+            player.sendMessage("§c[Forge] §7Désactivez d'abord la Pierre Bénie!");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
+            return;
+        }
+
         if (forgeManager.countProtectionStones(player) > 0 || useProtection) {
             useProtection = !useProtection;
             refreshGUI();
@@ -503,12 +563,38 @@ public class ForgeGUI implements InventoryHolder {
      * Toggle pierre de chance
      */
     public void toggleChance() {
+        // Désactiver si pierre bénie active
+        if (useBlessed) {
+            player.sendMessage("§c[Forge] §7Désactivez d'abord la Pierre Bénie!");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
+            return;
+        }
+
         if (countChanceStones() > 0 || useChance) {
             useChance = !useChance;
             refreshGUI();
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, useChance ? 1.5f : 1f);
         } else {
             player.sendMessage("§c[Forge] §7Vous n'avez pas de Pierre de Chance!");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
+        }
+    }
+
+    /**
+     * Toggle pierre bénie
+     */
+    public void toggleBlessed() {
+        if (forgeManager.countBlessedStones(player) > 0 || useBlessed) {
+            useBlessed = !useBlessed;
+            // Désactiver les autres pierres quand bénie est activée
+            if (useBlessed) {
+                useProtection = false;
+                useChance = false;
+            }
+            refreshGUI();
+            player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, useBlessed ? 1.8f : 1f);
+        } else {
+            player.sendMessage("§c[Forge] §7Vous n'avez pas de Pierre Bénie!");
             player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
         }
     }
@@ -522,31 +608,45 @@ public class ForgeGUI implements InventoryHolder {
             return;
         }
 
+        // Calculer les effets actifs (bénie donne les deux)
+        boolean effectiveProtection = useProtection || useBlessed;
+        boolean effectiveChance = useChance || useBlessed;
+
         // Consommer les pierres si utilisées
-        if (useProtection) {
-            if (!forgeManager.consumeProtectionStone(player)) {
-                player.sendMessage("§c[Forge] §7Pierre de Protection introuvable!");
-                useProtection = false;
+        if (useBlessed) {
+            if (!forgeManager.consumeBlessedStone(player)) {
+                player.sendMessage("§c[Forge] §7Pierre Bénie introuvable!");
+                useBlessed = false;
                 refreshGUI();
                 return;
             }
-        }
+        } else {
+            if (useProtection) {
+                if (!forgeManager.consumeProtectionStone(player)) {
+                    player.sendMessage("§c[Forge] §7Pierre de Protection introuvable!");
+                    useProtection = false;
+                    refreshGUI();
+                    return;
+                }
+            }
 
-        if (useChance) {
-            if (!forgeManager.consumeChanceStone(player)) {
-                player.sendMessage("§c[Forge] §7Pierre de Chance introuvable!");
-                useChance = false;
-                refreshGUI();
-                return;
+            if (useChance) {
+                if (!forgeManager.consumeChanceStone(player)) {
+                    player.sendMessage("§c[Forge] §7Pierre de Chance introuvable!");
+                    useChance = false;
+                    refreshGUI();
+                    return;
+                }
             }
         }
 
-        // Tenter la forge
-        ForgeManager.ForgeResult result = forgeManager.attemptForge(player, itemToForge, useProtection, useChance);
+        // Tenter la forge avec les effets effectifs
+        ForgeManager.ForgeResult result = forgeManager.attemptForge(player, itemToForge, effectiveProtection, effectiveChance);
 
         // Réinitialiser les pierres
         useProtection = false;
         useChance = false;
+        useBlessed = false;
 
         // Afficher le résultat
         if (result.success()) {
@@ -619,6 +719,7 @@ public class ForgeGUI implements InventoryHolder {
     // Slots accessibles depuis le listener
     public static int getSlotItem() { return SLOT_ITEM; }
     public static int getSlotProtection() { return SLOT_PROTECTION; }
+    public static int getSlotBlessed() { return SLOT_BLESSED; }
     public static int getSlotChance() { return SLOT_CHANCE; }
     public static int getSlotForge() { return SLOT_FORGE; }
     public static int getSlotClose() { return SLOT_CLOSE; }

@@ -238,6 +238,10 @@ public class ForgeManager {
         ForgeResultType resultType;
         String message;
 
+        // Enregistrer les points dépensés
+        ForgeStats stats = getOrCreateStats(player.getUniqueId());
+        stats.recordPointsSpent(cost);
+
         if (success) {
             // Succès!
             newLevel = currentLevel + 1;
@@ -249,10 +253,12 @@ public class ForgeManager {
             player.playSound(player.getLocation(), Sound.BLOCK_ANVIL_USE, 1f, 1f + (newLevel * 0.1f));
 
             // Stats
-            getOrCreateStats(player.getUniqueId()).recordSuccess();
+            stats.recordSuccess();
+            stats.updateHighestLevel(newLevel);
 
             // Annonce serveur pour +10
             if (newLevel == MAX_FORGE_LEVEL) {
+                stats.recordMaxLevel();
                 announceMaxForge(player, item);
             }
 
@@ -274,7 +280,7 @@ public class ForgeManager {
             player.playSound(player.getLocation(), Sound.ENTITY_ITEM_BREAK, 1f, 0.8f);
 
             // Stats
-            getOrCreateStats(player.getUniqueId()).recordFailure();
+            stats.recordFailure();
         }
 
         // Mettre à jour la mission si existante
@@ -505,6 +511,19 @@ public class ForgeManager {
         ItemMeta meta = item.getItemMeta();
         PersistentDataContainer pdc = meta.getPersistentDataContainer();
         return pdc.has(new NamespacedKey("zombiez", "blessed_stone"), PersistentDataType.BYTE);
+    }
+
+    /**
+     * Compte les pierres bénies du joueur
+     */
+    public int countBlessedStones(Player player) {
+        int count = 0;
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (isBlessedStone(item)) {
+                count += item.getAmount();
+            }
+        }
+        return count;
     }
 
     /**

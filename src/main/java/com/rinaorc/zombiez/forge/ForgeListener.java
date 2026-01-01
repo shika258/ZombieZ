@@ -89,6 +89,12 @@ public class ForgeListener implements Listener {
             return;
         }
 
+        // Bouton Pierre Bénie
+        if (slot == ForgeGUI.getSlotBlessed()) {
+            gui.toggleBlessed();
+            return;
+        }
+
         // Bouton Pierre de Chance
         if (slot == ForgeGUI.getSlotChance()) {
             gui.toggleChance();
@@ -130,8 +136,8 @@ public class ForgeListener implements Listener {
         if (!(event.getInventory().getHolder() instanceof ForgeGUI gui)) return;
         if (!(event.getPlayer() instanceof Player player)) return;
 
-        // Rendre l'item s'il y en a un
-        ItemStack item = gui.getItemToForge();
+        // Rendre l'item s'il y en a un et nettoyer l'état
+        ItemStack item = gui.retrieveItem();
         if (item != null) {
             player.getInventory().addItem(item);
         }
