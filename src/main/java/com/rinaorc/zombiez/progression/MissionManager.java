@@ -1333,7 +1333,11 @@ public class MissionManager {
         ACHIEVEMENTS_UNLOCKED,    // Achievements débloqués
         TALENTS_USED,            // Utilisations de talents
         DEATHS,                  // Morts (pour les défis inversés)
-        RESPAWNS_AT_REFUGE       // Respawn au refuge
+        RESPAWNS_AT_REFUGE,      // Respawn au refuge
+
+        // Forge
+        FORGE_SUCCESS,           // Forges réussies
+        FORGE_MAX_LEVEL          // Items forgés +10
     }
 
     /**
