@@ -372,6 +372,11 @@ public class PetManager {
      */
     public void giveEgg(Player player, EggType type, int amount) {
         PlayerPetData data = getOrLoadPlayerData(player.getUniqueId());
+        if (data == null) {
+            player.sendMessage("§c[Pet] §7Erreur de chargement des données!");
+            plugin.log(Level.WARNING, "Impossible de charger PlayerPetData pour " + player.getName());
+            return;
+        }
         data.addEggs(type, amount);
         player.sendMessage("§a[Pet] §7Vous avez reçu §ex" + amount + " " + type.getColoredName() + "§7!");
     }
@@ -670,7 +675,8 @@ public class PetManager {
     private void startTasks() {
         // Tick des capacités passives toutes les 1 seconde (optimisé: uniquement joueurs avec pet)
         passiveTickTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            for (UUID uuid : playersWithEquippedPet) {
+            // Copie pour éviter ConcurrentModificationException lors de modifications concurrentes
+            for (UUID uuid : new ArrayList<>(playersWithEquippedPet)) {
                 Player player = Bukkit.getPlayer(uuid);
                 if (player != null && player.isOnline()) {
                     tickPassive(player);
@@ -680,8 +686,8 @@ public class PetManager {
 
         // Tick des capacités ultimes toutes les 0.5 seconde (optimisé: uniquement joueurs avec pet)
         ultimateTickTask = Bukkit.getScheduler().runTaskTimer(plugin, () -> {
-            // Itérer seulement sur les joueurs avec un pet équipé
-            for (UUID uuid : playersWithEquippedPet) {
+            // Copie pour éviter ConcurrentModificationException lors de modifications concurrentes
+            for (UUID uuid : new ArrayList<>(playersWithEquippedPet)) {
                 Player player = Bukkit.getPlayer(uuid);
                 if (player != null && player.isOnline()) {
                     autoActivateUltimate(player);

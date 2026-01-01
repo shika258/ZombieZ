@@ -159,8 +159,12 @@ public class ProgressionSystem {
         }
 
         // Effectuer l'achat
-        petData.removeFragments(cost);
         PetData pet = petData.getPet(targetPet);
+        if (pet == null) {
+            return new WildCardResult(false, "§cErreur: données du pet introuvables!", 0);
+        }
+
+        petData.removeFragments(cost);
         pet.addCopies(1);
 
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.5f);

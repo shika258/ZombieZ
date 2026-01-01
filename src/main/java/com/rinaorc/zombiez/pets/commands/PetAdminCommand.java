@@ -173,12 +173,16 @@ public class PetAdminCommand implements CommandExecutor, TabCompleter {
         level = Math.max(1, Math.min(9, level));
 
         PlayerPetData playerData = plugin.getPetManager().getOrLoadPlayerData(target.getUniqueId());
-        if (!playerData.hasPet(type)) {
+        if (playerData == null || !playerData.hasPet(type)) {
             sender.sendMessage("§c[Pet Admin] §7" + target.getName() + " ne possède pas ce pet!");
             return;
         }
 
         PetData petData = playerData.getPet(type);
+        if (petData == null) {
+            sender.sendMessage("§c[Pet Admin] §7Erreur: données du pet introuvables!");
+            return;
+        }
         petData.setLevel(level);
 
         // Ajuster les copies pour correspondre au niveau

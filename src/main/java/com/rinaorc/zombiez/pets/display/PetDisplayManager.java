@@ -1179,6 +1179,57 @@ public class PetDisplayManager {
     }
 
     /**
+     * Nettoie les maps pour une entité donnée (appelé lors du chunk unload)
+     * Évite les fuites mémoire quand un chunk contenant un pet est déchargé
+     */
+    public void cleanupEntityFromMaps(UUID entityUuid) {
+        // Trouver et supprimer l'entrée dans activePetEntities
+        UUID ownerToRemove = null;
+        for (Map.Entry<UUID, UUID> entry : activePetEntities.entrySet()) {
+            if (entry.getValue().equals(entityUuid)) {
+                ownerToRemove = entry.getKey();
+                break;
+            }
+        }
+
+        if (ownerToRemove != null) {
+            activePetEntities.remove(ownerToRemove);
+            playerWorlds.remove(ownerToRemove);
+            targetLocations.remove(ownerToRemove);
+
+            // Nettoyer aussi les hologrammes associés
+            UUID line1Uuid = hologramLine1.remove(ownerToRemove);
+            if (line1Uuid != null) {
+                Entity line1 = Bukkit.getEntity(line1Uuid);
+                if (line1 != null && line1.isValid()) {
+                    line1.remove();
+                }
+            }
+
+            UUID line2Uuid = hologramLine2.remove(ownerToRemove);
+            if (line2Uuid != null) {
+                Entity line2 = Bukkit.getEntity(line2Uuid);
+                if (line2 != null && line2.isValid()) {
+                    line2.remove();
+                }
+            }
+
+            UUID line3Uuid = hologramLine3.remove(ownerToRemove);
+            if (line3Uuid != null) {
+                Entity line3 = Bukkit.getEntity(line3Uuid);
+                if (line3 != null && line3.isValid()) {
+                    line3.remove();
+                }
+            }
+
+            // Nettoyer les caches de texte
+            lastLine1Text.remove(ownerToRemove);
+            lastLine2Text.remove(ownerToRemove);
+            lastLine3Text.remove(ownerToRemove);
+        }
+    }
+
+    /**
      * Vérifie si une entité est un pet
      */
     public boolean isPetEntity(Entity entity) {
