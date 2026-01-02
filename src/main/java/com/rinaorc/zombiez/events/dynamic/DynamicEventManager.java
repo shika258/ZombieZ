@@ -53,6 +53,10 @@ public class DynamicEventManager {
     private Map<DynamicEventType, Boolean> enabledTypes = new EnumMap<>(DynamicEventType.class);
     private Map<DynamicEventType, Double> typeWeightOverrides = new EnumMap<>(DynamicEventType.class);
 
+    // Anti-spam: Limites par zone (scaling inversé + cap)
+    private int maxDynamicEventsPerZone = 2;         // Cap absolu par zone
+    private boolean useInverseScaling = true;        // Active le scaling inversé
+
     // État
     private long lastEventTime = 0;
     private long nextEventTime = 0;
@@ -99,6 +103,10 @@ public class DynamicEventManager {
         spawnRadiusMin = config.getInt("dynamic-events.spawn-radius.min", 30);
         spawnRadiusMax = config.getInt("dynamic-events.spawn-radius.max", 60);
         playerCountMultiplier = config.getDouble("dynamic-events.player-count-multiplier", 0.15);
+
+        // Paramètres anti-spam (zone limits)
+        useInverseScaling = config.getBoolean("dynamic-events.zone-limits.inverse-scaling-enabled", true);
+        maxDynamicEventsPerZone = config.getInt("dynamic-events.zone-limits.max-dynamic-events-per-zone", 2);
 
         // Configuration par type d'événement
         ConfigurationSection typesSection = config.getConfigurationSection("dynamic-events.types");
@@ -286,26 +294,60 @@ public class DynamicEventManager {
 
     /**
      * Calcule les poids de chaque zone basé sur le nombre de joueurs
+     * Utilise le scaling inversé pour éviter la surcharge dans les zones peuplées
      */
     private Map<Zone, Double> calculateZoneWeights(Map<Zone, List<Player>> playersByZone) {
         Map<Zone, Double> weights = new HashMap<>();
 
+        // Pré-calculer les événements actifs par zone
+        Map<Integer, Integer> activeEventsByZone = getActiveEventsByZone();
+
         for (Map.Entry<Zone, List<Player>> entry : playersByZone.entrySet()) {
             Zone zone = entry.getKey();
             int playerCount = entry.getValue().size();
+            int activeInZone = activeEventsByZone.getOrDefault(zone.getId(), 0);
 
-            // Poids de base = 1.0
-            // Chaque joueur supplémentaire ajoute playerCountMultiplier (0.15 par défaut)
-            // Donc 5 joueurs = 1.0 + (4 * 0.15) = 1.6x la chance
-            double weight = 1.0 + ((playerCount - 1) * playerCountMultiplier);
+            // Skip si la zone a atteint sa limite
+            if (activeInZone >= maxDynamicEventsPerZone) {
+                continue; // Zone saturée, poids = 0 (pas dans la map)
+            }
+
+            double weight;
+            if (useInverseScaling) {
+                // Scaling inversé: plus de joueurs = légèrement plus de chance mais pas proportionnellement
+                // Formule: log2(joueurs + 1) pour une croissance logarithmique
+                // 1 joueur -> 1.0, 3 joueurs -> 2.0, 7 joueurs -> 3.0, 15 joueurs -> 4.0
+                weight = Math.log(playerCount + 1) / Math.log(2);
+            } else {
+                // Ancien système: croissance linéaire
+                weight = 1.0 + ((playerCount - 1) * playerCountMultiplier);
+            }
 
             // Bonus pour les zones plus avancées (encourage l'exploration)
             weight *= (1.0 + (zone.getId() * 0.02));
 
-            weights.put(zone, weight);
+            // Réduire le poids si déjà des événements actifs dans la zone
+            if (activeInZone > 0) {
+                weight *= (1.0 - (activeInZone * 0.4)); // -40% par event actif
+            }
+
+            weights.put(zone, Math.max(0.1, weight));
         }
 
         return weights;
+    }
+
+    /**
+     * Compte les événements dynamiques actifs par zone
+     */
+    public Map<Integer, Integer> getActiveEventsByZone() {
+        Map<Integer, Integer> result = new HashMap<>();
+        for (DynamicEvent event : activeEvents.values()) {
+            if (event.isValid() && event.getZone() != null) {
+                result.merge(event.getZone().getId(), 1, Integer::sum);
+            }
+        }
+        return result;
     }
 
     /**
@@ -589,9 +631,12 @@ public class DynamicEventManager {
      */
     public String getStats() {
         long nextIn = Math.max(0, (nextEventTime - System.currentTimeMillis()) / 1000);
+        Map<Integer, Integer> eventsByZone = getActiveEventsByZone();
+        int maxInAnyZone = eventsByZone.values().stream().mapToInt(Integer::intValue).max().orElse(0);
+
         return String.format(
-            "§7Événements actifs: §e%d/%d §7| Prochain: §e%ds §7| Total: §a%d §7(§2%d✓ §c%d✗§7)",
-            activeEvents.size(), maxConcurrentEvents, nextIn,
+            "§7Events: §e%d/%d §7(max/zone: §e%d§7/§6%d§7) | Prochain: §e%ds §7| Total: §a%d §7(§2%d✓ §c%d✗§7)",
+            activeEvents.size(), maxConcurrentEvents, maxInAnyZone, maxDynamicEventsPerZone, nextIn,
             totalEventsSpawned, totalEventsCompleted, totalEventsFailed
         );
     }
@@ -641,5 +686,33 @@ public class DynamicEventManager {
         this.minEventInterval = minSeconds * 20;
         this.maxEventInterval = maxSeconds * 20;
         scheduleNextEvent();
+    }
+
+    /**
+     * Obtient le nombre max d'événements dynamiques par zone
+     */
+    public int getMaxDynamicEventsPerZone() {
+        return maxDynamicEventsPerZone;
+    }
+
+    /**
+     * Définit le nombre max d'événements dynamiques par zone
+     */
+    public void setMaxDynamicEventsPerZone(int max) {
+        this.maxDynamicEventsPerZone = Math.max(1, max);
+    }
+
+    /**
+     * Active/désactive le scaling inversé
+     */
+    public void setUseInverseScaling(boolean use) {
+        this.useInverseScaling = use;
+    }
+
+    /**
+     * Vérifie si le scaling inversé est actif
+     */
+    public boolean isUseInverseScaling() {
+        return useInverseScaling;
     }
 }

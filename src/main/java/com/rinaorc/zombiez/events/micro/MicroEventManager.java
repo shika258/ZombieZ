@@ -50,6 +50,10 @@ public class MicroEventManager {
     private int spawnRadiusMin = 20;        // Distance min du joueur
     private int spawnRadiusMax = 40;        // Distance max du joueur
 
+    // Anti-spam: Limites par zone (scaling inversé + cap)
+    private int maxMicroEventsPerZone = 8;  // Cap absolu par zone
+    private boolean useInverseScaling = true; // Active le scaling inversé
+
     // Records de Course Mortelle par zone
     @Getter
     private final Map<Integer, DeathRaceRecord> deathRaceRecords = new ConcurrentHashMap<>();
@@ -68,6 +72,20 @@ public class MicroEventManager {
     public MicroEventManager(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.random = new Random();
+    }
+
+    /**
+     * Charge la configuration depuis events.yml
+     */
+    public void loadConfig(org.bukkit.configuration.file.FileConfiguration config) {
+        if (config == null) return;
+
+        // Paramètres anti-spam (zone limits)
+        useInverseScaling = config.getBoolean("dynamic-events.zone-limits.inverse-scaling-enabled", true);
+        maxMicroEventsPerZone = config.getInt("dynamic-events.zone-limits.max-micro-events-per-zone", 8);
+
+        plugin.log(java.util.logging.Level.INFO, "§a✓ Configuration micro-events chargée (max/zone: " +
+            maxMicroEventsPerZone + ", scaling inversé: " + useInverseScaling + ")");
     }
 
     /**
@@ -134,32 +152,108 @@ public class MicroEventManager {
 
     /**
      * Verifie et spawn des micro-evenements pour les joueurs eligibles
+     * Utilise un scaling inversé pour éviter la surcharge quand trop de joueurs sont dans la même zone
      */
     private void checkAndSpawnEvents() {
         if (!enabled) return;
 
         long now = System.currentTimeMillis();
 
+        // Pré-calculer les joueurs par zone pour le scaling inversé
+        Map<Integer, List<Player>> playersByZone = new HashMap<>();
+        Map<Integer, Integer> activeEventsByZone = new HashMap<>();
+
+        // Grouper les joueurs par zone
         for (Player player : Bukkit.getOnlinePlayers()) {
-            UUID playerId = player.getUniqueId();
-
-            // Skip si le joueur a deja un micro-event actif
-            if (activeEvents.containsKey(playerId)) continue;
-
-            // Skip si en cooldown
-            Long cooldownEnd = playerCooldowns.get(playerId);
-            if (cooldownEnd != null && now < cooldownEnd) continue;
-
-            // Skip si en zone safe
             Zone zone = plugin.getZoneManager().getZoneAt(player.getLocation());
-            if (zone == null || zone.isSafeZone() || zone.getId() == 0) continue;
-
-            // Skip si un gros evenement est actif pres du joueur
-            if (hasNearbyDynamicEvent(player)) continue;
-
-            // Spawn un micro-event
-            trySpawnEventForPlayer(player, zone);
+            if (zone != null && !zone.isSafeZone() && zone.getId() != 0) {
+                playersByZone.computeIfAbsent(zone.getId(), k -> new ArrayList<>()).add(player);
+            }
         }
+
+        // Compter les micro-events actifs par zone
+        for (MicroEvent event : activeEvents.values()) {
+            if (event.isValid() && event.getZone() != null) {
+                int zoneId = event.getZone().getId();
+                activeEventsByZone.merge(zoneId, 1, Integer::sum);
+            }
+        }
+
+        // Traiter chaque zone avec scaling inversé
+        for (Map.Entry<Integer, List<Player>> entry : playersByZone.entrySet()) {
+            int zoneId = entry.getKey();
+            List<Player> playersInZone = entry.getValue();
+            int activeInZone = activeEventsByZone.getOrDefault(zoneId, 0);
+
+            // Vérifier le cap absolu par zone
+            if (activeInZone >= maxMicroEventsPerZone) {
+                continue; // Zone saturée
+            }
+
+            // Calculer combien de joueurs peuvent tenter de spawn
+            // Scaling inversé: moins de chance individuelle quand plus de joueurs
+            int playersCount = playersInZone.size();
+            int maxCandidates = calculateMaxCandidates(playersCount, activeInZone);
+
+            // Mélanger pour équité
+            List<Player> shuffledPlayers = new ArrayList<>(playersInZone);
+            Collections.shuffle(shuffledPlayers, random);
+
+            int spawned = 0;
+            for (Player player : shuffledPlayers) {
+                if (spawned >= maxCandidates) break;
+                if (activeInZone + spawned >= maxMicroEventsPerZone) break;
+
+                UUID playerId = player.getUniqueId();
+
+                // Skip si le joueur a deja un micro-event actif
+                if (activeEvents.containsKey(playerId)) continue;
+
+                // Skip si en cooldown
+                Long cooldownEnd = playerCooldowns.get(playerId);
+                if (cooldownEnd != null && now < cooldownEnd) continue;
+
+                // Skip si un gros evenement est actif pres du joueur
+                if (hasNearbyDynamicEvent(player)) continue;
+
+                // Appliquer la chance de spawn avec scaling inversé
+                if (useInverseScaling && playersCount > 1) {
+                    double spawnChance = 1.0 / Math.sqrt(playersCount);
+                    if (random.nextDouble() > spawnChance) continue;
+                }
+
+                Zone zone = plugin.getZoneManager().getZoneAt(player.getLocation());
+                if (zone == null) continue;
+
+                // Spawn un micro-event
+                if (trySpawnEventForPlayer(player, zone)) {
+                    spawned++;
+                }
+            }
+        }
+    }
+
+    /**
+     * Calcule le nombre maximum de candidats pour spawn dans une zone
+     * Basé sur le scaling inversé (racine carrée)
+     */
+    private int calculateMaxCandidates(int playersInZone, int activeEventsInZone) {
+        if (!useInverseScaling) {
+            return playersInZone; // Pas de limite si scaling désactivé
+        }
+
+        // Formule: sqrt(joueurs) arrondi au supérieur
+        // 1 joueur -> 1 candidat
+        // 4 joueurs -> 2 candidats
+        // 9 joueurs -> 3 candidats
+        // 16 joueurs -> 4 candidats
+        // 50 joueurs -> 7-8 candidats
+        int maxFromScaling = (int) Math.ceil(Math.sqrt(playersInZone));
+
+        // Ne pas dépasser le cap restant
+        int remainingCap = maxMicroEventsPerZone - activeEventsInZone;
+
+        return Math.min(maxFromScaling, remainingCap);
     }
 
     /**
@@ -413,10 +507,56 @@ public class MicroEventManager {
      * Statistiques
      */
     public String getStats() {
+        // Calculer la répartition par zone
+        Map<Integer, Integer> eventsByZone = getActiveEventsByZone();
+        int maxInAnyZone = eventsByZone.values().stream().mapToInt(Integer::intValue).max().orElse(0);
+
         return String.format(
-            "§7Micro-events actifs: §e%d §7| Total: §a%d §7(§2%d✓ §c%d✗§7)",
-            activeEvents.size(), totalEventsSpawned, totalEventsCompleted, totalEventsFailed
+            "§7Micro-events: §e%d §7(max/zone: §e%d§7/§6%d§7) | Total: §a%d §7(§2%d✓ §c%d✗§7)",
+            activeEvents.size(), maxInAnyZone, maxMicroEventsPerZone,
+            totalEventsSpawned, totalEventsCompleted, totalEventsFailed
         );
+    }
+
+    /**
+     * Compte les micro-events actifs par zone
+     */
+    public Map<Integer, Integer> getActiveEventsByZone() {
+        Map<Integer, Integer> result = new HashMap<>();
+        for (MicroEvent event : activeEvents.values()) {
+            if (event.isValid() && event.getZone() != null) {
+                result.merge(event.getZone().getId(), 1, Integer::sum);
+            }
+        }
+        return result;
+    }
+
+    /**
+     * Obtient le nombre max de micro-events par zone
+     */
+    public int getMaxMicroEventsPerZone() {
+        return maxMicroEventsPerZone;
+    }
+
+    /**
+     * Définit le nombre max de micro-events par zone
+     */
+    public void setMaxMicroEventsPerZone(int max) {
+        this.maxMicroEventsPerZone = Math.max(1, max);
+    }
+
+    /**
+     * Active/désactive le scaling inversé
+     */
+    public void setUseInverseScaling(boolean use) {
+        this.useInverseScaling = use;
+    }
+
+    /**
+     * Vérifie si le scaling inversé est actif
+     */
+    public boolean isUseInverseScaling() {
+        return useInverseScaling;
     }
 
     /**
