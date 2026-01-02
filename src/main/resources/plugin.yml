@@ -213,6 +213,19 @@ commands:
     permission: zombiez.pet.admin
     aliases: [zzpet, pa]
 
+  # Commandes Leaderboards
+  lb:
+    description: Système de classements complet
+    usage: /<command> [top|me|compare|rewards|season|help]
+    permission: zombiez.leaderboard
+    aliases: [leaderboard, classement, classements, rank, ranking]
+
+  lbadmin:
+    description: Administration des classements
+    usage: /<command> <refresh|reset|ban|unban|flag|season|set|distribute|stats>
+    permission: zombiez.admin.leaderboard
+    aliases: [zzlb, lba]
+
 # Permissions
 permissions:
   # Permission wildcard admin
@@ -234,6 +247,7 @@ permissions:
       zombiez.admin.class: true
       zombiez.admin.economy: true
       zombiez.pet.admin: true
+      zombiez.admin.leaderboard: true
 
   zombiez.admin.items:
     description: Gestion des items procéduraux
@@ -269,6 +283,10 @@ permissions:
 
   zombiez.admin.economy:
     description: Gestion de l'économie des joueurs (points/gemmes)
+    default: op
+
+  zombiez.admin.leaderboard:
+    description: Administration des classements
     default: op
 
   zombiez.pet.admin:
@@ -314,6 +332,7 @@ permissions:
       zombiez.pet.use: true
       zombiez.recycle: true
       zombiez.forge: true
+      zombiez.leaderboard: true
 
   zombiez.spawn:
     description: Utiliser /spawn
@@ -369,6 +388,10 @@ permissions:
 
   zombiez.forge:
     description: Accès au système de forge
+    default: true
+
+  zombiez.leaderboard:
+    description: Accès aux classements
     default: true
 
   zombiez.forge.admin:

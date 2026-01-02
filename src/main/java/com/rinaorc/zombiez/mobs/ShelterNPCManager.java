@@ -47,10 +47,10 @@ public class ShelterNPCManager implements Listener {
     // CONFIGURATION - Limites et comportement du spawn
     // ═══════════════════════════════════════════════════════════════════════════
 
-    // Limites de NPCs par refuge
-    private static final int MIN_NPCS_PER_REFUGE = 4;        // Minimum garanti par refuge (x2)
-    private static final int MAX_NPCS_PER_REFUGE = 10;       // Maximum par refuge (x2)
-    private static final int GLOBAL_MAX_NPCS = 80;           // Maximum total sur le serveur (x2)
+    // Limites de NPCs par refuge (réduit de 30%)
+    private static final int MIN_NPCS_PER_REFUGE = 3;        // Minimum garanti par refuge
+    private static final int MAX_NPCS_PER_REFUGE = 7;        // Maximum par refuge
+    private static final int GLOBAL_MAX_NPCS = 56;           // Maximum total sur le serveur
 
     // Timing et chances de spawn
     private static final int SPAWN_CHECK_INTERVAL_TICKS = 400;  // 20 secondes (plus rapide)

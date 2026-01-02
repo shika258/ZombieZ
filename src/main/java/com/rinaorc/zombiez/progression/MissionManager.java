@@ -1073,6 +1073,13 @@ public class MissionManager {
         if (mission.getType() == MissionType.DAILY) {
             updateProgress(player, MissionTracker.DAILY_MISSIONS_COMPLETED, 1);
         }
+
+        // ============ LEADERBOARD MISSIONS COMPLÉTÉES ============
+        var lbManager = plugin.getNewLeaderboardManager();
+        if (lbManager != null) {
+            lbManager.incrementScore(player.getUniqueId(), player.getName(),
+                com.rinaorc.zombiez.leaderboards.LeaderboardType.MISSIONS_COMPLETED, 1);
+        }
     }
 
     /**

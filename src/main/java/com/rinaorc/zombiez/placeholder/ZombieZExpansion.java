@@ -1259,10 +1259,20 @@ public class ZombieZExpansion extends PlaceholderExpansion {
     }
 
     private String getLeaderboardRank(Player player, String type) {
-        if (plugin.getLeaderboardManager() == null) return "-";
+        var manager = plugin.getNewLeaderboardManager();
+        if (manager == null) return "-";
         try {
-            var leaderboardType = com.rinaorc.zombiez.progression.LeaderboardManager.LeaderboardType.valueOf(type);
-            int rank = plugin.getLeaderboardManager().getPlayerRank(player.getUniqueId(), leaderboardType);
+            // Convertir le type string en LeaderboardType
+            com.rinaorc.zombiez.leaderboards.LeaderboardType lbType = switch (type.toUpperCase()) {
+                case "KILLS", "KILLS_TOTAL" -> com.rinaorc.zombiez.leaderboards.LeaderboardType.KILLS_TOTAL;
+                case "LEVEL" -> com.rinaorc.zombiez.leaderboards.LeaderboardType.LEVEL;
+                case "POINTS", "POINTS_EARNED" -> com.rinaorc.zombiez.leaderboards.LeaderboardType.POINTS_EARNED;
+                case "ZONE", "MAX_ZONE" -> com.rinaorc.zombiez.leaderboards.LeaderboardType.MAX_ZONE;
+                case "BOSS_KILLS" -> com.rinaorc.zombiez.leaderboards.LeaderboardType.BOSS_KILLS;
+                case "PLAYTIME" -> com.rinaorc.zombiez.leaderboards.LeaderboardType.PLAYTIME;
+                default -> com.rinaorc.zombiez.leaderboards.LeaderboardType.valueOf(type.toUpperCase());
+            };
+            int rank = manager.getPlayerRank(player.getUniqueId(), lbType, com.rinaorc.zombiez.leaderboards.LeaderboardPeriod.ALL_TIME);
             return rank > 0 ? "#" + rank : "-";
         } catch (Exception e) {
             return "-";

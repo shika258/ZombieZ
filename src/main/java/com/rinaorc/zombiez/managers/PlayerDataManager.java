@@ -662,6 +662,13 @@ public class PlayerDataManager {
                         achievementManager.checkAndUnlock(player, "survivor_3", (int) Math.min(totalPlaytime, Integer.MAX_VALUE));
                         achievementManager.checkAndUnlock(player, "veteran", (int) Math.min(totalPlaytime, Integer.MAX_VALUE));
                         achievementManager.checkAndUnlock(player, "ancient", (int) Math.min(totalPlaytime, Integer.MAX_VALUE));
+
+                        // Mettre à jour le leaderboard de playtime (toutes les 60 secondes)
+                        var lbManager = plugin.getNewLeaderboardManager();
+                        if (lbManager != null) {
+                            lbManager.incrementScore(player.getUniqueId(), player.getName(),
+                                com.rinaorc.zombiez.leaderboards.LeaderboardType.PLAYTIME, 60);
+                        }
                     }
                 }
 

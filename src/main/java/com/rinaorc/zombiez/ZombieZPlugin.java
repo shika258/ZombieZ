@@ -86,6 +86,8 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter
     private LeaderboardManager leaderboardManager;
     @Getter
+    private com.rinaorc.zombiez.leaderboards.LeaderboardManager newLeaderboardManager;
+    @Getter
     private MissionManager missionManager;
     @Getter
     private BattlePassManager battlePassManager;
@@ -445,6 +447,12 @@ public class ZombieZPlugin extends JavaPlugin {
             forgeManager.shutdown();
         }
 
+        // Cleanup du nouveau système de leaderboards
+        if (newLeaderboardManager != null) {
+            log(Level.INFO, "§7Arrêt du système de leaderboards...");
+            newLeaderboardManager.shutdown();
+        }
+
         // Cleanup du système de parcours (Journey)
         if (journeyManager != null) {
             log(Level.INFO, "§7Arrêt du système de journal...");
@@ -556,8 +564,11 @@ public class ZombieZPlugin extends JavaPlugin {
         // Skill Tree Manager - Compétences
         skillTreeManager = new SkillTreeManager(this);
 
-        // Leaderboard Manager - Classements
+        // Leaderboard Manager - Classements (ancien système)
         leaderboardManager = new LeaderboardManager(this);
+
+        // Nouveau Leaderboard Manager - Système complet avec saisons, périodes et anti-triche
+        newLeaderboardManager = new com.rinaorc.zombiez.leaderboards.LeaderboardManager(this);
 
         // Mission Manager - Missions journalières/hebdomadaires
         missionManager = new MissionManager(this);
@@ -897,6 +908,15 @@ public class ZombieZPlugin extends JavaPlugin {
         com.rinaorc.zombiez.forge.ForgeCommand forgeCmd = new com.rinaorc.zombiez.forge.ForgeCommand(this);
         getCommand("forge").setExecutor(forgeCmd);
         getCommand("forge").setTabCompleter(forgeCmd);
+
+        // Commandes Leaderboards (nouveau système)
+        com.rinaorc.zombiez.leaderboards.commands.LeaderboardCommand lbCmd = new com.rinaorc.zombiez.leaderboards.commands.LeaderboardCommand(this);
+        getCommand("lb").setExecutor(lbCmd);
+        getCommand("lb").setTabCompleter(lbCmd);
+
+        com.rinaorc.zombiez.leaderboards.commands.LeaderboardAdminCommand lbAdminCmd = new com.rinaorc.zombiez.leaderboards.commands.LeaderboardAdminCommand(this);
+        getCommand("lbadmin").setExecutor(lbAdminCmd);
+        getCommand("lbadmin").setTabCompleter(lbAdminCmd);
     }
 
     /**
@@ -1074,6 +1094,11 @@ public class ZombieZPlugin extends JavaPlugin {
         // Listener système Forge
         if (forgeManager != null) {
             pm.registerEvents(new com.rinaorc.zombiez.forge.ForgeListener(this), this);
+        }
+
+        // Listener système Leaderboards (nouveau système complet)
+        if (newLeaderboardManager != null) {
+            pm.registerEvents(new com.rinaorc.zombiez.leaderboards.LeaderboardListener(this), this);
         }
     }
 
