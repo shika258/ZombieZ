@@ -26,6 +26,9 @@ public class LeaderboardRewardsGUI implements InventoryHolder {
     private final Player player;
     private final Inventory inventory;
     private List<LeaderboardManager.PendingReward> rewards = new ArrayList<>();
+    private final Set<Long> claimingRewards = new HashSet<>(); // Anti double-clic
+    private boolean isClaimingAll = false; // Empêche les clics pendant claimAll
+    private boolean isLoading = true; // Indicateur de chargement
 
     private static final int GUI_SIZE = 54;
 
@@ -39,10 +42,23 @@ public class LeaderboardRewardsGUI implements InventoryHolder {
     }
 
     private void loadRewards() {
-        plugin.getLeaderboardManager().getPendingRewards(player.getUniqueId())
+        // Afficher le chargement
+        isLoading = true;
+        build();
+
+        plugin.getNewLeaderboardManager().getPendingRewards(player.getUniqueId())
             .thenAccept(pending -> {
                 this.rewards = pending;
+                this.isLoading = false;
                 Bukkit.getScheduler().runTask(plugin, this::build);
+            })
+            .exceptionally(ex -> {
+                this.isLoading = false;
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    player.sendMessage("§c✗ Erreur lors du chargement des récompenses.");
+                    build();
+                });
+                return null;
             });
     }
 
@@ -54,6 +70,13 @@ public class LeaderboardRewardsGUI implements InventoryHolder {
 
         // Titre
         inventory.setItem(4, createTitleItem());
+
+        // Indicateur de chargement
+        if (isLoading) {
+            inventory.setItem(22, createLoadingItem());
+            inventory.setItem(45, createBackItem());
+            return;
+        }
 
         if (rewards.isEmpty()) {
             // Message "aucune récompense"
@@ -111,6 +134,19 @@ public class LeaderboardRewardsGUI implements InventoryHolder {
         lore.add(Component.empty());
         lore.add(Component.text("§e" + rewards.size() + " récompense(s) en attente"));
 
+        meta.lore(lore);
+        item.setItemMeta(meta);
+        return item;
+    }
+
+    private ItemStack createLoadingItem() {
+        ItemStack item = new ItemStack(Material.CLOCK);
+        ItemMeta meta = item.getItemMeta();
+        meta.displayName(Component.text("§e§l⟳ Chargement..."));
+        List<Component> lore = new ArrayList<>();
+        lore.add(Component.empty());
+        lore.add(Component.text("§7Récupération de tes récompenses"));
+        lore.add(Component.text("§7en cours..."));
         meta.lore(lore);
         item.setItemMeta(meta);
         return item;
@@ -228,6 +264,12 @@ public class LeaderboardRewardsGUI implements InventoryHolder {
         int slot = event.getRawSlot();
         if (slot < 0 || slot >= GUI_SIZE) return;
 
+        // Bloquer les actions pendant le chargement (sauf retour)
+        if (isLoading && slot != 45) {
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
+            return;
+        }
+
         // Retour
         if (slot == 45) {
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 0.8f);
@@ -244,7 +286,8 @@ public class LeaderboardRewardsGUI implements InventoryHolder {
         // Réclamer une récompense spécifique
         ItemStack clicked = event.getCurrentItem();
         if (clicked != null && clicked.getType() != Material.GRAY_STAINED_GLASS_PANE &&
-            clicked.getType() != Material.BARRIER && clicked.getType() != Material.CHEST) {
+            clicked.getType() != Material.BARRIER && clicked.getType() != Material.CHEST &&
+            clicked.getType() != Material.CLOCK) {
 
             // Trouver la récompense correspondante
             int rewardIndex = getRewardIndexFromSlot(slot);
@@ -271,31 +314,83 @@ public class LeaderboardRewardsGUI implements InventoryHolder {
     }
 
     private void claimReward(LeaderboardManager.PendingReward reward) {
+        // Vérification anti double-clic
+        if (isClaimingAll || claimingRewards.contains(reward.getId())) {
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
+            return;
+        }
+
+        claimingRewards.add(reward.getId());
         player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.7f, 1.2f);
 
-        plugin.getLeaderboardManager().claimReward(player.getUniqueId(), reward.getId())
+        plugin.getNewLeaderboardManager().claimReward(player.getUniqueId(), reward.getId())
             .thenAccept(success -> {
-                if (success) {
-                    Bukkit.getScheduler().runTask(plugin, () -> {
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    claimingRewards.remove(reward.getId());
+                    if (success) {
                         rewards.remove(reward);
                         build();
-                    });
-                }
+                    } else {
+                        // Son d'erreur si échec
+                        player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.7f, 1.0f);
+                        player.sendMessage("§c✗ Impossible de réclamer cette récompense.");
+                    }
+                });
+            })
+            .exceptionally(ex -> {
+                Bukkit.getScheduler().runTask(plugin, () -> {
+                    claimingRewards.remove(reward.getId());
+                    player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 0.7f, 1.0f);
+                    player.sendMessage("§c✗ Erreur lors de la réclamation.");
+                });
+                return null;
             });
     }
 
     private void claimAll() {
-        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.7f, 1.0f);
-
-        for (LeaderboardManager.PendingReward reward : new ArrayList<>(rewards)) {
-            plugin.getLeaderboardManager().claimReward(player.getUniqueId(), reward.getId());
+        // Vérification anti double-clic
+        if (isClaimingAll || rewards.isEmpty()) {
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 0.5f, 0.5f);
+            return;
         }
 
-        Bukkit.getScheduler().runTaskLater(plugin, () -> {
-            rewards.clear();
-            build();
-            player.sendMessage("§a§l✓ §aToutes les récompenses ont été réclamées!");
-        }, 10L);
+        isClaimingAll = true;
+        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.7f, 1.0f);
+        player.sendMessage("§e⟳ §7Réclamation en cours...");
+
+        List<LeaderboardManager.PendingReward> toProcess = new ArrayList<>(rewards);
+        java.util.concurrent.atomic.AtomicInteger successCount = new java.util.concurrent.atomic.AtomicInteger(0);
+        java.util.concurrent.atomic.AtomicInteger processedCount = new java.util.concurrent.atomic.AtomicInteger(0);
+
+        for (LeaderboardManager.PendingReward reward : toProcess) {
+            plugin.getNewLeaderboardManager().claimReward(player.getUniqueId(), reward.getId())
+                .thenAccept(success -> {
+                    if (success) successCount.incrementAndGet();
+                    int processed = processedCount.incrementAndGet();
+
+                    // Quand toutes les récompenses sont traitées
+                    if (processed >= toProcess.size()) {
+                        Bukkit.getScheduler().runTask(plugin, () -> {
+                            isClaimingAll = false;
+                            rewards.clear();
+                            loadRewards(); // Recharger pour s'assurer de la cohérence
+
+                            int claimed = successCount.get();
+                            if (claimed == toProcess.size()) {
+                                player.sendMessage("§a§l✓ §a" + claimed + " récompense(s) réclamée(s) avec succès!");
+                                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+                            } else {
+                                player.sendMessage("§e⚠ §7" + claimed + "/" + toProcess.size() + " récompenses réclamées.");
+                                player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_PLING, 0.7f, 0.8f);
+                            }
+                        });
+                    }
+                })
+                .exceptionally(ex -> {
+                    processedCount.incrementAndGet();
+                    return null;
+                });
+        }
     }
 
     public void open() {

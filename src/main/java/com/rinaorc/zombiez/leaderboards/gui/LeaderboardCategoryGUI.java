@@ -123,7 +123,7 @@ public class LeaderboardCategoryGUI implements InventoryHolder {
         lore.add(Component.empty());
 
         // Top 5 preview
-        LeaderboardManager manager = plugin.getLeaderboardManager();
+        LeaderboardManager manager = plugin.getNewLeaderboardManager();
         List<LeaderboardEntry> top5 = manager.getTopEntries(type, period, 5);
 
         lore.add(Component.text("§6§lTop 5:"));
@@ -198,7 +198,7 @@ public class LeaderboardCategoryGUI implements InventoryHolder {
         // Rafraîchir
         if (slot == 49) {
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.2f);
-            plugin.getLeaderboardManager().forceRefreshAll();
+            plugin.getNewLeaderboardManager().forceRefreshAll();
             player.sendMessage("§a§l⟳ §aClassements actualisés!");
             build();
             return;

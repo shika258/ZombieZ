@@ -63,7 +63,7 @@ public class LeaderboardPlayerGUI implements InventoryHolder {
         }
 
         // Classements par catégorie
-        LeaderboardManager manager = plugin.getLeaderboardManager();
+        LeaderboardManager manager = plugin.getNewLeaderboardManager();
         Map<LeaderboardType, Map<LeaderboardPeriod, Integer>> allRanks =
             manager.getAllPlayerRanks(targetUuid);
 

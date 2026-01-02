@@ -2,6 +2,9 @@ package com.rinaorc.zombiez.commands.player;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.data.PlayerData;
+import com.rinaorc.zombiez.leaderboards.LeaderboardEntry;
+import com.rinaorc.zombiez.leaderboards.LeaderboardPeriod;
+import com.rinaorc.zombiez.leaderboards.LeaderboardType;
 import com.rinaorc.zombiez.progression.*;
 import com.rinaorc.zombiez.progression.gui.*;
 import org.bukkit.command.Command;
@@ -230,8 +233,21 @@ public class ProgressionCommand implements CommandExecutor, TabCompleter {
     }
 
     private void showLeaderboard(Player player, String type) {
-        LeaderboardManager lb = plugin.getLeaderboardManager();
-        
+        var lb = plugin.getNewLeaderboardManager();
+        if (lb == null) {
+            player.sendMessage("§cLe système de classements n'est pas disponible.");
+            return;
+        }
+
+        LeaderboardType lbType = switch (type) {
+            case "kills", "zombies" -> LeaderboardType.KILLS_TOTAL;
+            case "level", "niveau" -> LeaderboardType.LEVEL;
+            case "points" -> LeaderboardType.POINTS_EARNED;
+            case "zones" -> LeaderboardType.MAX_ZONE;
+            case "bosses" -> LeaderboardType.BOSS_KILLS;
+            default -> LeaderboardType.KILLS_TOTAL;
+        };
+
         String title = switch (type) {
             case "kills", "zombies" -> "§c☠ Top Kills Zombies";
             case "level", "niveau" -> "§e★ Top Niveaux";
@@ -240,18 +256,18 @@ public class ProgressionCommand implements CommandExecutor, TabCompleter {
             case "bosses" -> "§d⚔ Top Boss Kills";
             default -> "§c☠ Top Kills Zombies";
         };
-        
+
         player.sendMessage("");
         player.sendMessage(title);
         player.sendMessage("§7═══════════════════════");
-        
-        List<LeaderboardManager.LeaderboardEntry> entries = lb.getTopEntries(type, 10);
-        
+
+        List<LeaderboardEntry> entries = lb.getTopEntries(lbType, LeaderboardPeriod.ALL_TIME, 10);
+
         if (entries.isEmpty()) {
             player.sendMessage("§7  Aucune donnée disponible");
         } else {
             int rank = 1;
-            for (LeaderboardManager.LeaderboardEntry entry : entries) {
+            for (LeaderboardEntry entry : entries) {
                 String rankColor = switch (rank) {
                     case 1 -> "§6§l";
                     case 2 -> "§7§l";
@@ -264,14 +280,14 @@ public class ProgressionCommand implements CommandExecutor, TabCompleter {
                     case 3 -> "§c🥉";
                     default -> "§f#" + rank;
                 };
-                
+
                 player.sendMessage(medal + " " + rankColor + entry.getPlayerName() + " §7- §e" + formatNumber(entry.getValue()));
                 rank++;
             }
         }
-        
+
         // Position du joueur
-        int playerRank = lb.getPlayerRank(player.getUniqueId(), type);
+        int playerRank = lb.getPlayerRank(player.getUniqueId(), lbType, LeaderboardPeriod.ALL_TIME);
         if (playerRank > 0) {
             player.sendMessage("§7═══════════════════════");
             player.sendMessage("§eVotre position: §f#" + playerRank);

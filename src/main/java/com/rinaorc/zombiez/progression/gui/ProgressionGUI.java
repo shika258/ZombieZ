@@ -119,13 +119,16 @@ public class ProgressionGUI implements Listener {
             .build());
         
         // Classements
+        var lbManager = plugin.getNewLeaderboardManager();
+        int killRank = lbManager != null ? lbManager.getPlayerRank(player.getUniqueId(), LeaderboardType.KILLS_TOTAL) : -1;
+        int levelRank = lbManager != null ? lbManager.getPlayerRank(player.getUniqueId(), LeaderboardType.LEVEL) : -1;
         inv.setItem(24, new ItemBuilder(Material.DIAMOND)
             .name("§b🏆 Classements")
             .lore(
                 "§7Vois les meilleurs joueurs",
                 "",
-                "§7Ton rang Kills: §e#" + plugin.getLeaderboardManager().getPlayerRank(player.getUniqueId(), LeaderboardType.KILLS),
-                "§7Ton rang Niveau: §e#" + plugin.getLeaderboardManager().getPlayerRank(player.getUniqueId(), LeaderboardType.LEVEL),
+                "§7Ton rang Kills: §e#" + (killRank > 0 ? killRank : "-"),
+                "§7Ton rang Niveau: §e#" + (levelRank > 0 ? levelRank : "-"),
                 "",
                 "§eClique pour ouvrir"
             )
@@ -336,8 +339,8 @@ public class ProgressionGUI implements Listener {
      */
     public void openLeaderboardMenu(Player player, LeaderboardType type) {
         Inventory inv = Bukkit.createInventory(null, 54, LEADERBOARD_TITLE + " - " + type.getDisplayName());
-        
-        LeaderboardManager lm = plugin.getLeaderboardManager();
+
+        LeaderboardManager lm = plugin.getNewLeaderboardManager();
         
         // Décoration
         fillBorder(inv, Material.LIGHT_BLUE_STAINED_GLASS_PANE);

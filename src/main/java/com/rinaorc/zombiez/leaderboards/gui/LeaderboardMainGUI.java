@@ -192,7 +192,7 @@ public class LeaderboardMainGUI implements InventoryHolder {
         lore.add(Component.empty());
 
         // Obtenir les meilleurs classements
-        LeaderboardManager manager = plugin.getLeaderboardManager();
+        LeaderboardManager manager = plugin.getNewLeaderboardManager();
         Map.Entry<LeaderboardType, Integer> bestRank = manager.getBestRank(player.getUniqueId());
 
         if (bestRank != null) {
@@ -249,7 +249,7 @@ public class LeaderboardMainGUI implements InventoryHolder {
     }
 
     private ItemStack createSeasonItem() {
-        LeaderboardManager.SeasonData season = plugin.getLeaderboardManager().getCurrentSeason();
+        LeaderboardManager.SeasonData season = plugin.getNewLeaderboardManager().getCurrentSeason();
         ItemStack item = new ItemStack(Material.DRAGON_EGG);
         ItemMeta meta = item.getItemMeta();
 
@@ -283,7 +283,7 @@ public class LeaderboardMainGUI implements InventoryHolder {
     }
 
     private String formatLastUpdate() {
-        long lastUpdate = plugin.getLeaderboardManager().getLastUpdate();
+        long lastUpdate = plugin.getNewLeaderboardManager().getLastUpdate();
         if (lastUpdate == 0) return "jamais";
 
         long secondsAgo = (System.currentTimeMillis() - lastUpdate) / 1000;

@@ -423,6 +423,9 @@ public class LeaderboardManager {
 
         try (Connection conn = plugin.getDatabaseManager().getConnection()) {
             String sql;
+            boolean isSQLite = plugin.getDatabaseManager().getDatabaseType() ==
+                    com.rinaorc.zombiez.data.DatabaseManager.DatabaseType.SQLITE;
+            String nowFunc = isSQLite ? "datetime('now')" : "NOW()";
 
             if (period == LeaderboardPeriod.ALL_TIME) {
                 // Requête directe sur la table principale
@@ -431,18 +434,18 @@ public class LeaderboardManager {
                         SELECT p.uuid, p.name, COALESCE(s.stat_value, 0) as value
                         FROM zombiez_players p
                         LEFT JOIN zombiez_stats s ON p.uuid = s.uuid AND s.stat_key = ?
-                        WHERE p.uuid NOT IN (SELECT uuid FROM zombiez_leaderboard_banned WHERE expires_at IS NULL OR expires_at > NOW())
+                        WHERE p.uuid NOT IN (SELECT uuid FROM zombiez_leaderboard_banned WHERE expires_at IS NULL OR expires_at > %s)
                         ORDER BY value DESC
                         LIMIT ?
-                        """;
+                        """.formatted(nowFunc);
                 } else {
                     sql = """
                         SELECT uuid, name, %s as value
                         FROM zombiez_players
-                        WHERE uuid NOT IN (SELECT uuid FROM zombiez_leaderboard_banned WHERE expires_at IS NULL OR expires_at > NOW())
+                        WHERE uuid NOT IN (SELECT uuid FROM zombiez_leaderboard_banned WHERE expires_at IS NULL OR expires_at > %s)
                         ORDER BY %s DESC
                         LIMIT ?
-                        """.formatted(type.getColumn(), type.getColumn());
+                        """.formatted(type.getColumn(), nowFunc, type.getColumn());
                 }
             } else {
                 // Requête sur la table des leaderboards périodiques
@@ -451,10 +454,10 @@ public class LeaderboardManager {
                     FROM zombiez_leaderboards l
                     JOIN zombiez_players p ON l.uuid = p.uuid
                     WHERE l.leaderboard_type = ? AND l.period = ?
-                    AND l.uuid NOT IN (SELECT uuid FROM zombiez_leaderboard_banned WHERE expires_at IS NULL OR expires_at > NOW())
+                    AND l.uuid NOT IN (SELECT uuid FROM zombiez_leaderboard_banned WHERE expires_at IS NULL OR expires_at > %s)
                     ORDER BY l.value DESC
                     LIMIT ?
-                    """;
+                    """.formatted(nowFunc);
             }
 
             try (PreparedStatement stmt = conn.prepareStatement(sql)) {
@@ -901,7 +904,11 @@ public class LeaderboardManager {
                     String cosmetic = rs.getString("reward_cosmetic");
 
                     // Marquer comme réclamée
-                    String updateSql = "UPDATE zombiez_leaderboard_rewards SET claimed = TRUE, claimed_at = NOW() WHERE id = ?";
+                    boolean isSQLite = plugin.getDatabaseManager().getDatabaseType() ==
+                            com.rinaorc.zombiez.data.DatabaseManager.DatabaseType.SQLITE;
+                    String updateSql = isSQLite
+                            ? "UPDATE zombiez_leaderboard_rewards SET claimed = TRUE, claimed_at = datetime('now') WHERE id = ?"
+                            : "UPDATE zombiez_leaderboard_rewards SET claimed = TRUE, claimed_at = NOW() WHERE id = ?";
                     try (PreparedStatement updateStmt = conn.prepareStatement(updateSql)) {
                         updateStmt.setLong(1, rewardId);
                         updateStmt.executeUpdate();
@@ -1216,7 +1223,11 @@ public class LeaderboardManager {
 
         CompletableFuture.runAsync(() -> {
             try (Connection conn = plugin.getDatabaseManager().getConnection()) {
-                String sql = "UPDATE zombiez_leaderboard_flags SET resolved = TRUE, resolved_at = NOW() WHERE uuid = ? AND resolved = FALSE";
+                boolean isSQLite = plugin.getDatabaseManager().getDatabaseType() ==
+                        com.rinaorc.zombiez.data.DatabaseManager.DatabaseType.SQLITE;
+                String sql = isSQLite
+                        ? "UPDATE zombiez_leaderboard_flags SET resolved = TRUE, resolved_at = datetime('now') WHERE uuid = ? AND resolved = FALSE"
+                        : "UPDATE zombiez_leaderboard_flags SET resolved = TRUE, resolved_at = NOW() WHERE uuid = ? AND resolved = FALSE";
                 try (PreparedStatement stmt = conn.prepareStatement(sql)) {
                     stmt.setString(1, uuid.toString());
                     stmt.executeUpdate();

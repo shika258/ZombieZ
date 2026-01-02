@@ -151,11 +151,8 @@ public enum LeaderboardType {
                  PETS_OWNED, PETS_LEGENDARY, PET_MAX_LEVEL, FORGE_UPGRADES,
                  ITEMS_RECYCLED, EVENTS_COMPLETED, BLOOD_MOON_KILLS,
                  HORDE_WAVES, MICRO_EVENTS, DAILY_MISSIONS, WEEKLY_MISSIONS,
-                 TOTAL_MISSIONS, ZOMBIE_KILLS, ELITE_KILLS, TOTAL_POINTS_EARNED -> true;
+                 TOTAL_MISSIONS, ZOMBIE_KILLS, ELITE_KILLS, POINTS_EARNED -> true;
             default -> false;
         };
     }
-
-    // Alias pour compatibilité
-    private static final LeaderboardType TOTAL_POINTS_EARNED = POINTS_EARNED;
 }

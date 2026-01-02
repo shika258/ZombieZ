@@ -57,7 +57,7 @@ public class LeaderboardDetailGUI implements InventoryHolder {
         inventory.setItem(4, createTitleItem());
 
         // Charger les entrées
-        LeaderboardManager manager = plugin.getLeaderboardManager();
+        LeaderboardManager manager = plugin.getNewLeaderboardManager();
         List<LeaderboardEntry> entries = manager.getTopEntries(type, period, 100);
 
         int startIndex = (page - 1) * ENTRIES_PER_PAGE;
@@ -301,11 +301,11 @@ public class LeaderboardDetailGUI implements InventoryHolder {
     private ItemStack createSearchItem() {
         ItemStack item = new ItemStack(Material.COMPASS);
         ItemMeta meta = item.getItemMeta();
-        meta.displayName(Component.text("§e§l🔍 Chercher Joueur"));
+        meta.displayName(Component.text("§e§l🔍 Comparer avec un Joueur"));
 
         List<Component> lore = new ArrayList<>();
-        lore.add(Component.text("§7Utilise §e/lb search <pseudo>"));
-        lore.add(Component.text("§7pour chercher un joueur"));
+        lore.add(Component.text("§7Utilise §e/lb compare <pseudo>"));
+        lore.add(Component.text("§7pour te comparer à un joueur"));
         meta.lore(lore);
 
         item.setItemMeta(meta);
@@ -343,7 +343,7 @@ public class LeaderboardDetailGUI implements InventoryHolder {
         }
 
         // Page suivante
-        LeaderboardManager manager = plugin.getLeaderboardManager();
+        LeaderboardManager manager = plugin.getNewLeaderboardManager();
         List<LeaderboardEntry> entries = manager.getTopEntries(type, period, 100);
         int totalPages = (int) Math.ceil(entries.size() / (double) ENTRIES_PER_PAGE);
 

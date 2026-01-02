@@ -63,7 +63,7 @@ public class LeaderboardCompareGUI implements InventoryHolder {
         inventory.setItem(4, createVsItem());
 
         // Comparaisons par catégorie
-        LeaderboardManager manager = plugin.getLeaderboardManager();
+        LeaderboardManager manager = plugin.getNewLeaderboardManager();
         Map<LeaderboardType, Map<LeaderboardPeriod, Integer>> ranks1 = manager.getAllPlayerRanks(player1Uuid);
         Map<LeaderboardType, Map<LeaderboardPeriod, Integer>> ranks2 = manager.getAllPlayerRanks(player2Uuid);
 
