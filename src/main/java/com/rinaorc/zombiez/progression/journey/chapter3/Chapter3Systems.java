@@ -126,7 +126,7 @@ public class Chapter3Systems implements Listener {
 
     // === TRACKING ===
     private Entity forainEntity;
-    private TextDisplay forainDisplay;
+    // NOTE: Le display du Forain est géré par JourneyNPCManager (displayCache)
 
     // Chat perdu (per-player visibility)
     private Entity lostCatEntity;
@@ -261,7 +261,6 @@ public class Chapter3Systems implements Listener {
     private void cleanupOldEntities(World world) {
         int removed = 0;
         boolean foundForain = false;
-        boolean foundForainDisplay = false;
         boolean foundCat = false;
         boolean foundSurvivor = false;
 
@@ -289,15 +288,12 @@ public class Chapter3Systems implements Listener {
                 continue;
             }
 
-            // Forain display: réutiliser le premier
-            if (tags.contains("chapter3_forain_display")) {
-                if (!foundForainDisplay && entity instanceof TextDisplay td) {
-                    forainDisplay = td;
-                    foundForainDisplay = true;
-                } else {
-                    entity.remove();
-                    removed++;
-                }
+            // Forain display: géré par JourneyNPCManager, nettoyer les orphelins
+            // Le tag réel est "display_chapter3_forain" (créé par JourneyNPCManager)
+            if (tags.contains("display_chapter3_forain") || tags.contains("chapter3_forain_display")) {
+                // Supprimer les orphelins - le display sera recréé par JourneyNPCManager
+                entity.remove();
+                removed++;
                 continue;
             }
 
@@ -2681,12 +2677,9 @@ public class Chapter3Systems implements Listener {
      * Nettoie les ressources du chapitre 3
      */
     public void shutdown() {
-        // Nettoyer le Forain
+        // Nettoyer le Forain (le display est géré par JourneyNPCManager)
         if (forainEntity != null && forainEntity.isValid()) {
             forainEntity.remove();
-        }
-        if (forainDisplay != null && forainDisplay.isValid()) {
-            forainDisplay.remove();
         }
 
         // Nettoyer le chat perdu
