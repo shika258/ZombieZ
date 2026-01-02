@@ -32,7 +32,21 @@ public class LeaderboardDetailGUI implements InventoryHolder {
     private final Inventory inventory;
 
     private static final int GUI_SIZE = 54;
-    private static final int ENTRIES_PER_PAGE = 28;
+    private static final int ENTRIES_PER_PAGE = 21; // 7 par row x 3 rows
+
+    // Slots de navigation
+    private static final int SLOT_BACK = 45;
+    private static final int SLOT_PREV_PAGE = 47;
+    private static final int SLOT_PAGE_INFO = 49;
+    private static final int SLOT_NEXT_PAGE = 51;
+    private static final int SLOT_PLAYER_POS = 53;
+
+    // Rows pour les entrées (7 slots par row, 3 rows)
+    private static final int[][] ENTRY_ROWS = {
+        {10, 11, 12, 13, 14, 15, 16}, // Row 1
+        {19, 20, 21, 22, 23, 24, 25}, // Row 2
+        {28, 29, 30, 31, 32, 33, 34}  // Row 3
+    };
 
     public LeaderboardDetailGUI(ZombieZPlugin plugin, Player player,
                                  LeaderboardType type, LeaderboardPeriod period, int page) {
@@ -63,42 +77,66 @@ public class LeaderboardDetailGUI implements InventoryHolder {
         int startIndex = (page - 1) * ENTRIES_PER_PAGE;
         int endIndex = Math.min(startIndex + ENTRIES_PER_PAGE, entries.size());
 
-        // Afficher les entrées
-        int slot = 10;
-        for (int i = startIndex; i < endIndex; i++) {
-            if (slot == 17) slot = 19;
-            if (slot == 26) slot = 28;
-            if (slot == 35) slot = 37;
-            if (slot > 43) break;
+        // Afficher les entrées de manière organisée
+        placeEntriesCentered(entries, startIndex, endIndex);
 
-            LeaderboardEntry entry = entries.get(i);
-            inventory.setItem(slot, createEntryItem(entry));
-            slot++;
-        }
-
-        // Position du joueur
-        int playerRank = manager.getPlayerRank(player.getUniqueId(), type, period);
-        inventory.setItem(40, createPlayerPositionItem(playerRank, entries));
-
-        // Navigation
+        // Navigation - Row 4
         int totalPages = (int) Math.ceil(entries.size() / (double) ENTRIES_PER_PAGE);
         if (totalPages == 0) totalPages = 1;
 
+        inventory.setItem(SLOT_BACK, createBackItem());
+
         if (page > 1) {
-            inventory.setItem(48, createPreviousPageItem());
+            inventory.setItem(SLOT_PREV_PAGE, createPreviousPageItem());
         }
 
-        inventory.setItem(49, createPageInfoItem(totalPages));
+        inventory.setItem(SLOT_PAGE_INFO, createPageInfoItem(totalPages));
 
         if (page < totalPages) {
-            inventory.setItem(50, createNextPageItem());
+            inventory.setItem(SLOT_NEXT_PAGE, createNextPageItem());
         }
 
-        // Retour
-        inventory.setItem(45, createBackItem());
+        // Position du joueur à droite
+        int playerRank = manager.getPlayerRank(player.getUniqueId(), type, period);
+        inventory.setItem(SLOT_PLAYER_POS, createPlayerPositionItem(playerRank, entries));
+    }
 
-        // Chercher joueur
-        inventory.setItem(53, createSearchItem());
+    /**
+     * Place les entrées de manière centrée sur les rows
+     */
+    private void placeEntriesCentered(List<LeaderboardEntry> entries, int startIndex, int endIndex) {
+        int total = endIndex - startIndex;
+        if (total == 0) return;
+
+        int index = startIndex;
+        for (int[] row : ENTRY_ROWS) {
+            if (index >= endIndex) break;
+
+            int remaining = endIndex - index;
+            int itemsThisRow = Math.min(row.length, remaining);
+
+            // Centrer les items sur la row
+            int[] centeredSlots = getCenteredSlots(row, itemsThisRow);
+
+            for (int slot : centeredSlots) {
+                if (index < endIndex) {
+                    inventory.setItem(slot, createEntryItem(entries.get(index)));
+                    index++;
+                }
+            }
+        }
+    }
+
+    private int[] getCenteredSlots(int[] rowSlots, int count) {
+        if (count >= rowSlots.length) return rowSlots;
+
+        int[] result = new int[count];
+        int startOffset = (rowSlots.length - count) / 2;
+
+        for (int i = 0; i < count; i++) {
+            result[i] = rowSlots[startOffset + i];
+        }
+        return result;
     }
 
     private void fillBorder() {
@@ -328,14 +366,14 @@ public class LeaderboardDetailGUI implements InventoryHolder {
         if (slot < 0 || slot >= GUI_SIZE) return;
 
         // Retour
-        if (slot == 45) {
+        if (slot == SLOT_BACK) {
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 0.8f);
             new LeaderboardCategoryGUI(plugin, player, type.getCategory(), period).open();
             return;
         }
 
         // Page précédente
-        if (slot == 48 && page > 1) {
+        if (slot == SLOT_PREV_PAGE && page > 1) {
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.0f);
             page--;
             build();
@@ -347,20 +385,33 @@ public class LeaderboardDetailGUI implements InventoryHolder {
         List<LeaderboardEntry> entries = manager.getTopEntries(type, period, 100);
         int totalPages = (int) Math.ceil(entries.size() / (double) ENTRIES_PER_PAGE);
 
-        if (slot == 50 && page < totalPages) {
+        if (slot == SLOT_NEXT_PAGE && page < totalPages) {
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.0f);
             page++;
             build();
             return;
         }
 
-        // Clic sur un joueur (tête)
-        ItemStack clicked = event.getCurrentItem();
-        if (clicked != null && clicked.getType() == Material.PLAYER_HEAD && slot != 40) {
-            SkullMeta meta = (SkullMeta) clicked.getItemMeta();
-            if (meta.getOwningPlayer() != null) {
-                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.0f);
-                new LeaderboardPlayerGUI(plugin, player, meta.getOwningPlayer().getUniqueId()).open();
+        // Vérifier si c'est un slot d'entrée
+        boolean isEntrySlot = false;
+        for (int[] row : ENTRY_ROWS) {
+            for (int s : row) {
+                if (s == slot) {
+                    isEntrySlot = true;
+                    break;
+                }
+            }
+        }
+
+        // Clic sur un joueur (tête) dans les slots d'entrées
+        if (isEntrySlot) {
+            ItemStack clicked = event.getCurrentItem();
+            if (clicked != null && clicked.getType() == Material.PLAYER_HEAD) {
+                SkullMeta meta = (SkullMeta) clicked.getItemMeta();
+                if (meta.getOwningPlayer() != null) {
+                    player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.0f);
+                    new LeaderboardPlayerGUI(plugin, player, meta.getOwningPlayer().getUniqueId()).open();
+                }
             }
         }
     }

@@ -38,38 +38,40 @@ public class LeaderboardMainGUI implements InventoryHolder {
         build();
     }
 
+    // Slots pour le layout symétrique
+    private static final int[] PERIOD_SLOTS = {11, 12, 13, 14, 15}; // Row 1 centrée
+    private static final int SLOT_PROFILE = 38;   // Row 4 - gauche
+    private static final int SLOT_REWARDS = 40;   // Row 4 - centre
+    private static final int SLOT_SEASON = 42;    // Row 4 - droite
+    private static final int SLOT_CLOSE = 49;     // Row 5 - centre
+
     private void build() {
         inventory.clear();
 
         // Bordure décorative
         fillBorder();
 
-        // Titre et informations
+        // Titre et informations (row 0, centre)
         inventory.setItem(4, createInfoItem());
 
-        // Sélecteur de période (ligne 1)
-        int periodSlot = 10;
-        for (LeaderboardPeriod period : LeaderboardPeriod.values()) {
-            inventory.setItem(periodSlot, createPeriodItem(period));
-            periodSlot++;
+        // Sélecteur de période - Row 1 centrée (slots 11-15)
+        LeaderboardPeriod[] periods = LeaderboardPeriod.values();
+        for (int i = 0; i < periods.length && i < PERIOD_SLOTS.length; i++) {
+            inventory.setItem(PERIOD_SLOTS[i], createPeriodItem(periods[i]));
         }
 
-        // Catégories (lignes 2-4)
+        // Catégories - Rows 2-3 (slots définis dans LeaderboardCategory)
         for (LeaderboardCategory category : LeaderboardCategory.values()) {
             inventory.setItem(category.getGuiSlot(), createCategoryItem(category));
         }
 
-        // Profil du joueur (tête)
-        inventory.setItem(40, createPlayerProfileItem());
+        // Actions - Row 4 centrée et espacée
+        inventory.setItem(SLOT_PROFILE, createPlayerProfileItem());
+        inventory.setItem(SLOT_REWARDS, createPendingRewardsItem());
+        inventory.setItem(SLOT_SEASON, createSeasonItem());
 
-        // Récompenses en attente
-        inventory.setItem(42, createPendingRewardsItem());
-
-        // Saison actuelle
-        inventory.setItem(44, createSeasonItem());
-
-        // Fermer
-        inventory.setItem(49, createCloseItem());
+        // Fermer - Row 5 centre
+        inventory.setItem(SLOT_CLOSE, createCloseItem());
     }
 
     private void fillBorder() {
@@ -298,16 +300,17 @@ public class LeaderboardMainGUI implements InventoryHolder {
         int slot = event.getRawSlot();
         if (slot < 0 || slot >= GUI_SIZE) return;
 
-        // Sélection de période
-        if (slot >= 10 && slot <= 14) {
-            LeaderboardPeriod[] periods = LeaderboardPeriod.values();
-            int index = slot - 10;
-            if (index < periods.length) {
-                selectedPeriod = periods[index];
-                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.2f);
-                build();
+        // Sélection de période (slots 11-15)
+        for (int i = 0; i < PERIOD_SLOTS.length; i++) {
+            if (slot == PERIOD_SLOTS[i]) {
+                LeaderboardPeriod[] periods = LeaderboardPeriod.values();
+                if (i < periods.length) {
+                    selectedPeriod = periods[i];
+                    player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.2f);
+                    build();
+                }
+                return;
             }
-            return;
         }
 
         // Clic sur une catégorie
@@ -320,21 +323,21 @@ public class LeaderboardMainGUI implements InventoryHolder {
         }
 
         // Profil joueur
-        if (slot == 40) {
+        if (slot == SLOT_PROFILE) {
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.0f);
             new LeaderboardPlayerGUI(plugin, player, player.getUniqueId()).open();
             return;
         }
 
         // Récompenses
-        if (slot == 42) {
+        if (slot == SLOT_REWARDS) {
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1.0f);
             new LeaderboardRewardsGUI(plugin, player).open();
             return;
         }
 
         // Fermer
-        if (slot == 49) {
+        if (slot == SLOT_CLOSE) {
             player.closeInventory();
             player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 0.8f);
         }
