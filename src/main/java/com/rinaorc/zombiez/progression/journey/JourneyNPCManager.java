@@ -63,6 +63,17 @@ public class JourneyNPCManager implements Listener {
 
         // Vérifier si Citizens est disponible
         checkCitizens();
+
+        // Nettoyage des NPCs orphelins après initialisation
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world != null) {
+                    cleanupOrphanedNPCs(world);
+                }
+            }
+        }.runTaskLater(plugin, 60L); // 3 secondes après le démarrage
     }
 
     /**
@@ -487,7 +498,7 @@ public class JourneyNPCManager implements Listener {
 
     // ==================== ÉVÉNEMENTS ====================
 
-    @EventHandler(priority = EventPriority.HIGH)
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = false)
     public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
         if (event.getHand() != EquipmentSlot.HAND) return;
 
