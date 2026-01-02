@@ -1132,6 +1132,48 @@ public class ZombieManager {
             if (type.isBoss()) {
                 playerData.addBossKill();
             }
+
+            // Mise à jour leaderboard (périodes)
+            var lbManager = plugin.getNewLeaderboardManager();
+            if (lbManager != null) {
+                UUID playerId = killer.getUniqueId();
+                String playerName = killer.getName();
+
+                // Incrémenter les kills
+                lbManager.incrementScore(playerId, playerName,
+                    com.rinaorc.zombiez.leaderboards.LeaderboardType.KILLS_TOTAL, 1);
+
+                // Kills par zone
+                switch (zombie.getZoneId()) {
+                    case 1 -> lbManager.incrementScore(playerId, playerName,
+                        com.rinaorc.zombiez.leaderboards.LeaderboardType.KILLS_ZONE_1, 1);
+                    case 2 -> lbManager.incrementScore(playerId, playerName,
+                        com.rinaorc.zombiez.leaderboards.LeaderboardType.KILLS_ZONE_2, 1);
+                    case 3 -> lbManager.incrementScore(playerId, playerName,
+                        com.rinaorc.zombiez.leaderboards.LeaderboardType.KILLS_ZONE_3, 1);
+                    case 4 -> lbManager.incrementScore(playerId, playerName,
+                        com.rinaorc.zombiez.leaderboards.LeaderboardType.KILLS_ZONE_4, 1);
+                    case 5 -> lbManager.incrementScore(playerId, playerName,
+                        com.rinaorc.zombiez.leaderboards.LeaderboardType.KILLS_ZONE_5, 1);
+                }
+
+                // Kills élites
+                if (zombie.isElite()) {
+                    lbManager.incrementScore(playerId, playerName,
+                        com.rinaorc.zombiez.leaderboards.LeaderboardType.ELITE_KILLS, 1);
+                }
+
+                // Kills boss
+                if (type.isBoss()) {
+                    lbManager.incrementScore(playerId, playerName,
+                        com.rinaorc.zombiez.leaderboards.LeaderboardType.BOSS_KILLS, 1);
+                }
+
+                // Kill streak (mise à jour du max)
+                int currentStreak = playerData.getKillStreak().get();
+                lbManager.updateScore(playerId, playerName,
+                    com.rinaorc.zombiez.leaderboards.LeaderboardType.KILL_STREAK, currentStreak);
+            }
         }
     }
 

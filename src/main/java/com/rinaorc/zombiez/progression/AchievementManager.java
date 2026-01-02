@@ -1212,6 +1212,14 @@ public class AchievementManager {
             plugin.getJourneyListener().onAchievementUnlock(player, totalAchievements);
         }
 
+        // Mettre à jour le leaderboard d'achievements
+        var lbManager = plugin.getNewLeaderboardManager();
+        if (lbManager != null) {
+            int totalAchievements = getUnlockedCount(player);
+            lbManager.updateScore(player.getUniqueId(), player.getName(),
+                com.rinaorc.zombiez.leaderboards.LeaderboardType.ACHIEVEMENTS, totalAchievements);
+        }
+
         // Débloquer le titre si présent
         if (achievement.title() != null && !achievement.title().isEmpty()) {
             data.addTitle(achievement.id());

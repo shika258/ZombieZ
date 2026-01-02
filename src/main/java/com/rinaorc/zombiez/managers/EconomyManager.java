@@ -268,6 +268,13 @@ public class EconomyManager {
         plugin.getMissionManager().updateProgress(player,
             com.rinaorc.zombiez.progression.MissionManager.MissionTracker.LEVELS_GAINED, 1);
 
+        // ============ LEADERBOARD LEVEL ============
+        var lbManager = plugin.getNewLeaderboardManager();
+        if (lbManager != null) {
+            lbManager.updateScore(player.getUniqueId(), player.getName(),
+                com.rinaorc.zombiez.leaderboards.LeaderboardType.LEVEL, newLevel);
+        }
+
         // Récompenses par niveau
         if (newLevel % 5 == 0) {
             // Récompense tous les 5 niveaux
