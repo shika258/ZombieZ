@@ -550,16 +550,43 @@ public class JourneyNPCManager implements Listener {
         if (event.getHand() != EquipmentSlot.HAND) return;
 
         Entity entity = event.getRightClicked();
+        String npcId = null;
 
-        // Vérifier si c'est un NPC Journey
-        if (!entity.getPersistentDataContainer().has(NPC_ID_KEY, PersistentDataType.STRING)) {
-            // Vérifier par metadata Citizens
-            if (!entity.hasMetadata("NPC")) return;
+        // Méthode 1: Vérifier le PDC Bukkit
+        if (entity.getPersistentDataContainer().has(NPC_ID_KEY, PersistentDataType.STRING)) {
+            npcId = entity.getPersistentDataContainer().get(NPC_ID_KEY, PersistentDataType.STRING);
         }
 
-        String npcId = entity.getPersistentDataContainer().get(NPC_ID_KEY, PersistentDataType.STRING);
+        // Méthode 2: Si Citizens est actif, vérifier les metadata Citizens
+        if (npcId == null && citizensEnabled && entity.hasMetadata("NPC")) {
+            // Chercher le NPC dans le cache par son entité
+            for (Map.Entry<String, NPC> entry : npcCache.entrySet()) {
+                NPC npc = entry.getValue();
+                if (npc.isSpawned() && npc.getEntity() != null && npc.getEntity().equals(entity)) {
+                    npcId = entry.getKey();
+                    // Mettre à jour le PDC pour les prochaines fois
+                    entity.getPersistentDataContainer().set(NPC_ID_KEY, PersistentDataType.STRING, npcId);
+                    break;
+                }
+            }
+
+            // Si toujours pas trouvé, chercher via les metadata Citizens
+            if (npcId == null) {
+                for (NPC npc : npcRegistry) {
+                    if (npc.isSpawned() && npc.getEntity() != null && npc.getEntity().equals(entity)) {
+                        if (npc.data().has("journey_npc_id")) {
+                            npcId = (String) npc.data().get("journey_npc_id");
+                            // Mettre à jour le PDC pour les prochaines fois
+                            entity.getPersistentDataContainer().set(NPC_ID_KEY, PersistentDataType.STRING, npcId);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        // Méthode 3: Fallback par scoreboard tags
         if (npcId == null) {
-            // Fallback: chercher par tag
             for (String tag : entity.getScoreboardTags()) {
                 if (tag.startsWith("journey_") && !tag.equals("journey_npc_display")) {
                     npcId = tag.substring(8); // Enlever "journey_"
