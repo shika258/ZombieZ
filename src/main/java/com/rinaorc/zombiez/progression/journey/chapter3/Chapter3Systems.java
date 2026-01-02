@@ -385,15 +385,22 @@ public class Chapter3Systems implements Listener {
         loc.setYaw(0); // Face au sud
 
         // Créer le NPC via JourneyNPCManager
+        // NOTE: Le nom natif est CACHÉ - toutes les infos passent par TextDisplay
         JourneyNPCManager.NPCConfig config = new JourneyNPCManager.NPCConfig(
-            FORAIN_NPC_ID, "§d§l" + FORAIN_NAME, loc
+            FORAIN_NPC_ID, FORAIN_NAME, // Nom interne (non affiché)
+            loc
         )
         .entityType(EntityType.VILLAGER)
         .profession(Villager.Profession.NITWIT)
         .lookClose(true)
-        .display("§d🎪 §6§lLE FORAIN §d🎪", "§8─────────", "§f▶ Clic droit")
+        .display(
+            "§d🎪 §6§lLE FORAIN §d🎪",
+            "§f" + FORAIN_NAME,
+            "§8─────────────",
+            "§7▶ §fClic droit §7pour jouer"
+        )
         .displayHeight(FORAIN_DISPLAY_HEIGHT)
-        .displayScale(1.8f)
+        .displayScale(2.0f)
         .onInteract(event -> handleForainInteraction(event.getPlayer()));
 
         Entity npcEntity = npcManager.createOrGetNPC(config);
@@ -1057,10 +1064,11 @@ public class Chapter3Systems implements Listener {
             villageSurvivorDisplay.remove();
         }
 
-        // Spawn le villageois survivant
+        // Spawn le villageois survivant SANS nom visible (tout via TextDisplay)
         villageSurvivorEntity = world.spawn(loc, Villager.class, villager -> {
-            villager.customName(Component.text("Henri le Fermier", NamedTextColor.GREEN, TextDecoration.BOLD));
-            villager.setCustomNameVisible(true);
+            // NE PAS afficher le nom natif - tout passe par TextDisplay
+            villager.customName(null);
+            villager.setCustomNameVisible(false); // JAMAIS visible
             villager.setAI(false);
             villager.setInvulnerable(true);
             villager.setSilent(true);
@@ -1091,21 +1099,25 @@ public class Chapter3Systems implements Listener {
     }
 
     /**
-     * Crée le TextDisplay au-dessus du survivant
+     * Crée le TextDisplay au-dessus du survivant.
+     * C'est le SEUL endroit où les informations du NPC sont affichées (pas de nom natif).
      */
     private void createSurvivorDisplay(World world, Location loc) {
-        Location displayLoc = loc.clone().add(0, 2.5, 0);
+        Location displayLoc = loc.clone().add(0, 2.6, 0);
 
         villageSurvivorDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
             display.text(Component.text()
-                    .append(Component.text("\u2694 ", NamedTextColor.GOLD)) // Crossed swords
-                    .append(Component.text("SURVIVANT", NamedTextColor.GREEN, TextDecoration.BOLD))
-                    .append(Component.text(" \u2694", NamedTextColor.GOLD))
+                    .append(Component.text("⚔ ", NamedTextColor.GOLD)) // Crossed swords
+                    .append(Component.text("LE SURVIVANT", NamedTextColor.GREEN, TextDecoration.BOLD))
+                    .append(Component.text(" ⚔", NamedTextColor.GOLD))
                     .append(Component.newline())
-                    .append(Component.text("\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501\u2501",
-                            NamedTextColor.DARK_GRAY)) // Box drawing line
+                    .append(Component.text("Henri", NamedTextColor.WHITE)) // Nom du NPC
                     .append(Component.newline())
-                    .append(Component.text("\u25B6 Clic droit pour aider", NamedTextColor.WHITE))
+                    .append(Component.text("─────────────", NamedTextColor.DARK_GRAY))
+                    .append(Component.newline())
+                    .append(Component.text("▶ ", NamedTextColor.GRAY))
+                    .append(Component.text("Clic droit ", NamedTextColor.WHITE))
+                    .append(Component.text("pour aider", NamedTextColor.GRAY))
                     .build());
 
             display.setBillboard(Display.Billboard.CENTER);
@@ -1113,15 +1125,16 @@ public class Chapter3Systems implements Listener {
             display.setShadowed(true);
             display.setSeeThrough(false);
             display.setDefaultBackground(false);
-            display.setBackgroundColor(Color.fromARGB(150, 0, 0, 0));
+            display.setBackgroundColor(Color.fromARGB(100, 0, 0, 0));
 
+            // Scale plus grande pour meilleure visibilité
             display.setTransformation(new Transformation(
                     new Vector3f(0, 0, 0),
                     new AxisAngle4f(0, 0, 0, 1),
-                    new Vector3f(1.8f, 1.8f, 1.8f),
+                    new Vector3f(2.0f, 2.0f, 2.0f),
                     new AxisAngle4f(0, 0, 0, 1)));
 
-            display.setViewRange(0.5f);
+            display.setViewRange(0.6f);
             display.setPersistent(false);
             display.addScoreboardTag("chapter3_survivor_display");
 

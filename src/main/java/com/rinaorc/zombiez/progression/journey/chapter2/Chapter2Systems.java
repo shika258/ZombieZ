@@ -494,9 +494,11 @@ public class Chapter2Systems implements Listener {
             return;
         }
 
-        // Créer le NPC via JourneyNPCManager (pas de display car on gère per-player)
+        // Créer le NPC via JourneyNPCManager (pas de display standard car on gère per-player)
+        // NOTE: Le nom natif est CACHÉ - le TextDisplay per-player est géré séparément
         JourneyNPCManager.NPCConfig config = new JourneyNPCManager.NPCConfig(
-            MINER_NPC_ID, "§c❤ Mineur Blessé §c❤", loc
+            MINER_NPC_ID, "Mineur Blessé", // Nom interne (non affiché - per-player TextDisplay)
+            loc
         )
         .entityType(EntityType.VILLAGER)
         .profession(Villager.Profession.TOOLSMITH)
@@ -650,44 +652,44 @@ public class Chapter2Systems implements Listener {
 
         Location displayLoc = minerLoc.clone().add(0, MINER_DISPLAY_HEIGHT, 0);
 
-        // TextDisplay "Mineur Blessé" - VISIBLE PAR DÉFAUT (tous les joueurs le voient
-        // initialement)
+        // TextDisplay "Mineur Blessé" - VISIBLE PAR DÉFAUT (tous les joueurs le voient initialement)
+        // Format plus grand et riche avec nom du NPC
         minerDisplayInjured = world.spawn(displayLoc, TextDisplay.class, entity -> {
             entity.setBillboard(Display.Billboard.CENTER);
             entity.setAlignment(TextDisplay.TextAlignment.CENTER);
             entity.setShadowed(true);
             entity.setSeeThrough(false);
             entity.setDefaultBackground(false);
-            entity.setBackgroundColor(Color.fromARGB(128, 0, 0, 0));
-            entity.setText("§c§l❤ §eMineur Blessé §c§l❤");
+            entity.setBackgroundColor(Color.fromARGB(100, 0, 0, 0));
+            entity.setText("§c❤ §e§lMINEUR BLESSÉ §c❤\n§7Marco\n§8─────────────\n§7▶ §fUtilise un bandage");
             entity.setTransformation(new org.bukkit.util.Transformation(
                     new Vector3f(0, 0, 0),
                     new AxisAngle4f(0, 0, 0, 1),
-                    new Vector3f(1.2f, 1.2f, 1.2f),
+                    new Vector3f(2.0f, 2.0f, 2.0f),
                     new AxisAngle4f(0, 0, 0, 1)));
-            entity.setViewRange(64f);
+            entity.setViewRange(0.6f);
             entity.addScoreboardTag("miner_display");
             entity.addScoreboardTag("zombiez_display");
             // VISIBLE PAR DÉFAUT - tous les joueurs voient "Blessé" initialement
             entity.setVisibleByDefault(true);
         });
 
-        // TextDisplay "Mineur Soigné" - INVISIBLE PAR DÉFAUT (montré uniquement aux
-        // joueurs qui ont soigné)
+        // TextDisplay "Mineur Soigné" - INVISIBLE PAR DÉFAUT (montré uniquement aux joueurs qui ont soigné)
+        // Format plus grand et riche avec nom du NPC
         minerDisplayHealed = world.spawn(displayLoc, TextDisplay.class, entity -> {
             entity.setBillboard(Display.Billboard.CENTER);
             entity.setAlignment(TextDisplay.TextAlignment.CENTER);
             entity.setShadowed(true);
             entity.setSeeThrough(false);
             entity.setDefaultBackground(false);
-            entity.setBackgroundColor(Color.fromARGB(128, 0, 0, 0));
-            entity.setText("§a§l✓ §fMineur §a§lSoigné");
+            entity.setBackgroundColor(Color.fromARGB(100, 0, 0, 0));
+            entity.setText("§a✓ §f§lMINEUR SOIGNÉ §a✓\n§7Marco\n§8─────────────\n§a§oMerci, survivant !");
             entity.setTransformation(new org.bukkit.util.Transformation(
                     new Vector3f(0, 0, 0),
                     new AxisAngle4f(0, 0, 0, 1),
-                    new Vector3f(1.2f, 1.2f, 1.2f),
+                    new Vector3f(2.0f, 2.0f, 2.0f),
                     new AxisAngle4f(0, 0, 0, 1)));
-            entity.setViewRange(64f);
+            entity.setViewRange(0.6f);
             entity.addScoreboardTag("miner_display");
             entity.addScoreboardTag("zombiez_display");
             // INVISIBLE PAR DÉFAUT - seulement visible pour ceux qui ont soigné
@@ -740,14 +742,22 @@ public class Chapter2Systems implements Listener {
         loc.setYaw(90); // Face à l'est
 
         // Créer le NPC via JourneyNPCManager
+        // NOTE: Le nom natif est CACHÉ - toutes les infos passent par TextDisplay
         JourneyNPCManager.NPCConfig config = new JourneyNPCManager.NPCConfig(
-            IGOR_NPC_ID, "§6§lIgor le Survivant", loc
+            IGOR_NPC_ID, "Igor le Survivant", // Nom interne (non affiché)
+            loc
         )
         .entityType(EntityType.VILLAGER)
         .profession(Villager.Profession.MASON)
         .lookClose(true)
         .mainHand(new ItemStack(Material.IRON_AXE))
-        .display("§e⚒ §6§lIGOR §e⚒", "§7Le Survivant", "§8─────────", "§f▶ Clic droit")
+        .display(
+            "§e⚒ §6§lLE SURVIVANT §e⚒",
+            "§fIgor",
+            "§8─────────────",
+            "§7▶ §fClic droit §7pour parler"
+        )
+        .displayScale(2.0f)
         .displayHeight(2.8)
         .onInteract(event -> handleIgorInteraction(event.getPlayer()));
 

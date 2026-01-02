@@ -92,9 +92,10 @@ public class Chapter1Systems implements Listener {
         loc.setWorld(world);
 
         // Créer le NPC via le manager centralisé
+        // NOTE: Le nom natif est CACHÉ - toutes les infos passent par TextDisplay
         JourneyNPCManager.NPCConfig config = new JourneyNPCManager.NPCConfig(
             FARMER_NPC_ID,
-            "§6§lGérard le Fermier",
+            "Gérard le Fermier", // Nom interne (non affiché)
             loc
         )
         .entityType(EntityType.VILLAGER)
@@ -102,11 +103,12 @@ public class Chapter1Systems implements Listener {
         .lookClose(true)
         .display(
             "§e🌾 §6§lLE FERMIER §e🌾",
-            "§8─────────",
-            "§f▶ Clic droit"
+            "§fGérard",
+            "§8─────────────",
+            "§7▶ §fClic droit §7pour parler"
         )
-        .displayScale(1.8f)
-        .displayHeight(2.5)
+        .displayScale(2.0f)
+        .displayHeight(2.6)
         .onInteract(event -> {
             event.setCancelled(true);
             handleFarmerInteraction(event.getPlayer());
