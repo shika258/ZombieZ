@@ -2,9 +2,11 @@ package com.rinaorc.zombiez.events.dynamic;
 
 import com.rinaorc.zombiez.ZombieZPlugin;
 import com.rinaorc.zombiez.consumables.Consumable;
+import com.rinaorc.zombiez.consumables.ConsumableRarity;
 import com.rinaorc.zombiez.consumables.ConsumableType;
 import com.rinaorc.zombiez.events.dynamic.impl.HordeInvasionEvent;
 import com.rinaorc.zombiez.events.dynamic.impl.ZombieNestEvent;
+import com.rinaorc.zombiez.items.types.Rarity;
 import com.rinaorc.zombiez.items.types.StatType;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -15,6 +17,7 @@ import org.bukkit.block.Block;
 import org.bukkit.entity.Entity;
 import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
+import org.bukkit.entity.Projectile;
 import org.bukkit.entity.Villager;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
@@ -28,6 +31,7 @@ import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.projectiles.ProjectileSource;
 
 /**
  * Listener pour les interactions avec les événements dynamiques
@@ -96,8 +100,9 @@ public class DynamicEventListener implements Listener {
 
     /**
      * Gère la mort des zombies pour les événements Horde
+     * IMPORTANT: Distribue les récompenses (XP, points, loot) pour les mobs de Horde Invasion
      */
-    @EventHandler(priority = EventPriority.MONITOR)
+    @EventHandler(priority = EventPriority.HIGH)
     public void onEntityDeath(EntityDeathEvent event) {
         LivingEntity entity = event.getEntity();
         Location deathLoc = entity.getLocation();
@@ -105,7 +110,24 @@ public class DynamicEventListener implements Listener {
         // Vérifier si c'est un zombie
         if (!isZombie(entity)) return;
 
-        // Notifier les événements Horde
+        // === RÉCOMPENSES POUR LES MOBS DE HORDE INVASION ===
+        // Les mobs de Horde sont spawnés directement (pas via ZombieManager) et doivent
+        // donner des récompenses manuellement
+        if (entity.getScoreboardTags().contains("horde_invasion")) {
+            Player killer = entity.getKiller();
+
+            // Si pas de killer direct, chercher via le dernier attaquant
+            if (killer == null && entity.getLastDamageCause() instanceof EntityDamageByEntityEvent damageEvent) {
+                killer = getPlayerFromDamager(damageEvent.getDamager());
+            }
+
+            if (killer != null) {
+                // Distribuer les récompenses au tueur
+                distributeHordeKillRewards(killer, entity, deathLoc);
+            }
+        }
+
+        // Notifier les événements Horde pour le tracking des vagues
         for (DynamicEvent dynamicEvent : eventManager.getActiveEvents().values()) {
             if (dynamicEvent instanceof HordeInvasionEvent hordeEvent) {
                 if (hordeEvent.isInDefenseZone(deathLoc)) {
@@ -113,6 +135,110 @@ public class DynamicEventListener implements Listener {
                 }
             }
         }
+    }
+
+    /**
+     * Distribue les récompenses pour un kill de mob de Horde Invasion
+     * XP, Points et Loot basés sur le niveau du zombie
+     */
+    private void distributeHordeKillRewards(Player killer, LivingEntity zombie, Location deathLoc) {
+        // Extraire le niveau depuis les tags
+        int level = 1;
+        int maxHealth = 40;
+        for (String tag : zombie.getScoreboardTags()) {
+            if (tag.startsWith("horde_level_")) {
+                try {
+                    level = Integer.parseInt(tag.substring(12));
+                } catch (NumberFormatException ignored) {}
+            } else if (tag.startsWith("horde_maxhp_")) {
+                try {
+                    maxHealth = Integer.parseInt(tag.substring(12));
+                } catch (NumberFormatException ignored) {}
+            }
+        }
+
+        // Calculer les récompenses basées sur le niveau
+        // Base: 3 points, 5 XP - avec scaling par niveau
+        int basePoints = 3 + (level / 2);
+        int baseXP = 5 + level;
+
+        // Bonus selon la vie max du zombie (indicateur de difficulté)
+        double healthMultiplier = 1.0 + (maxHealth - 40) / 100.0;
+
+        int finalPoints = (int) (basePoints * healthMultiplier);
+        int finalXP = (int) (baseXP * healthMultiplier);
+
+        // Donner les récompenses via EconomyManager
+        plugin.getEconomyManager().addPoints(killer, finalPoints);
+        plugin.getEconomyManager().addXP(killer, finalXP);
+
+        // === DROP LOOT ===
+        // 15% de chance de base, augmenté par la luck du joueur
+        double luckBonus = plugin.getItemManager().getPlayerStat(killer, StatType.LUCK) / 100.0;
+        double dropChance = 0.15 + (luckBonus * 0.1);
+
+        if (Math.random() < dropChance) {
+            // Générer un item basé sur la zone approximative (level / 2)
+            int zoneId = Math.max(1, level / 2);
+            Rarity rarity = rollRarityForHorde(luckBonus);
+
+            var item = plugin.getItemManager().generateItem(zoneId, rarity);
+            if (item != null) {
+                plugin.getItemManager().dropItem(deathLoc, item);
+            }
+        }
+
+        // === DROP CONSOMMABLES (bandages) ===
+        // 5% de chance de drop un bandage
+        if (Math.random() < 0.05 && plugin.getConsumableManager() != null) {
+            ConsumableRarity bandageRarity = Math.random() < 0.7 ? ConsumableRarity.COMMON : ConsumableRarity.UNCOMMON;
+            int zoneId = Math.max(1, level / 2);
+            Consumable bandage = new Consumable(ConsumableType.BANDAGE, bandageRarity, zoneId);
+            plugin.getConsumableManager().dropConsumable(deathLoc, bandage);
+        }
+
+        // Statistiques de kill
+        var playerData = plugin.getPlayerDataManager().getPlayer(killer.getUniqueId());
+        if (playerData != null) {
+            playerData.incrementKills();
+            playerData.addZombieKill();
+        }
+    }
+
+    /**
+     * Détermine la rareté du loot pour les mobs de Horde
+     */
+    private Rarity rollRarityForHorde(double luckBonus) {
+        double roll = Math.random() * 100;
+        double bonusRarity = luckBonus * 10; // Bonus de luck converti en %
+
+        if (roll < (50 - bonusRarity)) {
+            return Rarity.COMMON;
+        } else if (roll < (75 - bonusRarity / 2)) {
+            return Rarity.UNCOMMON;
+        } else if (roll < 92) {
+            return Rarity.RARE;
+        } else if (roll < 98) {
+            return Rarity.EPIC;
+        } else {
+            return Rarity.LEGENDARY;
+        }
+    }
+
+    /**
+     * Extrait le joueur depuis un damager (gère projectiles)
+     */
+    private Player getPlayerFromDamager(Entity damager) {
+        if (damager instanceof Player player) {
+            return player;
+        }
+        if (damager instanceof Projectile projectile) {
+            ProjectileSource shooter = projectile.getShooter();
+            if (shooter instanceof Player player) {
+                return player;
+            }
+        }
+        return null;
     }
 
     /**

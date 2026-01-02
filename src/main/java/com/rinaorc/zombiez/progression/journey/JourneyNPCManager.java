@@ -216,17 +216,20 @@ public class JourneyNPCManager implements Listener {
      * @return L'entité du NPC (NPC entity si Citizens, Villager sinon)
      */
     public Entity createOrGetNPC(NPCConfig config) {
+        // Enregistrer le handler d'interaction
+        if (config.interactionHandler != null) {
+            interactionHandlers.put(config.id, config.interactionHandler);
+        }
+
         // Vérifier le cache
         if (citizensEnabled) {
             NPC cached = npcCache.get(config.id);
             if (cached != null && cached.isSpawned() && cached.getEntity() != null && cached.getEntity().isValid()) {
+                // NPC en cache et valide - mais on doit quand même s'assurer que le display existe
+                // Car le display est non-persistant et disparaît après un restart
+                createDisplayForNPC(config);
                 return cached.getEntity();
             }
-        }
-
-        // Enregistrer le handler d'interaction
-        if (config.interactionHandler != null) {
-            interactionHandlers.put(config.id, config.interactionHandler);
         }
 
         if (citizensEnabled) {
