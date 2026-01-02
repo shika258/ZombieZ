@@ -74,6 +74,16 @@ public class FluidDamageIndicator {
     private static final double VIEW_DISTANCE_SQUARED = 24.0 * 24.0; // 24 blocs
 
     // ========================================================================
+    // LIMITE GLOBALE D'INDICATEURS (protection contre accumulation)
+    // ========================================================================
+
+    // Limite d'indicateurs actifs par monde pour éviter les packets trop gros
+    private static final int MAX_ACTIVE_INDICATORS_PER_WORLD = 150;
+
+    // Compteur d'indicateurs actifs par monde
+    private static final Map<UUID, java.util.concurrent.atomic.AtomicInteger> activeIndicatorsPerWorld = new ConcurrentHashMap<>();
+
+    // ========================================================================
     // SYSTÈME ANTI-STACK
     // ========================================================================
 
@@ -285,6 +295,19 @@ public class FluidDamageIndicator {
                                              Player viewer, boolean popEffect) {
         if (spawnLoc.getWorld() == null) return;
 
+        // Vérifier la limite d'indicateurs actifs pour éviter les packets trop gros
+        UUID worldId = spawnLoc.getWorld().getUID();
+        java.util.concurrent.atomic.AtomicInteger counter = activeIndicatorsPerWorld
+            .computeIfAbsent(worldId, k -> new java.util.concurrent.atomic.AtomicInteger(0));
+
+        if (counter.get() >= MAX_ACTIVE_INDICATORS_PER_WORLD) {
+            // Limite atteinte - ignorer silencieusement pour éviter les problèmes de performance
+            return;
+        }
+
+        // Incrémenter le compteur
+        counter.incrementAndGet();
+
         // Calcul des scales pour l'effet pop amélioré
         final float startScale = 0.0f; // Démarre invisible
         final float overshootScale = popEffect ? targetScale * 1.4f : targetScale * 1.25f; // Overshoot (bounce)
@@ -372,6 +395,8 @@ public class FluidDamageIndicator {
             if (display.isValid()) {
                 display.remove();
             }
+            // Décrémenter le compteur d'indicateurs actifs
+            counter.decrementAndGet();
         }, durationTicks + 4);
     }
 
@@ -478,5 +503,25 @@ public class FluidDamageIndicator {
             entry.getValue().removeIf(slot -> now - slot.timestamp() > INDICATOR_TRACKING_TIME_MS);
             return entry.getValue().isEmpty();
         });
+
+        // Réinitialiser les compteurs d'indicateurs actifs (utile après un cleanup forcé)
+        activeIndicatorsPerWorld.clear();
+    }
+
+    /**
+     * Retourne le nombre d'indicateurs actifs dans un monde (pour debug)
+     */
+    public static int getActiveIndicatorCount(UUID worldId) {
+        java.util.concurrent.atomic.AtomicInteger counter = activeIndicatorsPerWorld.get(worldId);
+        return counter != null ? counter.get() : 0;
+    }
+
+    /**
+     * Retourne le nombre total d'indicateurs actifs sur tous les mondes
+     */
+    public static int getTotalActiveIndicators() {
+        return activeIndicatorsPerWorld.values().stream()
+            .mapToInt(java.util.concurrent.atomic.AtomicInteger::get)
+            .sum();
     }
 }
