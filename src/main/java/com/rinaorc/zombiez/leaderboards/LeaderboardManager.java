@@ -82,8 +82,8 @@ public class LeaderboardManager {
         this.liveScores = new ConcurrentHashMap<>();
         this.flaggedPlayers = new ConcurrentHashMap<>();
 
-        // Créer les tables
-        createTables();
+        // Créer les tables de manière synchrone pour garantir qu'elles existent
+        createTablesSync();
 
         // Charger la saison actuelle
         loadCurrentSeason();
@@ -100,11 +100,13 @@ public class LeaderboardManager {
     // CRÉATION DES TABLES SQL
     // ═══════════════════════════════════════════════════════════════════════════
 
-    private void createTables() {
-        CompletableFuture.runAsync(() -> {
-            try (Connection conn = plugin.getDatabaseManager().getConnection()) {
-                boolean isMySQL = plugin.getDatabaseManager().getDatabaseType() ==
-                    com.rinaorc.zombiez.data.DatabaseManager.DatabaseType.MYSQL;
+    /**
+     * Crée les tables de manière synchrone pour garantir qu'elles existent avant les requêtes
+     */
+    private void createTablesSync() {
+        try (Connection conn = plugin.getDatabaseManager().getConnection()) {
+            boolean isMySQL = plugin.getDatabaseManager().getDatabaseType() ==
+                com.rinaorc.zombiez.data.DatabaseManager.DatabaseType.MYSQL;
 
                 // Table principale des leaderboards
                 String leaderboardsSQL = """
@@ -222,12 +224,11 @@ public class LeaderboardManager {
                     stmt.executeUpdate();
                 }
 
-                plugin.log(Level.INFO, "§a✓ Tables leaderboards créées");
+            plugin.log(Level.INFO, "§a✓ Tables leaderboards créées");
 
-            } catch (SQLException e) {
-                plugin.log(Level.SEVERE, "§c✗ Erreur création tables leaderboards: " + e.getMessage());
-            }
-        });
+        } catch (SQLException e) {
+            plugin.log(Level.SEVERE, "§c✗ Erreur création tables leaderboards: " + e.getMessage());
+        }
     }
 
     private void executeIgnoreError(Connection conn, String sql) {
