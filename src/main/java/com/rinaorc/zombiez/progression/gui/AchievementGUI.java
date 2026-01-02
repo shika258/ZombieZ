@@ -37,7 +37,7 @@ public class AchievementGUI implements Listener {
 
     // Titres des menus (préfixes pour identification)
     private static final String MENU_PREFIX = "§6✦ ";
-    private static final String OVERVIEW_TITLE = MENU_PREFIX + "Achievements";
+    private static final String OVERVIEW_TITLE = MENU_PREFIX + "Hauts-faits";
     private static final String CATEGORY_PREFIX = "§e★ ";
     private static final String NEXT_TITLE = "§e🎯 Prochains Objectifs";
     private static final String TIER_PREFIX = "§b◆ Tier: ";
@@ -107,7 +107,7 @@ public class AchievementGUI implements Listener {
 
         inv.setItem(4, new ItemBuilder(Material.PLAYER_HEAD)
             .skullOwner(player.getName())
-            .name("§6§l✦ Mes Achievements ✦")
+            .name("§6§l✦ Mes Hauts-faits ✦")
             .lore(
                 "",
                 "§7Progression globale:",
@@ -396,7 +396,7 @@ public class AchievementGUI implements Listener {
             .name(tier.getColor() + "§l" + tier.getStars() + " " + tier.getDisplayName())
             .lore(
                 "",
-                "§7Achievements de difficulté " + tier.getDisplayName(),
+                "§7Hauts-faits de difficulté " + tier.getDisplayName(),
                 "",
                 "§7Débloqués:",
                 progressBar(tierPercent, 20, "§a", "§8"),

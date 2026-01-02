@@ -138,7 +138,7 @@ public class PrestigeSystem {
         player.sendMessage("");
         player.sendMessage("§7  Conservé:");
         player.sendMessage("§a    ✓ §7Zones débloquées (Zone max: " + data.getHighestZone() + ")");
-        player.sendMessage("§a    ✓ §7Achievements");
+        player.sendMessage("§a    ✓ §7Hauts-faits");
         player.sendMessage("§a    ✓ §7Items et inventaire");
         player.sendMessage("");
         player.sendMessage("§7  Reset:");
