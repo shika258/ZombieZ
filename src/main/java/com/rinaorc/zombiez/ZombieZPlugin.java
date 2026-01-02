@@ -1282,12 +1282,13 @@ public class ZombieZPlugin extends JavaPlugin {
                 }
 
                 // ═══════════════════════════════════════════════════════════════════
-                // NETTOYAGE 3: Villagers et WanderingTraders (Convoi, Refuges)
+                // NETTOYAGE 3: Villagers et WanderingTraders (Convoi, Refuges, Journey NPCs)
                 // ═══════════════════════════════════════════════════════════════════
                 else if (entity instanceof Villager || entity instanceof WanderingTrader) {
                     if (entity.getScoreboardTags().contains("convoy_survivor") ||
                         entity.getScoreboardTags().contains("no_trading") ||
-                        entity.getScoreboardTags().contains("shelter_npc")) {
+                        entity.getScoreboardTags().contains("shelter_npc") ||
+                        entity.getScoreboardTags().contains("zombiez_journey_npc")) {
                         shouldRemove = true;
                         reason = "Custom NPC";
                         clearedVillagers++;
@@ -1322,6 +1323,48 @@ public class ZombieZPlugin extends JavaPlugin {
             log(Level.INFO, "§7Nettoyage événements: §b" + clearedTextDisplays + " TextDisplays§7, §e"
                     + clearedArmorStands + " ArmorStands§7, §a" + clearedVillagers + " Villagers§7, §c"
                     + clearedEventMobs + " mobs event §7supprimés (total: " + totalCleared + ")");
+        }
+
+        // Nettoyage des NPCs Citizens (si Citizens est disponible)
+        clearCitizensJourneyNPCs();
+    }
+
+    /**
+     * Nettoie les NPCs Citizens liés au système Journey (évite les duplications)
+     * Cette méthode est appelée AVANT l'initialisation du JourneyNPCManager
+     */
+    private void clearCitizensJourneyNPCs() {
+        if (!Bukkit.getPluginManager().isPluginEnabled("Citizens")) {
+            return; // Citizens non disponible
+        }
+
+        try {
+            net.citizensnpcs.api.npc.NPCRegistry registry = net.citizensnpcs.api.CitizensAPI.getNPCRegistry();
+            if (registry == null) {
+                return;
+            }
+
+            int removed = 0;
+            java.util.List<net.citizensnpcs.api.npc.NPC> toRemove = new java.util.ArrayList<>();
+
+            for (net.citizensnpcs.api.npc.NPC npc : registry) {
+                // Vérifier si c'est un NPC Journey (via data ou nom)
+                if (npc.data().has("journey_npc_id")) {
+                    toRemove.add(npc);
+                }
+            }
+
+            for (net.citizensnpcs.api.npc.NPC npc : toRemove) {
+                npc.destroy();
+                removed++;
+            }
+
+            if (removed > 0) {
+                log(Level.INFO, "§7Nettoyage Citizens: §d" + removed + " NPCs Journey §7supprimés pour éviter les duplications");
+            }
+        } catch (Exception e) {
+            // Citizens non disponible ou erreur - ignorer silencieusement
+            log(Level.WARNING, "§cImpossible de nettoyer les NPCs Citizens: " + e.getMessage());
         }
     }
 
