@@ -12,6 +12,7 @@ import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.format.TextDecoration;
 import org.bukkit.*;
 import org.bukkit.entity.*;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -35,6 +36,10 @@ import java.util.logging.Level;
  * Fournit une API simple pour créer, gérer et interagir avec les NPCs des quêtes.
  *
  * IMPORTANT: Tous les NPCs des Journey DOIVENT être créés via ce manager.
+ *
+ * RÈGLE D'AFFICHAGE: Les noms natifs des NPCs (Citizens ou vanilla) sont TOUJOURS
+ * cachés. Toutes les informations sont affichées via des TextDisplays au-dessus
+ * du NPC pour un rendu plus grand et plus riche.
  */
 public class JourneyNPCManager implements Listener {
 
@@ -53,6 +58,11 @@ public class JourneyNPCManager implements Listener {
     // État de Citizens
     private boolean citizensEnabled = false;
     private NPCRegistry npcRegistry;
+
+    // Constantes pour les TextDisplays
+    private static final float DEFAULT_DISPLAY_SCALE = 2.0f;
+    private static final double DEFAULT_DISPLAY_HEIGHT = 2.5;
+    private static final float DISPLAY_VIEW_RANGE = 0.6f;
 
     public JourneyNPCManager(ZombieZPlugin plugin) {
         this.plugin = plugin;
@@ -227,7 +237,8 @@ public class JourneyNPCManager implements Listener {
     }
 
     /**
-     * Crée un NPC via Citizens API
+     * Crée un NPC via Citizens API.
+     * IMPORTANT: Le nom natif du NPC est TOUJOURS caché - toutes les infos passent par TextDisplay.
      */
     private Entity createCitizensNPC(NPCConfig config) {
         // Chercher un NPC existant avec cet ID
@@ -239,13 +250,16 @@ public class JourneyNPCManager implements Listener {
                 }
                 npcCache.put(config.id, npc);
                 setupCitizensNPCProperties(npc, config);
+                // IMPORTANT: Cacher le nom natif Citizens
+                hideNPCNativeName(npc);
                 createDisplayForNPC(config);
                 return npc.getEntity();
             }
         }
 
-        // Créer un nouveau NPC
-        NPC npc = npcRegistry.createNPC(config.entityType, config.displayName);
+        // Créer un nouveau NPC avec un nom vide (le nom sera affiché via TextDisplay)
+        // On garde le displayName interne pour l'identification mais il ne sera pas visible
+        NPC npc = npcRegistry.createNPC(config.entityType, "");
         npc.data().set("journey_npc_id", config.id);
         npc.data().setPersistent("journey_npc_id", config.id);
 
@@ -258,15 +272,33 @@ public class JourneyNPCManager implements Listener {
         // Configuration
         setupCitizensNPCProperties(npc, config);
 
+        // IMPORTANT: Cacher le nom natif Citizens
+        hideNPCNativeName(npc);
+
         // Cache
         npcCache.put(config.id, npc);
 
-        // TextDisplay
+        // TextDisplay - toutes les informations sont affichées ici
         createDisplayForNPC(config);
 
-        plugin.log(Level.INFO, "§a✓ NPC Citizens créé: " + config.id);
+        plugin.log(Level.INFO, "§a✓ NPC Citizens créé: " + config.id + " (nom via TextDisplay)");
 
         return npc.getEntity();
+    }
+
+    /**
+     * Cache le nom natif d'un NPC Citizens.
+     * Désactive la nameplate pour que seul le TextDisplay soit visible.
+     */
+    private void hideNPCNativeName(NPC npc) {
+        // Désactiver l'affichage du nameplate Citizens
+        npc.data().set(NPC.Metadata.NAMEPLATE_VISIBLE, false);
+        npc.data().setPersistent(NPC.Metadata.NAMEPLATE_VISIBLE, false);
+
+        // Pour les entités vanilla sous-jacentes, cacher aussi le customName
+        if (npc.getEntity() != null && npc.getEntity() instanceof LivingEntity living) {
+            living.setCustomNameVisible(false);
+        }
     }
 
     /**
@@ -312,7 +344,8 @@ public class JourneyNPCManager implements Listener {
     }
 
     /**
-     * Crée un NPC vanilla (fallback si Citizens non disponible)
+     * Crée un NPC vanilla (fallback si Citizens non disponible).
+     * IMPORTANT: Le nom natif est TOUJOURS caché - toutes les infos passent par TextDisplay.
      */
     private Entity createVanillaNPC(NPCConfig config) {
         World world = config.location.getWorld();
@@ -323,16 +356,21 @@ public class JourneyNPCManager implements Listener {
             if (entity.getPersistentDataContainer().has(NPC_ID_KEY, PersistentDataType.STRING)) {
                 String id = entity.getPersistentDataContainer().get(NPC_ID_KEY, PersistentDataType.STRING);
                 if (config.id.equals(id)) {
+                    // S'assurer que le nom natif est caché
+                    if (entity instanceof LivingEntity living) {
+                        living.setCustomNameVisible(false);
+                    }
                     createDisplayForNPC(config);
                     return entity;
                 }
             }
         }
 
-        // Créer un Villager vanilla
+        // Créer un Villager vanilla SANS nom visible (tout via TextDisplay)
         Entity npcEntity = world.spawn(config.location, Villager.class, villager -> {
-            villager.customName(Component.text(config.displayName, NamedTextColor.GOLD, TextDecoration.BOLD));
-            villager.setCustomNameVisible(true);
+            // NE PAS afficher le nom natif - tout passe par TextDisplay
+            villager.customName(null); // Pas de nom custom
+            villager.setCustomNameVisible(false); // JAMAIS visible
             villager.setAI(false);
             villager.setInvulnerable(true);
             villager.setSilent(true);
@@ -353,16 +391,18 @@ public class JourneyNPCManager implements Listener {
             villager.setRotation(config.location.getYaw(), 0);
         });
 
-        // TextDisplay
+        // TextDisplay - TOUTES les informations sont affichées ici
         createDisplayForNPC(config);
 
-        plugin.log(Level.INFO, "§e⚠ NPC Vanilla créé: " + config.id + " (Citizens non disponible)");
+        plugin.log(Level.INFO, "§e⚠ NPC Vanilla créé: " + config.id + " (nom via TextDisplay)");
 
         return npcEntity;
     }
 
     /**
-     * Crée le TextDisplay au-dessus du NPC
+     * Crée le TextDisplay au-dessus du NPC.
+     * C'est le SEUL endroit où les informations du NPC sont affichées (pas de nom natif).
+     * Le TextDisplay est conçu pour être plus grand et plus visible qu'un hologramme standard.
      */
     private void createDisplayForNPC(NPCConfig config) {
         if (config.displayLines == null || config.displayLines.length == 0) return;
@@ -374,7 +414,11 @@ public class JourneyNPCManager implements Listener {
         World world = config.location.getWorld();
         if (world == null) return;
 
-        Location displayLoc = config.location.clone().add(0, config.displayHeight, 0);
+        // Utiliser les constantes par défaut si non spécifiées
+        double height = config.displayHeight > 0 ? config.displayHeight : DEFAULT_DISPLAY_HEIGHT;
+        float scale = config.displayScale > 0 ? config.displayScale : DEFAULT_DISPLAY_SCALE;
+
+        Location displayLoc = config.location.clone().add(0, height, 0);
 
         // Construire le texte
         StringBuilder text = new StringBuilder();
@@ -384,8 +428,8 @@ public class JourneyNPCManager implements Listener {
         }
 
         String finalText = text.toString();
-        float scale = config.displayScale;
         String displayId = config.id;
+        float finalScale = scale;
 
         TextDisplay display = world.spawn(displayLoc, TextDisplay.class, d -> {
             d.setText(finalText);
@@ -393,15 +437,18 @@ public class JourneyNPCManager implements Listener {
             d.setAlignment(TextDisplay.TextAlignment.CENTER);
             d.setShadowed(true);
             d.setSeeThrough(false);
+            // Fond semi-transparent pour meilleure lisibilité
             d.setDefaultBackground(false);
-            d.setBackgroundColor(Color.fromARGB(0, 0, 0, 0));
+            d.setBackgroundColor(Color.fromARGB(100, 0, 0, 0));
+            // Scale plus grande pour visibilité
             d.setTransformation(new Transformation(
                 new Vector3f(0, 0, 0),
                 new AxisAngle4f(0, 0, 0, 1),
-                new Vector3f(scale, scale, scale),
+                new Vector3f(finalScale, finalScale, finalScale),
                 new AxisAngle4f(0, 0, 0, 1)
             ));
-            d.setViewRange(0.5f);
+            // View range augmenté pour voir de plus loin
+            d.setViewRange(DISPLAY_VIEW_RANGE);
             d.setPersistent(false);
             d.addScoreboardTag("journey_npc_display");
             d.addScoreboardTag("display_" + displayId);

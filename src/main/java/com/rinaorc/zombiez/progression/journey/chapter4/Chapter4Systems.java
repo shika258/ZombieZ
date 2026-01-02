@@ -531,15 +531,22 @@ public class Chapter4Systems implements Listener {
         loc.setWorld(world);
 
         // Créer le NPC via JourneyNPCManager
+        // NOTE: Le nom natif est CACHÉ - toutes les infos passent par TextDisplay
         JourneyNPCManager.NPCConfig config = new JourneyNPCManager.NPCConfig(
-            PRIEST_NPC_ID, "§6§lPère Augustin", loc
+            PRIEST_NPC_ID, "Père Augustin", // Nom interne (non affiché)
+            loc
         )
         .entityType(EntityType.VILLAGER)
         .profession(Villager.Profession.CLERIC)
         .lookClose(true)
-        .display("§f✝ §6§lLE PRÊTRE §f✝", "§8─────────", "§f▶ Clic droit")
+        .display(
+            "§f✝ §6§lLE PRÊTRE §f✝",
+            "§fPère Augustin",
+            "§8─────────────",
+            "§7▶ §fClic droit §7pour parler"
+        )
         .displayHeight(PRIEST_DISPLAY_HEIGHT)
-        .displayScale(1.8f)
+        .displayScale(2.0f)
         .onInteract(event -> handlePriestInteraction(event.getPlayer()));
 
         Entity npcEntity = npcManager.createOrGetNPC(config);
@@ -1409,15 +1416,22 @@ public class Chapter4Systems implements Listener {
         loc.setWorld(world);
 
         // Créer le NPC via JourneyNPCManager
+        // NOTE: Le nom natif est CACHÉ - toutes les infos passent par TextDisplay
         JourneyNPCManager.NPCConfig config = new JourneyNPCManager.NPCConfig(
-            MUSHROOM_COLLECTOR_NPC_ID, "§5§lMère Cueillette", loc
+            MUSHROOM_COLLECTOR_NPC_ID, "Mère Cueillette", // Nom interne (non affiché)
+            loc
         )
         .entityType(EntityType.VILLAGER)
         .profession(Villager.Profession.FARMER)
         .lookClose(true)
-        .display("§c🍄 §5§lLA CUEILLEUSE §c🍄", "§8─────────────", "§f▶ Clic droit")
-        .displayHeight(2.5)
-        .displayScale(1.8f)
+        .display(
+            "§c🍄 §5§lLA CUEILLEUSE §c🍄",
+            "§fMère Cueillette",
+            "§8─────────────",
+            "§7▶ §fClic droit §7pour parler"
+        )
+        .displayHeight(2.6)
+        .displayScale(2.0f)
         .onInteract(event -> handleMushroomCollectorInteraction(event.getPlayer()));
 
         Entity npcEntity = npcManager.createOrGetNPC(config);
@@ -3741,15 +3755,22 @@ public class Chapter4Systems implements Listener {
         loc.setWorld(world);
 
         // Créer le NPC via JourneyNPCManager
+        // NOTE: Le nom natif est CACHÉ - toutes les infos passent par TextDisplay
         JourneyNPCManager.NPCConfig config = new JourneyNPCManager.NPCConfig(
-            ALCHEMIST_NPC_ID, "§5§lMaître Elric", loc
+            ALCHEMIST_NPC_ID, "Maître Elric", // Nom interne (non affiché)
+            loc
         )
         .entityType(EntityType.VILLAGER)
         .profession(Villager.Profession.CLERIC)
         .lookClose(true)
-        .display("§d⚗ §5§lL'ALCHIMISTE §d⚗", "§8─────────", "§f▶ Clic droit")
+        .display(
+            "§d⚗ §5§lL'ALCHIMISTE §d⚗",
+            "§fMaître Elric",
+            "§8─────────────",
+            "§7▶ §fClic droit §7pour parler"
+        )
         .displayHeight(ALCHEMIST_DISPLAY_HEIGHT)
-        .displayScale(1.8f)
+        .displayScale(2.0f)
         .onInteract(event -> handleAlchemistInteraction(event.getPlayer()));
 
         Entity npcEntity = npcManager.createOrGetNPC(config);
