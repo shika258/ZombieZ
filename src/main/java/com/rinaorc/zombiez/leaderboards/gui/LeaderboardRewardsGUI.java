@@ -132,7 +132,34 @@ public class LeaderboardRewardsGUI implements InventoryHolder {
         lore.add(Component.text("§7Récompenses gagnées grâce à"));
         lore.add(Component.text("§7tes performances dans les classements!"));
         lore.add(Component.empty());
-        lore.add(Component.text("§e" + rewards.size() + " récompense(s) en attente"));
+
+        if (!rewards.isEmpty()) {
+            // Calculer les totaux
+            long totalPoints = rewards.stream().mapToLong(LeaderboardManager.PendingReward::getPoints).sum();
+            int totalGems = rewards.stream().mapToInt(LeaderboardManager.PendingReward::getGems).sum();
+            long totalTitles = rewards.stream().filter(r -> r.getTitle() != null && !r.getTitle().isEmpty()).count();
+            long totalCosmetics = rewards.stream().filter(r -> r.getCosmetic() != null && !r.getCosmetic().isEmpty()).count();
+
+            lore.add(Component.text("§e§l" + rewards.size() + " §7récompense(s) en attente"));
+            lore.add(Component.empty());
+            lore.add(Component.text("§8─────────────────"));
+            lore.add(Component.text("§6§lTotal disponible:"));
+            if (totalPoints > 0) {
+                lore.add(Component.text("  §f▸ §e" + formatNumber(totalPoints) + " points"));
+            }
+            if (totalGems > 0) {
+                lore.add(Component.text("  §f▸ §d" + totalGems + " gemmes"));
+            }
+            if (totalTitles > 0) {
+                lore.add(Component.text("  §f▸ §6" + totalTitles + " titre(s)"));
+            }
+            if (totalCosmetics > 0) {
+                lore.add(Component.text("  §f▸ §b" + totalCosmetics + " cosmétique(s)"));
+            }
+            lore.add(Component.text("§8─────────────────"));
+        } else {
+            lore.add(Component.text("§7Aucune récompense en attente"));
+        }
 
         meta.lore(lore);
         item.setItemMeta(meta);
@@ -178,35 +205,39 @@ public class LeaderboardRewardsGUI implements InventoryHolder {
 
         // Titre avec rang
         String rankIcon = switch (reward.getRank()) {
-            case 1 -> "§6🥇";
-            case 2 -> "§f🥈";
-            case 3 -> "§c🥉";
+            case 1 -> "§6§l🥇";
+            case 2 -> "§f§l🥈";
+            case 3 -> "§c§l🥉";
             default -> "§7#" + reward.getRank();
         };
 
         meta.displayName(Component.text(rankIcon + " §e" + reward.getType().getDisplayName()));
 
         List<Component> lore = new ArrayList<>();
+        lore.add(Component.text("§8" + reward.getFormattedDate()));
+        lore.add(Component.empty());
         lore.add(Component.text("§7Période: §f" + reward.getPeriod().getDisplayName()));
         lore.add(Component.text("§7Rang obtenu: §f#" + reward.getRank()));
         lore.add(Component.empty());
+        lore.add(Component.text("§8─────────────────"));
 
-        lore.add(Component.text("§6Contenu:"));
+        lore.add(Component.text("§6§lContenu:"));
         if (reward.getPoints() > 0) {
-            lore.add(Component.text("  §e+" + formatNumber(reward.getPoints()) + " points"));
+            lore.add(Component.text("  §f▸ §e+" + formatNumber(reward.getPoints()) + " points"));
         }
         if (reward.getGems() > 0) {
-            lore.add(Component.text("  §d+" + reward.getGems() + " gemmes"));
+            lore.add(Component.text("  §f▸ §d+" + reward.getGems() + " gemmes"));
         }
         if (reward.getTitle() != null && !reward.getTitle().isEmpty()) {
-            lore.add(Component.text("  §6Titre: " + reward.getTitle()));
+            lore.add(Component.text("  §f▸ §6Titre: " + reward.getTitle()));
         }
         if (reward.getCosmetic() != null && !reward.getCosmetic().isEmpty()) {
-            lore.add(Component.text("  §bCosmétique: " + reward.getCosmetic()));
+            lore.add(Component.text("  §f▸ §bCosmétique: " + reward.getCosmetic()));
         }
+        lore.add(Component.text("§8─────────────────"));
 
         lore.add(Component.empty());
-        lore.add(Component.text("§a§lClique pour réclamer!"));
+        lore.add(Component.text("§a§l➤ Clique pour réclamer!"));
 
         meta.lore(lore);
         item.setItemMeta(meta);
@@ -217,24 +248,38 @@ public class LeaderboardRewardsGUI implements InventoryHolder {
         ItemStack item = new ItemStack(Material.EMERALD_BLOCK);
         ItemMeta meta = item.getItemMeta();
 
-        meta.displayName(Component.text("§a§l✓ Tout Réclamer"));
+        meta.displayName(Component.text("§a§l✓ TOUT RÉCLAMER ✓"));
 
         List<Component> lore = new ArrayList<>();
         lore.add(Component.empty());
-        lore.add(Component.text("§7Réclame toutes les " + rewards.size()));
-        lore.add(Component.text("§7récompenses en une fois!"));
+        lore.add(Component.text("§7Réclame toutes les §e§l" + rewards.size() + " §7récompenses"));
+        lore.add(Component.text("§7en un seul clic!"));
         lore.add(Component.empty());
 
         // Calculer le total
         long totalPoints = rewards.stream().mapToLong(LeaderboardManager.PendingReward::getPoints).sum();
         int totalGems = rewards.stream().mapToInt(LeaderboardManager.PendingReward::getGems).sum();
+        long totalTitles = rewards.stream().filter(r -> r.getTitle() != null && !r.getTitle().isEmpty()).count();
+        long totalCosmetics = rewards.stream().filter(r -> r.getCosmetic() != null && !r.getCosmetic().isEmpty()).count();
 
-        lore.add(Component.text("§6Total:"));
-        lore.add(Component.text("  §e" + formatNumber(totalPoints) + " points"));
-        lore.add(Component.text("  §d" + totalGems + " gemmes"));
+        lore.add(Component.text("§8─────────────────"));
+        lore.add(Component.text("§6§lTu vas recevoir:"));
+        if (totalPoints > 0) {
+            lore.add(Component.text("  §f▸ §e§l" + formatNumber(totalPoints) + " §epoints"));
+        }
+        if (totalGems > 0) {
+            lore.add(Component.text("  §f▸ §d§l" + totalGems + " §dgemmes"));
+        }
+        if (totalTitles > 0) {
+            lore.add(Component.text("  §f▸ §6§l" + totalTitles + " §6titre(s)"));
+        }
+        if (totalCosmetics > 0) {
+            lore.add(Component.text("  §f▸ §b§l" + totalCosmetics + " §bcosmétique(s)"));
+        }
+        lore.add(Component.text("§8─────────────────"));
 
         lore.add(Component.empty());
-        lore.add(Component.text("§a§lClique pour tout réclamer!"));
+        lore.add(Component.text("§a§l➤ CLIC GAUCHE POUR RÉCLAMER!"));
 
         meta.lore(lore);
         item.setItemMeta(meta);

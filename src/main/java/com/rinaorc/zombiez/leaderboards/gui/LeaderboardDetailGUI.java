@@ -224,22 +224,37 @@ public class LeaderboardDetailGUI implements InventoryHolder {
             LeaderboardReward reward = LeaderboardReward.calculateReward(type, period, entry.getRank());
             if (reward != null && reward.hasContent()) {
                 lore.add(Component.empty());
-                lore.add(Component.text("§6Récompense:"));
+                lore.add(Component.text("§8─────────────────"));
+                lore.add(Component.text("§6⏰ Récompenses de fin de période:"));
                 if (reward.getPoints() > 0) {
-                    lore.add(Component.text("  §e+" + reward.getPoints() + " points"));
+                    lore.add(Component.text("  §f▸ §e+" + formatNumber(reward.getPoints()) + " points"));
                 }
                 if (reward.getGems() > 0) {
-                    lore.add(Component.text("  §d+" + reward.getGems() + " gemmes"));
+                    lore.add(Component.text("  §f▸ §d+" + reward.getGems() + " gemmes"));
                 }
                 if (reward.getTitle() != null) {
-                    lore.add(Component.text("  §6Titre: " + reward.getTitle()));
+                    lore.add(Component.text("  §f▸ §6Titre: " + reward.getTitle()));
+                }
+                if (reward.getCosmetic() != null) {
+                    lore.add(Component.text("  §f▸ §bCosmétique: " + reward.getCosmetic()));
+                }
+                lore.add(Component.empty());
+                if (period == LeaderboardPeriod.ALL_TIME) {
+                    lore.add(Component.text("§7Distribuées manuellement par les admins"));
+                } else {
+                    lore.add(Component.text("§7Distribuées à la fin du classement"));
+                    lore.add(Component.text("§7" + period.getDisplayName().replaceAll("§[a-z0-9]", "") + " §8(" + period.getFormattedTimeUntilReset() + "§8)"));
+                }
+                lore.add(Component.text("§8─────────────────"));
+                if (isPlayer) {
+                    lore.add(Component.text("§e➤ §7/lb rewards §epour réclamer"));
                 }
             }
         }
 
         if (isPlayer) {
             lore.add(Component.empty());
-            lore.add(Component.text("§a✓ C'est toi!"));
+            lore.add(Component.text("§a§l✓ C'est toi!"));
         }
 
         meta.lore(lore);
