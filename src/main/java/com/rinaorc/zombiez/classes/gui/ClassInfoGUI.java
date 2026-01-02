@@ -214,7 +214,7 @@ public class ClassInfoGUI implements Listener {
         lore.add("§e> Clic pour gerer vos talents");
 
         return new ItemBuilder(unselected > 0 ? Material.ENCHANTED_BOOK : Material.BOOK)
-            .name("§d§lTALENTS")
+            .name("§d§lVOIE DES TALENTS")
             .lore(lore)
             .glow(unselected > 0)
             .build();
