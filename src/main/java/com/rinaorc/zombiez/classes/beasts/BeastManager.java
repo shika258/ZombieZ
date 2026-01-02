@@ -90,6 +90,12 @@ public class BeastManager {
     private static final long AXOLOTL_TICK_RATE = 500;              // Tick rate des bêtes (10 ticks = 500ms)
     private final Map<UUID, Long> axolotlLastShotTime = new ConcurrentHashMap<>(); // Dernier tir effectif
 
+    // Tracking des bêtes bloquées (pour téléportation proactive)
+    private final Map<UUID, Location> beastLastPosition = new ConcurrentHashMap<>();
+    private final Map<UUID, Long> beastLastMoveTime = new ConcurrentHashMap<>();
+    private static final long BEAST_STUCK_TIMEOUT = 3000; // 3 secondes sans bouger = bloqué
+    private static final double BEAST_STUCK_THRESHOLD = 1.5; // Distance minimale de mouvement
+
     public BeastManager(ZombieZPlugin plugin, TalentManager talentManager) {
         this.plugin = plugin;
         this.talentManager = talentManager;
@@ -491,7 +497,7 @@ public class BeastManager {
 
     // Constantes pour le comportement des bêtes
     private static final double BEAST_COMBAT_RANGE = 20.0;      // Rayon max de combat autour du joueur
-    private static final double BEAST_LEASH_RANGE = 40.0;       // Distance max avant téléportation (augmenté de 25)
+    private static final double BEAST_LEASH_RANGE = 32.0;       // Distance max avant téléportation
     private static final double BEAST_FOLLOW_RANGE = 8.0;       // Distance pour commencer à suivre (pas de combat)
 
     /**
@@ -521,16 +527,38 @@ public class BeastManager {
                 }
 
                 BeastType type = beastEntry.getKey();
+                UUID beastUuid = beast.getUniqueId();
                 Location beastLoc = beast.getLocation();
                 Location playerLoc = player.getLocation();
+
+                // Vérification de monde différent - téléporter si le joueur a changé de dimension
+                if (!beast.getWorld().equals(player.getWorld())) {
+                    Location safeLoc = calculatePackPosition(player, type);
+                    beast.teleport(safeLoc);
+                    clearBeastStuckTracking(beastUuid);
+                    continue;
+                }
+
                 double distanceToPlayer = beastLoc.distance(playerLoc);
 
-                // Si trop loin du joueur (>25 blocs), téléporter près du joueur
+                // Si trop loin du joueur, téléporter près du joueur
                 if (distanceToPlayer > BEAST_LEASH_RANGE) {
                     Location safeLoc = calculatePackPosition(player, type);
                     beast.teleport(safeLoc);
+                    clearBeastStuckTracking(beastUuid);
                     continue;
                 }
+
+                // Détection des bêtes bloquées - téléporter si elle n'a pas bougé depuis trop longtemps
+                if (isBeastStuck(beast, distanceToPlayer)) {
+                    Location safeLoc = calculatePackPosition(player, type);
+                    beast.teleport(safeLoc);
+                    clearBeastStuckTracking(beastUuid);
+                    continue;
+                }
+
+                // Mettre à jour le tracking de position
+                updateBeastPositionTracking(beast);
 
                 // Comportement spécifique selon le type de bête
                 if (type == BeastType.BAT || type == BeastType.BEE) {
@@ -715,6 +743,7 @@ public class BeastManager {
 
     /**
      * Oriente une bête vers une position (fait regarder)
+     * Utilise setRotation() pour ne pas interrompre le pathfinding
      */
     private void orientBeastTowards(LivingEntity beast, Location target) {
         Location beastLoc = beast.getLocation();
@@ -727,12 +756,78 @@ public class BeastManager {
         float yaw = (float) Math.toDegrees(Math.atan2(-direction.getX(), direction.getZ()));
         float pitch = (float) Math.toDegrees(-Math.asin(direction.getY()));
 
-        // Appliquer la rotation de manière fluide
-        beastLoc.setYaw(yaw);
-        beastLoc.setPitch(pitch);
+        // Appliquer la rotation sans téléportation (ne reset pas le pathfinder)
+        beast.setRotation(yaw, pitch);
+    }
 
-        // Téléportation légère pour appliquer la rotation (sans déplacer)
-        beast.teleport(beastLoc);
+    /**
+     * Vérifie si une bête est bloquée (n'a pas bougé depuis trop longtemps alors qu'elle devrait)
+     */
+    private boolean isBeastStuck(LivingEntity beast, double distanceToPlayer) {
+        UUID beastUuid = beast.getUniqueId();
+        Location currentLoc = beast.getLocation();
+        long now = System.currentTimeMillis();
+
+        // Si la bête est proche du joueur (< 5 blocs), elle n'est pas considérée comme bloquée
+        if (distanceToPlayer < 5.0) {
+            clearBeastStuckTracking(beastUuid);
+            return false;
+        }
+
+        Location lastPos = beastLastPosition.get(beastUuid);
+        Long lastMoveTime = beastLastMoveTime.get(beastUuid);
+
+        // Première fois qu'on voit cette bête
+        if (lastPos == null || lastMoveTime == null) {
+            return false;
+        }
+
+        // Vérifier si la bête a bougé significativement
+        if (lastPos.getWorld() != null && lastPos.getWorld().equals(currentLoc.getWorld())) {
+            double movedDistance = lastPos.distance(currentLoc);
+
+            if (movedDistance >= BEAST_STUCK_THRESHOLD) {
+                // La bête a bougé, reset le timer
+                return false;
+            }
+        }
+
+        // La bête n'a pas assez bougé - vérifier le timeout
+        return (now - lastMoveTime) > BEAST_STUCK_TIMEOUT;
+    }
+
+    /**
+     * Met à jour le tracking de position d'une bête
+     */
+    private void updateBeastPositionTracking(LivingEntity beast) {
+        UUID beastUuid = beast.getUniqueId();
+        Location currentLoc = beast.getLocation().clone();
+        long now = System.currentTimeMillis();
+
+        Location lastPos = beastLastPosition.get(beastUuid);
+
+        // Si première fois ou si la bête a bougé significativement
+        if (lastPos == null) {
+            beastLastPosition.put(beastUuid, currentLoc);
+            beastLastMoveTime.put(beastUuid, now);
+        } else if (lastPos.getWorld() != null && lastPos.getWorld().equals(currentLoc.getWorld())) {
+            double movedDistance = lastPos.distance(currentLoc);
+
+            if (movedDistance >= BEAST_STUCK_THRESHOLD) {
+                // La bête a bougé, mettre à jour la position et le timer
+                beastLastPosition.put(beastUuid, currentLoc);
+                beastLastMoveTime.put(beastUuid, now);
+            }
+            // Si elle n'a pas bougé, on ne met pas à jour (le timer continue)
+        }
+    }
+
+    /**
+     * Nettoie le tracking de position d'une bête (appelé après téléportation)
+     */
+    private void clearBeastStuckTracking(UUID beastUuid) {
+        beastLastPosition.remove(beastUuid);
+        beastLastMoveTime.remove(beastUuid);
     }
 
     /**
@@ -2761,6 +2856,8 @@ public class BeastManager {
             if (entity != null) {
                 entity.remove();
             }
+            // Nettoyer le tracking des bêtes bloquées
+            clearBeastStuckTracking(beastUuid);
         }
 
         pendingRespawn.remove(uuid);
