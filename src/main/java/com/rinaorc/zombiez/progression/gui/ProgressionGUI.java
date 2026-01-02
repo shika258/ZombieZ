@@ -439,7 +439,7 @@ public class ProgressionGUI implements Listener {
             switch (slot) {
                 case 20 -> openSkillsMenu(player, SkillTree.COMBAT);
                 case 22 -> new AchievementGUI(plugin).open(player); // Nouveau menu achievements
-                case 24 -> openLeaderboardMenu(player, LeaderboardType.KILLS);
+                case 24 -> openLeaderboardMenu(player, LeaderboardType.KILLS_TOTAL);
                 case 40 -> {
                     // Prestige
                     if (plugin.getProgressionManager().prestige(player)) {
