@@ -931,7 +931,6 @@ class WarNestActive implements PetAbility {
             .anyMatch(e -> e instanceof Monster);
 
         if (!hasEnemies) {
-            player.sendMessage("§c[Pet] §7Aucun ennemi à proximité!");
             return false;
         }
 
@@ -1336,7 +1335,6 @@ class ChainReactionActive implements PetAbility {
             .toList();
 
         if (targets.isEmpty()) {
-            player.sendMessage("§c[Pet] §7Aucun ennemi à proximité!");
             return false;
         }
 
@@ -4172,7 +4170,6 @@ class BouncingAssaultActive implements PetAbility {
         }
 
         if (targets.isEmpty()) {
-            player.sendMessage("§c[Pet] §7Aucun ennemi à proximité!");
             return false;
         }
 
@@ -4930,7 +4927,6 @@ class SwarmFuryActive implements PetAbility {
             .anyMatch(e -> e instanceof Monster);
 
         if (!hasEnemies) {
-            player.sendMessage("§c[Pet] §7Aucun ennemi à proximité!");
             return false;
         }
 
@@ -5387,7 +5383,6 @@ class VoidEruptionActive implements PetAbility {
             .anyMatch(e -> e instanceof Monster);
 
         if (!hasEnemies) {
-            player.sendMessage("§c[Pet] §7Aucun ennemi à proximité!");
             return false;
         }
 

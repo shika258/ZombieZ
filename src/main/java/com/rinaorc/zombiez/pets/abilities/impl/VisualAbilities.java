@@ -685,7 +685,6 @@ class PrismaticNovaActive implements PetAbility {
             .toList();
 
         if (targets.isEmpty()) {
-            player.sendMessage("§c[Pet] §7Aucun ennemi à proximité!");
             return false;
         }
 

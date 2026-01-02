@@ -77,11 +77,9 @@ class EchoScanActive implements PetAbility {
             );
         }
 
-        // Feedback au joueur
+        // Feedback au joueur (seulement si ennemis trouvés)
         if (enemiesFound > 0) {
             player.sendMessage("§d[Pet] §7Écho-Scan: §e" + enemiesFound + " §7ennemi(s) détecté(s)!");
-        } else {
-            player.sendMessage("§d[Pet] §7Écho-Scan: §aAucun ennemi à proximité.");
         }
 
         return true;
