@@ -131,9 +131,19 @@ public class LeaderboardMainGUI implements InventoryHolder {
         lore.add(Component.empty());
 
         if (period != LeaderboardPeriod.ALL_TIME) {
-            lore.add(Component.text("§7Reset dans: " + period.getFormattedTimeUntilReset()));
+            lore.add(Component.text("§8─────────────────"));
+            lore.add(Component.text("§6⏰ Prochaine distribution:"));
+            lore.add(Component.text("§f  " + period.getFormattedTimeUntilReset()));
+            lore.add(Component.text("§8─────────────────"));
+            lore.add(Component.empty());
+            lore.add(Component.text("§7Les récompenses seront"));
+            lore.add(Component.text("§7automatiquement distribuées"));
+            lore.add(Component.text("§7aux joueurs du Top 100."));
         } else {
+            lore.add(Component.text("§8─────────────────"));
             lore.add(Component.text("§7Classement permanent"));
+            lore.add(Component.text("§7(jamais réinitialisé)"));
+            lore.add(Component.text("§8─────────────────"));
         }
 
         lore.add(Component.empty());
@@ -236,14 +246,21 @@ public class LeaderboardMainGUI implements InventoryHolder {
         ItemStack item = new ItemStack(Material.CHEST);
         ItemMeta meta = item.getItemMeta();
 
-        meta.displayName(Component.text("§e§lRécompenses en Attente"));
+        meta.displayName(Component.text("§e§l🎁 Récompenses en Attente"));
 
         List<Component> lore = new ArrayList<>();
         lore.add(Component.empty());
         lore.add(Component.text("§7Clique pour voir et réclamer"));
         lore.add(Component.text("§7tes récompenses de classement!"));
         lore.add(Component.empty());
-        lore.add(Component.text("§eClique pour ouvrir"));
+        lore.add(Component.text("§8─────────────────"));
+        lore.add(Component.text("§6Comment ça marche?"));
+        lore.add(Component.text("§7  1. Grimpe dans les classements"));
+        lore.add(Component.text("§7  2. Attends la fin de la période"));
+        lore.add(Component.text("§7  3. Réclame tes récompenses ici!"));
+        lore.add(Component.text("§8─────────────────"));
+        lore.add(Component.empty());
+        lore.add(Component.text("§a§l➤ §eClique pour ouvrir"));
 
         meta.lore(lore);
         item.setItemMeta(meta);

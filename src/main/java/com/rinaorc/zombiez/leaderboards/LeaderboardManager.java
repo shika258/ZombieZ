@@ -724,8 +724,14 @@ public class LeaderboardManager {
     public void resetPeriodLeaderboards(LeaderboardPeriod period) {
         plugin.log(Level.INFO, "§6Reset des leaderboards " + period.getDisplayName());
 
+        // Broadcast du début de la distribution
+        broadcastPeriodEnd(period);
+
         // D'abord, distribuer les récompenses
-        distributeRewardsForPeriod(period);
+        int rewardsCount = distributeRewardsForPeriod(period);
+
+        // Broadcast du résultat
+        broadcastRewardsDistributed(period, rewardsCount);
 
         // Ensuite, archiver les données
         archivePeriodData(period);
@@ -751,17 +757,75 @@ public class LeaderboardManager {
         }
     }
 
-    private void distributeRewardsForPeriod(LeaderboardPeriod period) {
+    private int distributeRewardsForPeriod(LeaderboardPeriod period) {
+        int totalRewards = 0;
+        Set<UUID> playersRewarded = new HashSet<>();
+
         for (LeaderboardType type : LeaderboardType.values()) {
             List<LeaderboardEntry> top = getTopEntries(type, period, 100);
 
             for (LeaderboardEntry entry : top) {
                 LeaderboardReward reward = LeaderboardReward.calculateReward(type, period, entry.getRank());
-                if (reward != null) {
+                if (reward != null && reward.hasContent()) {
                     saveReward(entry.getUuid(), type, period, entry.getRank(), reward);
+                    totalRewards++;
+                    playersRewarded.add(entry.getUuid());
                 }
             }
         }
+
+        // Notifier les joueurs en ligne qu'ils ont reçu des récompenses
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            for (UUID uuid : playersRewarded) {
+                Player player = Bukkit.getPlayer(uuid);
+                if (player != null && player.isOnline()) {
+                    player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+                    player.sendMessage("");
+                    player.sendMessage("§a§l✓ §aTu as reçu des récompenses de classement!");
+                    player.sendMessage("§7  Utilise §e/lb rewards §7pour les réclamer.");
+                    player.sendMessage("");
+                }
+            }
+        });
+
+        return totalRewards;
+    }
+
+    /**
+     * Broadcast l'annonce de fin de période à tous les joueurs
+     */
+    private void broadcastPeriodEnd(LeaderboardPeriod period) {
+        String periodName = period.getDisplayName().replaceAll("§[a-z0-9]", "");
+
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                player.sendMessage("");
+                player.sendMessage("§8§m                                                  ");
+                player.sendMessage("§6§l  🏆 FIN DE PÉRIODE - " + periodName.toUpperCase() + " §6§l🏆");
+                player.sendMessage("");
+                player.sendMessage("  §7Le classement §e" + periodName + " §7est terminé!");
+                player.sendMessage("  §7Distribution des récompenses en cours...");
+                player.sendMessage("§8§m                                                  ");
+            }
+        });
+    }
+
+    /**
+     * Broadcast le résultat de la distribution des récompenses
+     */
+    private void broadcastRewardsDistributed(LeaderboardPeriod period, int rewardsCount) {
+        String periodName = period.getDisplayName().replaceAll("§[a-z0-9]", "");
+
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            for (Player player : Bukkit.getOnlinePlayers()) {
+                player.sendMessage("");
+                player.sendMessage("§a§l✓ §a" + rewardsCount + " §7récompenses ont été distribuées!");
+                player.sendMessage("§7  Un nouveau classement §e" + periodName + " §7commence maintenant.");
+                player.sendMessage("§7  Utilise §e/lb rewards §7pour voir tes récompenses.");
+                player.sendMessage("");
+                player.playSound(player.getLocation(), org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.7f, 1.0f);
+            }
+        });
     }
 
     private void archivePeriodData(LeaderboardPeriod period) {
@@ -844,6 +908,9 @@ public class LeaderboardManager {
                     ResultSet rs = stmt.executeQuery();
 
                     while (rs.next()) {
+                        Timestamp createdTs = rs.getTimestamp("created_at");
+                        Instant createdAt = createdTs != null ? createdTs.toInstant() : Instant.now();
+
                         rewards.add(new PendingReward(
                             rs.getLong("id"),
                             LeaderboardType.valueOf(rs.getString("leaderboard_type")),
@@ -852,7 +919,8 @@ public class LeaderboardManager {
                             rs.getLong("reward_points"),
                             rs.getInt("reward_gems"),
                             rs.getString("reward_title"),
-                            rs.getString("reward_cosmetic")
+                            rs.getString("reward_cosmetic"),
+                            createdAt
                         ));
                     }
                 }
@@ -1359,9 +1427,10 @@ public class LeaderboardManager {
         private final int gems;
         private final String title;
         private final String cosmetic;
+        private final Instant createdAt;
 
         public PendingReward(long id, LeaderboardType type, LeaderboardPeriod period, int rank,
-                           long points, int gems, String title, String cosmetic) {
+                           long points, int gems, String title, String cosmetic, Instant createdAt) {
             this.id = id;
             this.type = type;
             this.period = period;
@@ -1370,6 +1439,27 @@ public class LeaderboardManager {
             this.gems = gems;
             this.title = title;
             this.cosmetic = cosmetic;
+            this.createdAt = createdAt;
+        }
+
+        /**
+         * Formate la date de création de manière lisible
+         */
+        public String getFormattedDate() {
+            if (createdAt == null) return "Date inconnue";
+
+            LocalDateTime ldt = LocalDateTime.ofInstant(createdAt, ZoneId.systemDefault());
+            long daysAgo = java.time.Duration.between(ldt, LocalDateTime.now()).toDays();
+
+            if (daysAgo == 0) {
+                return "Aujourd'hui";
+            } else if (daysAgo == 1) {
+                return "Hier";
+            } else if (daysAgo < 7) {
+                return "Il y a " + daysAgo + " jours";
+            } else {
+                return ldt.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+            }
         }
     }
 }
