@@ -182,7 +182,7 @@ public class DynamicEventListener implements Listener {
             int zoneId = Math.max(1, level / 2);
             Rarity rarity = rollRarityForHorde(luckBonus);
 
-            var item = plugin.getItemManager().generateItem(zoneId, rarity);
+            var item = plugin.getItemManager().generateZombieZItem(zoneId, rarity);
             if (item != null) {
                 plugin.getItemManager().dropItem(deathLoc, item);
             }

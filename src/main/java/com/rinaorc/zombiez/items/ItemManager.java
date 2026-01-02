@@ -625,6 +625,13 @@ public class ItemManager {
     }
 
     /**
+     * Génère un ZombieZItem avec une rareté spécifique (pour les événements)
+     */
+    public ZombieZItem generateZombieZItem(int zoneId, Rarity rarity) {
+        return generator.generate(zoneId, rarity, 0.0);
+    }
+
+    /**
      * Obtient les données d'un item ZombieZ
      */
     public ZombieZItem getItemData(ItemStack itemStack) {
