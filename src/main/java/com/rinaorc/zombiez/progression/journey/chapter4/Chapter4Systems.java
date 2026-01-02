@@ -3983,23 +3983,74 @@ public class Chapter4Systems implements Listener {
 
     // Flag pour éviter le spawn concurrent de cristaux
     private volatile boolean isSpawningCrystal = false;
+    // Timestamp du dernier spawn pour éviter les spawns trop rapprochés
+    private volatile long lastCrystalSpawnTime = 0;
+    private static final long CRYSTAL_SPAWN_COOLDOWN = 5000; // 5 secondes entre spawns
+
+    /**
+     * Compte le nombre de cristaux existants dans le monde.
+     * Utilisé pour la sécurité anti-empilement.
+     */
+    private int countCrystalsInWorld(World world) {
+        int crystalCount = 0;
+        int displayCount = 0;
+
+        for (Entity entity : world.getEntities()) {
+            if (entity.getScoreboardTags().contains("chapter4_crystal")) {
+                if (entity instanceof EnderCrystal) {
+                    crystalCount++;
+                } else if (entity instanceof TextDisplay) {
+                    displayCount++;
+                }
+            }
+        }
+
+        return Math.max(crystalCount, displayCount);
+    }
 
     /**
      * Spawn le Cristal de Corruption (EnderCrystal réel pour supporter les flèches)
+     * SÉCURITÉ ANTI-EMPILEMENT: Vérifie qu'aucun cristal n'existe avant de spawn
      */
     private void spawnCorruptionCrystal(World world) {
-        // Sécurité : éviter le spawn concurrent
-        if (isSpawningCrystal)
+        // Sécurité 1 : éviter le spawn concurrent
+        if (isSpawningCrystal) {
             return;
+        }
+
+        // Sécurité 2 : cooldown entre spawns
+        long now = System.currentTimeMillis();
+        if (now - lastCrystalSpawnTime < CRYSTAL_SPAWN_COOLDOWN) {
+            return;
+        }
+
         isSpawningCrystal = true;
+        lastCrystalSpawnTime = now;
 
         try {
             Location loc = CRYSTAL_LOCATION.clone();
             loc.setWorld(world);
 
+            // SÉCURITÉ 3 : Compter les cristaux existants AVANT de nettoyer
+            int existingCount = countCrystalsInWorld(world);
+            if (existingCount > 0) {
+                plugin.log(Level.WARNING, "§c[Crystal Anti-Stack] " + existingCount + " cristaux détectés, nettoyage...");
+            }
+
             // SÉCURITÉ ABSOLUE : Nettoyer TOUS les cristaux dans TOUT LE MONDE
-            // Évite toute duplication même si les références sont perdues
             cleanupAllCrystals(world);
+
+            // SÉCURITÉ 4 : Double vérification après cleanup
+            int afterCleanup = countCrystalsInWorld(world);
+            if (afterCleanup > 0) {
+                plugin.log(Level.SEVERE, "§c[Crystal Anti-Stack] ERREUR: " + afterCleanup + " cristaux restants après cleanup!");
+                // Forcer un second cleanup
+                for (Entity entity : world.getEntities()) {
+                    if (entity.getScoreboardTags().contains("chapter4_crystal")) {
+                        entity.remove();
+                    }
+                }
+            }
 
             // Créer le vrai EnderCrystal (supporte les flèches et les attaques)
             crystalEntity = world.spawn(loc, EnderCrystal.class, crystal -> {
@@ -4046,6 +4097,12 @@ public class Chapter4Systems implements Listener {
                 display.addScoreboardTag("chapter4_crystal");
                 display.addScoreboardTag("chapter4_crystal_display");
             });
+
+            // SÉCURITÉ 5 : Vérification finale - max 1 cristal + 1 display
+            int finalCount = countCrystalsInWorld(world);
+            if (finalCount > 2) {
+                plugin.log(Level.SEVERE, "§c[Crystal Anti-Stack] ALERTE: " + finalCount + " entités après spawn!");
+            }
         } finally {
             isSpawningCrystal = false;
         }
@@ -4090,8 +4147,8 @@ public class Chapter4Systems implements Listener {
     }
 
     /**
-     * Démarre le vérificateur de respawn du cristal (avec sécurité
-     * anti-duplication)
+     * Démarre le vérificateur de respawn du cristal (avec sécurité anti-empilement)
+     * REFACTORISÉ: Vérification globale pour éviter l'empilement
      */
     private void startCrystalRespawnChecker() {
         new BukkitRunnable() {
@@ -4111,43 +4168,78 @@ public class Chapter4Systems implements Listener {
                     return;
                 }
 
-                // Vérifier si le cristal est valide
-                boolean crystalValid = crystalEntity != null && crystalEntity.isValid() && !crystalEntity.isDead();
-                boolean displayValid = crystalDisplay != null && crystalDisplay.isValid() && !crystalDisplay.isDead();
+                // === ANTI-EMPILEMENT : Vérification globale du nombre de cristaux ===
+                int totalCrystals = 0;
+                int totalDisplays = 0;
+                EnderCrystal foundCrystal = null;
+                TextDisplay foundDisplay = null;
 
-                // Si les deux sont valides, rien à faire
-                if (crystalValid && displayValid) {
-                    return;
-                }
+                // Recherche GLOBALE dans tout le monde (pas juste à proximité)
+                for (Entity entity : world.getEntities()) {
+                    if (!entity.getScoreboardTags().contains("chapter4_crystal")) {
+                        continue;
+                    }
 
-                // SÉCURITÉ : Chercher les entités existantes avant de créer de nouvelles
-                if (!crystalValid || !displayValid) {
-                    for (Entity entity : world.getNearbyEntities(crystalLoc, 10, 10, 10)) {
-                        if (!entity.getScoreboardTags().contains("chapter4_crystal")) {
-                            continue;
+                    if (entity instanceof EnderCrystal ec) {
+                        totalCrystals++;
+                        if (foundCrystal == null) {
+                            foundCrystal = ec;
+                        } else {
+                            // Doublon détecté ! Supprimer
+                            entity.remove();
+                            plugin.log(Level.WARNING, "§c[Crystal Anti-Stack] Doublon EnderCrystal supprimé!");
                         }
-
-                        // Récupérer le cristal existant
-                        if (!crystalValid && entity instanceof EnderCrystal ec) {
-                            crystalEntity = ec;
-                            crystalValid = true;
-                            plugin.log(Level.FINE, "Cristal existant récupéré");
-                        }
-
-                        // Récupérer le display existant
-                        if (!displayValid && entity instanceof TextDisplay td
-                                && entity.getScoreboardTags().contains("chapter4_crystal_display")) {
-                            crystalDisplay = td;
-                            displayValid = true;
-                            plugin.log(Level.FINE, "Display cristal existant récupéré");
+                    } else if (entity instanceof TextDisplay td &&
+                               entity.getScoreboardTags().contains("chapter4_crystal_display")) {
+                        totalDisplays++;
+                        if (foundDisplay == null) {
+                            foundDisplay = td;
+                        } else {
+                            // Doublon détecté ! Supprimer
+                            entity.remove();
+                            plugin.log(Level.WARNING, "§c[Crystal Anti-Stack] Doublon TextDisplay supprimé!");
                         }
                     }
                 }
 
-                // Si après récupération il manque toujours quelque chose, respawn complet
+                // Log si des doublons ont été trouvés
+                if (totalCrystals > 1 || totalDisplays > 1) {
+                    plugin.log(Level.WARNING, "§c[Crystal Anti-Stack] Détecté: " + totalCrystals + " cristaux, " + totalDisplays + " displays");
+                }
+
+                // Mettre à jour les références avec les entités trouvées
+                if (foundCrystal != null && foundCrystal.isValid()) {
+                    crystalEntity = foundCrystal;
+                }
+                if (foundDisplay != null && foundDisplay.isValid()) {
+                    crystalDisplay = foundDisplay;
+                }
+
+                // Vérifier si les références sont valides
+                boolean crystalValid = crystalEntity != null && crystalEntity.isValid() && !crystalEntity.isDead();
+                boolean displayValid = crystalDisplay != null && crystalDisplay.isValid() && !crystalDisplay.isDead();
+
+                // Si les deux sont valides, rien de plus à faire
+                if (crystalValid && displayValid) {
+                    return;
+                }
+
+                // Si l'un manque mais pas l'autre, supprimer celui qui reste et respawn complet
+                if (crystalValid != displayValid) {
+                    plugin.log(Level.INFO, "§e[Crystal] État incohérent détecté, respawn complet...");
+                    if (crystalEntity != null && crystalEntity.isValid()) {
+                        crystalEntity.remove();
+                    }
+                    if (crystalDisplay != null && crystalDisplay.isValid()) {
+                        crystalDisplay.remove();
+                    }
+                    crystalEntity = null;
+                    crystalDisplay = null;
+                }
+
+                // Si après tout ça il manque toujours quelque chose, respawn complet
                 if (!crystalValid || !displayValid) {
                     spawnCorruptionCrystal(world);
-                    plugin.log(Level.INFO, "Cristal de Corruption respawné (joueur à proximité)");
                 }
             }
         }.runTaskTimer(plugin, 200L, 200L);
