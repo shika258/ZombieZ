@@ -20,6 +20,7 @@ import org.bukkit.event.entity.EntityTargetEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
+import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
@@ -2293,8 +2294,10 @@ public class Chapter3Systems implements Listener {
 
     // ==================== EVENT HANDLERS ====================
 
-    @EventHandler(priority = EventPriority.HIGH)
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = false)
     public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
+        if (event.getHand() != EquipmentSlot.HAND) return;
+
         Entity entity = event.getRightClicked();
         Player player = event.getPlayer();
 
