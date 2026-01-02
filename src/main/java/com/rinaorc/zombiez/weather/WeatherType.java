@@ -41,8 +41,8 @@ public enum WeatherType {
         BarColor.YELLOW,
         null,
         Sound.ENTITY_EXPERIENCE_ORB_PICKUP,
-        20 * 60 * 8,        // 8 minutes min
-        20 * 60 * 15,       // 15 minutes max
+        20 * 60 * 2,        // 2 minutes min
+        20 * 60 * 3,        // 3 minutes max
         1.0,                // Spawn rate normal
         1.0,                // Dégâts zombies normal
         1.0,                // Vitesse zombies normal
@@ -76,8 +76,8 @@ public enum WeatherType {
         BarColor.BLUE,
         Particle.RAIN,
         Sound.WEATHER_RAIN,
-        20 * 60 * 5,        // 5 minutes min
-        20 * 60 * 12,       // 12 minutes max
+        20 * 60 * 2,        // 2 minutes min
+        20 * 60 * 3,        // 3 minutes max
         1.1,                // +10% spawn
         1.0,                // Dégâts normaux
         1.0,                // Vitesse normale
@@ -113,8 +113,8 @@ public enum WeatherType {
         BarColor.PURPLE,
         Particle.RAIN,
         Sound.ENTITY_LIGHTNING_BOLT_THUNDER,
-        20 * 60 * 3,        // 3 minutes min
-        20 * 60 * 7,        // 7 minutes max
+        20 * 60 * 2,        // 2 minutes min
+        20 * 60 * 3,        // 3 minutes max
         1.4,                // +40% spawn
         1.15,               // +15% dégâts zombies
         1.1,                // +10% vitesse zombies
@@ -148,8 +148,8 @@ public enum WeatherType {
         BarColor.WHITE,
         Particle.SNOWFLAKE,
         Sound.ITEM_ELYTRA_FLYING,
-        20 * 60 * 3,        // 3 minutes min
-        20 * 60 * 8,        // 8 minutes max
+        20 * 60 * 2,        // 2 minutes min
+        20 * 60 * 3,        // 3 minutes max
         1.2,                // +20% spawn
         1.0,                // Dégâts normaux
         0.7,                // -30% vitesse zombies (GELÉS!)
@@ -184,8 +184,8 @@ public enum WeatherType {
         BarColor.WHITE,
         null,  // Pas de particules, le fog natif BossBar suffit
         Sound.AMBIENT_SOUL_SAND_VALLEY_MOOD,
-        20 * 60 * 4,        // 4 minutes min
-        20 * 60 * 10,       // 10 minutes max
+        20 * 60 * 2,        // 2 minutes min
+        20 * 60 * 3,        // 3 minutes max
         1.35,               // +35% spawn
         1.1,                // +10% dégâts zombies
         1.05,               // +5% vitesse zombies
@@ -219,8 +219,8 @@ public enum WeatherType {
         BarColor.RED,
         Particle.ASH,
         Sound.BLOCK_FIRE_AMBIENT,
-        20 * 60 * 2,        // 2 minutes min (court)
-        20 * 60 * 5,        // 5 minutes max
+        20 * 60 * 1,        // 1 minute min (court)
+        20 * 60 * 3,        // 3 minutes max
         1.15,               // +15% spawn
         1.15,               // +15% dégâts zombies
         1.0,                // Vitesse normale
@@ -254,8 +254,8 @@ public enum WeatherType {
         BarColor.RED,
         Particle.CRIMSON_SPORE,
         Sound.ENTITY_WITHER_AMBIENT,
-        20 * 60 * 4,        // 4 minutes min
-        20 * 60 * 8,        // 8 minutes max
+        20 * 60 * 2,        // 2 minutes min
+        20 * 60 * 3,        // 3 minutes max
         2.5,                // x2.5 spawn (réduit de x3)
         1.4,                // +40% dégâts zombies
         1.2,                // +20% vitesse zombies
@@ -324,8 +324,8 @@ public enum WeatherType {
         BarColor.YELLOW,
         Particle.FALLING_DUST,
         Sound.ITEM_ELYTRA_FLYING,
-        20 * 60 * 3,        // 3 minutes min
-        20 * 60 * 7,        // 7 minutes max
+        20 * 60 * 2,        // 2 minutes min
+        20 * 60 * 3,        // 3 minutes max
         1.15,               // +15% spawn
         1.0,                // Dégâts normaux
         0.85,               // -15% vitesse zombies (sable gênant)
@@ -361,8 +361,8 @@ public enum WeatherType {
         BarColor.PINK,
         Particle.END_ROD,
         Sound.BLOCK_AMETHYST_BLOCK_CHIME,
-        20 * 60 * 3,        // 3 minutes min
-        20 * 60 * 8,        // 8 minutes max
+        20 * 60 * 2,        // 2 minutes min
+        20 * 60 * 3,        // 3 minutes max
         0.5,                // -50% spawn (calme!)
         0.75,               // -25% dégâts zombies
         0.85,               // -15% vitesse zombies
@@ -396,8 +396,8 @@ public enum WeatherType {
         BarColor.YELLOW,
         Particle.GLOW,
         Sound.BLOCK_BEACON_ACTIVATE,
-        20 * 60 * 3,        // 3 minutes min
-        20 * 60 * 6,        // 6 minutes max
+        20 * 60 * 2,        // 2 minutes min
+        20 * 60 * 3,        // 3 minutes max
         0.7,                // -30% spawn (calme)
         0.8,                // -20% dégâts zombies
         0.9,                // -10% vitesse zombies
@@ -431,8 +431,8 @@ public enum WeatherType {
         BarColor.YELLOW,
         Particle.HAPPY_VILLAGER,
         Sound.ENTITY_PLAYER_LEVELUP,
-        20 * 60 * 4,        // 4 minutes min
-        20 * 60 * 8,        // 8 minutes max
+        20 * 60 * 2,        // 2 minutes min
+        20 * 60 * 3,        // 3 minutes max
         0.9,                // -10% spawn
         0.9,                // -10% dégâts zombies
         1.0,                // Vitesse normale
@@ -466,8 +466,8 @@ public enum WeatherType {
         BarColor.GREEN,
         Particle.CLOUD,
         Sound.ENTITY_PHANTOM_FLAP,
-        20 * 60 * 4,        // 4 minutes min
-        20 * 60 * 10,       // 10 minutes max
+        20 * 60 * 2,        // 2 minutes min
+        20 * 60 * 3,        // 3 minutes max
         0.85,               // -15% spawn
         0.95,               // -5% dégâts zombies
         0.9,                // -10% vitesse zombies
@@ -501,8 +501,8 @@ public enum WeatherType {
         BarColor.BLUE,
         Particle.FIREWORK,
         Sound.ENTITY_FIREWORK_ROCKET_TWINKLE,
-        20 * 60 * 2,        // 2 minutes min (rare et court)
-        20 * 60 * 5,        // 5 minutes max
+        20 * 60 * 2,        // 2 minutes min
+        20 * 60 * 3,        // 3 minutes max
         0.8,                // -20% spawn
         0.85,               // -15% dégâts zombies
         0.95,               // -5% vitesse zombies
