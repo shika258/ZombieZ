@@ -255,7 +255,9 @@ public class LeaderboardManager {
     private void createNewSeason() {
         Instant now = Instant.now();
         Instant endDate = now.plus(30, java.time.temporal.ChronoUnit.DAYS);
-        int seasonId = (int) (now.getEpochSecond() / (30 * 24 * 3600)); // Numéro unique
+
+        // Calculer le prochain ID de saison de manière synchrone
+        int seasonId = getNextSeasonId();
 
         currentSeason = new SeasonData(seasonId, "Saison " + seasonId, now, endDate);
 
@@ -283,6 +285,24 @@ public class LeaderboardManager {
                 plugin.log(Level.WARNING, "§e⚠ Erreur création saison: " + e.getMessage());
             }
         });
+    }
+
+    /**
+     * Calcule le prochain ID de saison en comptant les saisons existantes
+     */
+    private int getNextSeasonId() {
+        try (Connection conn = plugin.getDatabaseManager().getConnection()) {
+            String sql = "SELECT COALESCE(MAX(season_id), 0) + 1 as next_id FROM zombiez_seasons";
+            try (PreparedStatement stmt = conn.prepareStatement(sql);
+                 ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    return rs.getInt("next_id");
+                }
+            }
+        } catch (SQLException e) {
+            plugin.log(Level.WARNING, "§e⚠ Erreur calcul ID saison: " + e.getMessage());
+        }
+        return 1; // Par défaut, première saison
     }
 
     /**
@@ -1314,7 +1334,7 @@ public class LeaderboardManager {
         // Créer la nouvelle saison
         Instant now = Instant.now();
         Instant endDate = now.plus(30, java.time.temporal.ChronoUnit.DAYS);
-        int seasonId = (int) (now.getEpochSecond() / (30 * 24 * 3600));
+        int seasonId = getNextSeasonId();
 
         currentSeason = new SeasonData(seasonId, name, now, endDate);
 
