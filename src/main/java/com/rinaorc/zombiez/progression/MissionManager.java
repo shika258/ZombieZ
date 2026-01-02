@@ -1078,7 +1078,7 @@ public class MissionManager {
         var lbManager = plugin.getNewLeaderboardManager();
         if (lbManager != null) {
             lbManager.incrementScore(player.getUniqueId(), player.getName(),
-                com.rinaorc.zombiez.leaderboards.LeaderboardType.MISSIONS_COMPLETED, 1);
+                com.rinaorc.zombiez.leaderboards.LeaderboardType.TOTAL_MISSIONS, 1);
         }
     }
 
