@@ -11,7 +11,7 @@ public enum LeaderboardCategory {
     // Row 2 - Slots 19, 21, 23, 25 (espacés symétriquement)
     PRINCIPAL("§6§lPrincipal", Material.GOLDEN_SWORD, "§7Classements généraux", 19),
     COMBAT("§c§lCombat", Material.DIAMOND_SWORD, "§7Stats de combat", 21),
-    EXPLORATION("§a§lExploration", Material.COMPASS, "§7Découverte du monde", 23),
+    EXPLORATION("§a§lExploration", Material.FILLED_MAP, "§7Découverte du monde", 23),
     PROGRESSION("§b§lProgression", Material.EXPERIENCE_BOTTLE, "§7Avancement du joueur", 25),
     // Row 3 - Slots 28, 30, 32, 34 (espacés symétriquement)
     PETS("§d§lPets", Material.WOLF_SPAWN_EGG, "§7Compagnons", 28),
