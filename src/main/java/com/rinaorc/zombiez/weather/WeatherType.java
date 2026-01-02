@@ -521,6 +521,44 @@ public enum WeatherType {
         // BossBar flags - météo bénéfique, pas de fog
         false,              // Pas de fog
         false               // Pas de ciel sombre
+    ),
+
+    // ==================== ÉVÉNEMENTS SPÉCIAUX ====================
+
+    /**
+     * Invasion Géante - ÉVÉNEMENT ULTRA FUN
+     * Tous les zombies deviennent GÉANTS (x5-10) pendant 90 secondes!
+     * TRÈS RARE mais +25% loot en récompense!
+     */
+    GIANT_INVASION(
+        "Invasion Géante",
+        "giant_invasion",
+        "🦖",
+        "§6",
+        "§6§l⚠ ATTENTION! §eLes zombies sont devenus GÉANTS! +25% LOOT!",
+        BarColor.YELLOW,
+        Particle.EXPLOSION,
+        Sound.ENTITY_ENDER_DRAGON_GROWL,
+        20 * 90,            // 90 secondes min (fixe)
+        20 * 90,            // 90 secondes max (fixe)
+        0.3,                // -70% spawn (moins de mobs mais ÉNORMES)
+        1.5,                // +50% dégâts zombies (ils sont géants!)
+        0.75,               // -25% vitesse zombies (lourds et lents)
+        0.0,                // Pas de dégâts environnementaux
+        0,                  // Pas d'intervalle
+        0,                  // Pas de fog
+        // BONUS LOOT pour compenser le danger
+        1.15,               // +15% XP
+        1.25,               // +25% LOOT!
+        1.05,               // +5% vitesse joueurs (fuite!)
+        0.0,                // Pas de régénération
+        PotionEffectType.SPEED, // Speed pour survivre!
+        2,                  // ULTRA RARE (poids 2)
+        false,              // Pas de pluie
+        false,              // Pas de tonnerre
+        // BossBar flags
+        false,              // Pas de fog
+        true                // DARKEN_SKY - atmosphère apocalyptique
     );
 
     // ==================== PROPRIÉTÉS ====================

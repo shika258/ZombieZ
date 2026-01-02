@@ -372,8 +372,12 @@ public class WeatherManager {
             random.nextInt(Math.max(1, type.getMaxDuration() - type.getMinDuration()));
         int finalDuration = (int) (baseDuration * durationMultiplier);
 
-        // Créer et démarrer l'effet
-        currentWeather = new WeatherEffect(plugin, type, finalDuration);
+        // Créer et démarrer l'effet approprié selon le type
+        // Certains types ont des effets spéciaux nécessitant des classes dédiées
+        currentWeather = switch (type) {
+            case GIANT_INVASION -> new GiantInvasionEffect(plugin, finalDuration);
+            default -> new WeatherEffect(plugin, type, finalDuration);
+        };
         currentWeather.start();
 
         plugin.log(Level.INFO, "§7Météo changée: §e" + type.getDisplayName() +
@@ -415,8 +419,12 @@ public class WeatherManager {
             currentWeather.cancel();
         }
 
-        // Créer avec durée personnalisée
-        currentWeather = new WeatherEffect(plugin, type, durationSeconds * 20);
+        // Créer avec durée personnalisée (utiliser la classe appropriée)
+        int durationTicks = durationSeconds * 20;
+        currentWeather = switch (type) {
+            case GIANT_INVASION -> new GiantInvasionEffect(plugin, durationTicks);
+            default -> new WeatherEffect(plugin, type, durationTicks);
+        };
         currentWeather.start();
 
         typeCooldowns.put(type, System.currentTimeMillis());
