@@ -327,17 +327,45 @@ public class LeaderboardManager {
     }
 
     private void distributeSeasonRewards() {
+        Set<UUID> playersRewarded = new HashSet<>();
+
         // Pour chaque type de leaderboard, distribuer les récompenses aux top joueurs
         for (LeaderboardType type : LeaderboardType.values()) {
-            List<LeaderboardEntry> top = getTopEntries(type, LeaderboardPeriod.SEASONAL, 100);
-
-            for (LeaderboardEntry entry : top) {
+            // Distribuer les récompenses SEASONAL
+            List<LeaderboardEntry> topSeasonal = getTopEntries(type, LeaderboardPeriod.SEASONAL, 100);
+            for (LeaderboardEntry entry : topSeasonal) {
                 LeaderboardReward reward = LeaderboardReward.calculateReward(type, LeaderboardPeriod.SEASONAL, entry.getRank());
-                if (reward != null) {
+                if (reward != null && reward.hasContent()) {
                     saveReward(entry.getUuid(), type, LeaderboardPeriod.SEASONAL, entry.getRank(), reward);
+                    playersRewarded.add(entry.getUuid());
+                }
+            }
+
+            // Distribuer également les récompenses ALL_TIME en fin de saison
+            List<LeaderboardEntry> topAllTime = getTopEntries(type, LeaderboardPeriod.ALL_TIME, 100);
+            for (LeaderboardEntry entry : topAllTime) {
+                LeaderboardReward reward = LeaderboardReward.calculateReward(type, LeaderboardPeriod.ALL_TIME, entry.getRank());
+                if (reward != null && reward.hasContent()) {
+                    saveReward(entry.getUuid(), type, LeaderboardPeriod.ALL_TIME, entry.getRank(), reward);
+                    playersRewarded.add(entry.getUuid());
                 }
             }
         }
+
+        // Notifier les joueurs en ligne qu'ils ont reçu des récompenses de fin de saison
+        Bukkit.getScheduler().runTask(plugin, () -> {
+            for (UUID uuid : playersRewarded) {
+                Player player = Bukkit.getPlayer(uuid);
+                if (player != null && player.isOnline()) {
+                    player.playSound(player.getLocation(), org.bukkit.Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+                    player.sendTitle("§6§l🏆 FIN DE SAISON 🏆", "§aTu as reçu des récompenses!", 10, 60, 20);
+                    player.sendMessage("");
+                    player.sendMessage("§a§l✓ §aTu as reçu des récompenses de fin de saison!");
+                    player.sendMessage("§7  Utilise §e/lb rewards §7pour les réclamer.");
+                    player.sendMessage("");
+                }
+            }
+        });
     }
 
     private void archiveSeasonData() {

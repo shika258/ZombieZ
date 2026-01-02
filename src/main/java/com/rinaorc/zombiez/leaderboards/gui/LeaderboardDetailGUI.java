@@ -225,7 +225,16 @@ public class LeaderboardDetailGUI implements InventoryHolder {
             if (reward != null && reward.hasContent()) {
                 lore.add(Component.empty());
                 lore.add(Component.text("§8─────────────────"));
-                lore.add(Component.text("§6⏰ Récompenses de fin de période:"));
+
+                // Titre avec période et temps restant explicite
+                if (period == LeaderboardPeriod.ALL_TIME) {
+                    lore.add(Component.text("§6⏰ Récompenses All-Time:"));
+                } else {
+                    String periodName = period.getDisplayName().replaceAll("§[a-z0-9]", "");
+                    String timeRemaining = period.getFormattedTimeUntilReset();
+                    lore.add(Component.text("§6⏰ Récompenses " + periodName + " §7(dans " + timeRemaining + "§7):"));
+                }
+
                 if (reward.getPoints() > 0) {
                     lore.add(Component.text("  §f▸ §e+" + formatNumber(reward.getPoints()) + " points"));
                 }
@@ -239,12 +248,14 @@ public class LeaderboardDetailGUI implements InventoryHolder {
                     lore.add(Component.text("  §f▸ §bCosmétique: " + reward.getCosmetic()));
                 }
                 lore.add(Component.empty());
+
+                // Message de distribution automatique
                 if (period == LeaderboardPeriod.ALL_TIME) {
-                    lore.add(Component.text("§7Distribuées manuellement par les admins"));
+                    lore.add(Component.text("§a↻ §7Distribué automatiquement en fin de saison"));
                 } else {
-                    lore.add(Component.text("§7Distribuées à la fin du classement"));
-                    lore.add(Component.text("§7" + period.getDisplayName().replaceAll("§[a-z0-9]", "") + " §8(" + period.getFormattedTimeUntilReset() + "§8)"));
+                    lore.add(Component.text("§a↻ §7Distribution automatique"));
                 }
+
                 lore.add(Component.text("§8─────────────────"));
                 if (isPlayer) {
                     lore.add(Component.text("§e➤ §7/lb rewards §epour réclamer"));

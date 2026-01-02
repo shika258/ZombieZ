@@ -141,8 +141,12 @@ public class LeaderboardMainGUI implements InventoryHolder {
             lore.add(Component.text("§7aux joueurs du Top 100."));
         } else {
             lore.add(Component.text("§8─────────────────"));
-            lore.add(Component.text("§7Classement permanent"));
-            lore.add(Component.text("§7(jamais réinitialisé)"));
+            lore.add(Component.text("§7Classement permanent §6(x3 récompenses)"));
+            LeaderboardManager.SeasonData season = plugin.getNewLeaderboardManager().getCurrentSeason();
+            if (season != null) {
+                lore.add(Component.text("§6⏰ Distribué en fin de saison:"));
+                lore.add(Component.text("§f  " + season.getDaysRemaining() + " jours restants"));
+            }
             lore.add(Component.text("§8─────────────────"));
         }
 
