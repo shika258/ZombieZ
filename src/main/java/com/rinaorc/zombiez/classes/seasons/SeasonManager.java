@@ -118,7 +118,7 @@ public class SeasonManager {
         if (data.hasClass()) {
             player.sendMessage("§a+ Classe: §f" + data.getSelectedClass().getColoredName());
         }
-        player.sendMessage("§a+ Achievements");
+        player.sendMessage("§a+ Hauts-faits");
         player.sendMessage("");
         player.sendMessage("§eBonne chance pour cette nouvelle saison!");
         player.sendMessage("");

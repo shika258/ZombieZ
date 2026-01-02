@@ -104,130 +104,111 @@ public class LeaderboardManager {
      * Crée les tables de manière synchrone pour garantir qu'elles existent avant les requêtes
      */
     private void createTablesSync() {
-        try (Connection conn = plugin.getDatabaseManager().getConnection()) {
-            boolean isMySQL = plugin.getDatabaseManager().getDatabaseType() ==
-                com.rinaorc.zombiez.data.DatabaseManager.DatabaseType.MYSQL;
+        boolean isMySQL = plugin.getDatabaseManager().getDatabaseType() ==
+            com.rinaorc.zombiez.data.DatabaseManager.DatabaseType.MYSQL;
 
-                // Table principale des leaderboards
-                String leaderboardsSQL = """
-                    CREATE TABLE IF NOT EXISTS zombiez_leaderboards (
-                        uuid VARCHAR(36) NOT NULL,
-                        leaderboard_type VARCHAR(50) NOT NULL,
-                        period VARCHAR(20) NOT NULL,
-                        value BIGINT DEFAULT 0,
-                        rank_position INT DEFAULT 0,
-                        last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        PRIMARY KEY (uuid, leaderboard_type, period)
-                    )
-                    """;
+        // Créer chaque table indépendamment pour éviter qu'une erreur bloque les autres
+        createTableSafe("zombiez_leaderboards", """
+            CREATE TABLE IF NOT EXISTS zombiez_leaderboards (
+                uuid VARCHAR(36) NOT NULL,
+                leaderboard_type VARCHAR(50) NOT NULL,
+                period VARCHAR(20) NOT NULL,
+                value BIGINT DEFAULT 0,
+                rank_position INT DEFAULT 0,
+                last_updated DATETIME DEFAULT CURRENT_TIMESTAMP,
+                PRIMARY KEY (uuid, leaderboard_type, period)
+            )
+            """);
 
-                try (PreparedStatement stmt = conn.prepareStatement(leaderboardsSQL)) {
-                    stmt.executeUpdate();
-                }
+        // Index pour les requêtes de classement (MySQL seulement)
+        if (isMySQL) {
+            try (Connection conn = plugin.getDatabaseManager().getConnection()) {
+                executeIgnoreError(conn,
+                    "CREATE INDEX idx_lb_type_period_value ON zombiez_leaderboards(leaderboard_type, period, value DESC)");
+                executeIgnoreError(conn,
+                    "CREATE INDEX idx_lb_rank ON zombiez_leaderboards(leaderboard_type, period, rank_position)");
+            } catch (SQLException ignored) {}
+        }
 
-                // Index pour les requêtes de classement
-                if (isMySQL) {
-                    executeIgnoreError(conn,
-                        "CREATE INDEX idx_lb_type_period_value ON zombiez_leaderboards(leaderboard_type, period, value DESC)");
-                    executeIgnoreError(conn,
-                        "CREATE INDEX idx_lb_rank ON zombiez_leaderboards(leaderboard_type, period, rank_position)");
-                }
+        createTableSafe("zombiez_leaderboard_history", """
+            CREATE TABLE IF NOT EXISTS zombiez_leaderboard_history (
+                id BIGINT %s PRIMARY KEY,
+                uuid VARCHAR(36) NOT NULL,
+                leaderboard_type VARCHAR(50) NOT NULL,
+                period VARCHAR(20) NOT NULL,
+                period_start DATETIME NOT NULL,
+                period_end DATETIME NOT NULL,
+                final_value BIGINT,
+                final_rank INT,
+                rewards_claimed BOOLEAN DEFAULT FALSE
+            )
+            """.formatted(isMySQL ? "AUTO_INCREMENT" : "AUTOINCREMENT"));
 
-                // Table d'historique des périodes
-                String historySQL = """
-                    CREATE TABLE IF NOT EXISTS zombiez_leaderboard_history (
-                        id BIGINT %s PRIMARY KEY,
-                        uuid VARCHAR(36) NOT NULL,
-                        leaderboard_type VARCHAR(50) NOT NULL,
-                        period VARCHAR(20) NOT NULL,
-                        period_start DATETIME NOT NULL,
-                        period_end DATETIME NOT NULL,
-                        final_value BIGINT,
-                        final_rank INT,
-                        rewards_claimed BOOLEAN DEFAULT FALSE
-                    )
-                    """.formatted(isMySQL ? "AUTO_INCREMENT" : "AUTOINCREMENT");
+        createTableSafe("zombiez_leaderboard_rewards", """
+            CREATE TABLE IF NOT EXISTS zombiez_leaderboard_rewards (
+                id BIGINT %s PRIMARY KEY,
+                uuid VARCHAR(36) NOT NULL,
+                leaderboard_type VARCHAR(50) NOT NULL,
+                period VARCHAR(20),
+                rank_achieved INT,
+                reward_points BIGINT DEFAULT 0,
+                reward_gems INT DEFAULT 0,
+                reward_title VARCHAR(100),
+                reward_cosmetic VARCHAR(100),
+                claimed BOOLEAN DEFAULT FALSE,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                claimed_at DATETIME
+            )
+            """.formatted(isMySQL ? "AUTO_INCREMENT" : "AUTOINCREMENT"));
 
-                try (PreparedStatement stmt = conn.prepareStatement(historySQL)) {
-                    stmt.executeUpdate();
-                }
+        createTableSafe("zombiez_seasons", """
+            CREATE TABLE IF NOT EXISTS zombiez_seasons (
+                season_id INT PRIMARY KEY,
+                season_name VARCHAR(100) NOT NULL,
+                start_date DATETIME NOT NULL,
+                end_date DATETIME NOT NULL,
+                is_active BOOLEAN DEFAULT FALSE
+            )
+            """);
 
-                // Table des récompenses
-                String rewardsSQL = """
-                    CREATE TABLE IF NOT EXISTS zombiez_leaderboard_rewards (
-                        id BIGINT %s PRIMARY KEY,
-                        uuid VARCHAR(36) NOT NULL,
-                        leaderboard_type VARCHAR(50) NOT NULL,
-                        period VARCHAR(20),
-                        rank_achieved INT,
-                        reward_points BIGINT DEFAULT 0,
-                        reward_gems INT DEFAULT 0,
-                        reward_title VARCHAR(100),
-                        reward_cosmetic VARCHAR(100),
-                        claimed BOOLEAN DEFAULT FALSE,
-                        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        claimed_at DATETIME
-                    )
-                    """.formatted(isMySQL ? "AUTO_INCREMENT" : "AUTOINCREMENT");
+        createTableSafe("zombiez_leaderboard_flags", """
+            CREATE TABLE IF NOT EXISTS zombiez_leaderboard_flags (
+                id BIGINT %s PRIMARY KEY,
+                uuid VARCHAR(36) NOT NULL,
+                flag_type VARCHAR(50) NOT NULL,
+                flag_reason TEXT,
+                flag_value BIGINT,
+                expected_max BIGINT,
+                flagged_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                resolved BOOLEAN DEFAULT FALSE,
+                resolved_by VARCHAR(36),
+                resolved_at DATETIME
+            )
+            """.formatted(isMySQL ? "AUTO_INCREMENT" : "AUTOINCREMENT"));
 
-                try (PreparedStatement stmt = conn.prepareStatement(rewardsSQL)) {
-                    stmt.executeUpdate();
-                }
+        // Table des joueurs bannis des leaderboards - CRITIQUE pour les requêtes
+        createTableSafe("zombiez_leaderboard_banned", """
+            CREATE TABLE IF NOT EXISTS zombiez_leaderboard_banned (
+                uuid VARCHAR(36) PRIMARY KEY,
+                banned_by VARCHAR(36),
+                ban_reason TEXT,
+                banned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                expires_at DATETIME
+            )
+            """);
 
-                // Table des saisons
-                String seasonsSQL = """
-                    CREATE TABLE IF NOT EXISTS zombiez_seasons (
-                        season_id INT PRIMARY KEY,
-                        season_name VARCHAR(100) NOT NULL,
-                        start_date DATETIME NOT NULL,
-                        end_date DATETIME NOT NULL,
-                        is_active BOOLEAN DEFAULT FALSE
-                    )
-                    """;
+        plugin.log(Level.INFO, "§a✓ Tables leaderboards créées");
+    }
 
-                try (PreparedStatement stmt = conn.prepareStatement(seasonsSQL)) {
-                    stmt.executeUpdate();
-                }
-
-                // Table anti-triche
-                String antiCheatSQL = """
-                    CREATE TABLE IF NOT EXISTS zombiez_leaderboard_flags (
-                        id BIGINT %s PRIMARY KEY,
-                        uuid VARCHAR(36) NOT NULL,
-                        flag_type VARCHAR(50) NOT NULL,
-                        flag_reason TEXT,
-                        flag_value BIGINT,
-                        expected_max BIGINT,
-                        flagged_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        resolved BOOLEAN DEFAULT FALSE,
-                        resolved_by VARCHAR(36),
-                        resolved_at DATETIME
-                    )
-                    """.formatted(isMySQL ? "AUTO_INCREMENT" : "AUTOINCREMENT");
-
-                try (PreparedStatement stmt = conn.prepareStatement(antiCheatSQL)) {
-                    stmt.executeUpdate();
-                }
-
-                // Table des joueurs bannis des leaderboards
-                String bannedSQL = """
-                    CREATE TABLE IF NOT EXISTS zombiez_leaderboard_banned (
-                        uuid VARCHAR(36) PRIMARY KEY,
-                        banned_by VARCHAR(36),
-                        ban_reason TEXT,
-                        banned_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-                        expires_at DATETIME
-                    )
-                    """;
-
-                try (PreparedStatement stmt = conn.prepareStatement(bannedSQL)) {
-                    stmt.executeUpdate();
-                }
-
-            plugin.log(Level.INFO, "§a✓ Tables leaderboards créées");
-
+    /**
+     * Crée une table de manière sécurisée avec son propre try-catch
+     */
+    private void createTableSafe(String tableName, String sql) {
+        try (Connection conn = plugin.getDatabaseManager().getConnection();
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
+            stmt.executeUpdate();
         } catch (SQLException e) {
-            plugin.log(Level.SEVERE, "§c✗ Erreur création tables leaderboards: " + e.getMessage());
+            plugin.log(Level.SEVERE, "§c✗ Erreur création table " + tableName + ": " + e.getMessage());
         }
     }
 

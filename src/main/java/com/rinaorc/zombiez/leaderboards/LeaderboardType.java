@@ -69,8 +69,8 @@ public enum LeaderboardType {
         "Niveau de la classe Chasseur"),
     CLASS_LEVEL_OCCULTIST("Niveau Occultiste", "class_level_occultist", "§5✦", Material.ENDER_EYE, LeaderboardCategory.PROGRESSION,
         "Niveau de la classe Occultiste"),
-    ACHIEVEMENTS("Achievements", "achievement_count", "§6🏆", Material.GOLDEN_APPLE, LeaderboardCategory.PROGRESSION,
-        "Nombre d'achievements débloqués"),
+    ACHIEVEMENTS("Hauts-faits", "achievement_count", "§6🏆", Material.GOLDEN_APPLE, LeaderboardCategory.PROGRESSION,
+        "Nombre de hauts-faits débloqués"),
     JOURNEY_PROGRESS("Progression Journey", "journey_progress", "§e📜", Material.WRITTEN_BOOK, LeaderboardCategory.PROGRESSION,
         "Étapes du Journey complétées"),
 

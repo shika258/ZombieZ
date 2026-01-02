@@ -60,6 +60,35 @@ dynamic-events:
   # Pendant cette durée, le type utilisé aura moins de chance d'être choisi
   weight-reduction-duration: 600  # 10 minutes
 
+  # =============================================
+  # ANTI-SPAM: Limites par zone (nouveau système)
+  # =============================================
+  # Évite la surcharge quand trop de joueurs sont dans la même zone
+  zone-limits:
+    # Activer le scaling inversé
+    # Avec ce système, plus il y a de joueurs dans une zone,
+    # moins chaque joueur a de chance individuelle d'avoir un event
+    # Résultat: densité d'events constante quelle que soit la population
+    inverse-scaling-enabled: true
+
+    # Nombre maximum d'événements dynamiques actifs par zone
+    # Au-delà, aucun nouvel event ne spawn dans cette zone
+    max-dynamic-events-per-zone: 2
+
+    # Nombre maximum de micro-events actifs par zone
+    max-micro-events-per-zone: 8
+
+    # Comportement du scaling inversé:
+    # - Micro-events: chance = 1/√(joueurs) + limite candidats = √(joueurs)
+    #   Ex: 1 joueur -> 100%, 4 joueurs -> 50%, 9 joueurs -> 33%
+    #
+    # - Dynamic events: poids = log2(joueurs+1) au lieu de linéaire
+    #   Ex: 1 joueur -> 1.0, 3 joueurs -> 2.0, 7 joueurs -> 3.0
+    #
+    # Résultats attendus avec 50 joueurs en zone:
+    # - Sans scaling: ~50 micro-events possibles
+    # - Avec scaling: ~7-8 micro-events max (cap)
+
 # ===============================================
 # CONFIGURATION PAR TYPE D'ÉVÉNEMENT
 # ===============================================

@@ -25,7 +25,7 @@ public class SpawnCommand implements CommandExecutor {
 
     private final ZombieZPlugin plugin;
     private final Map<UUID, Long> cooldowns = new HashMap<>();
-    private static final long COOLDOWN_MS = 5 * 60 * 1000; // 5 minutes
+    private static final long COOLDOWN_MS = 30 * 1000; // 30 secondes
 
     public SpawnCommand(ZombieZPlugin plugin) {
         this.plugin = plugin;
@@ -61,7 +61,7 @@ public class SpawnCommand implements CommandExecutor {
         cooldowns.put(player.getUniqueId(), System.currentTimeMillis());
 
         MessageUtils.sendTitle(player, "§a§lSPAWN", "§7Téléporté au village de départ", 10, 30, 10);
-        MessageUtils.send(player, "§aTéléporté au spawn! §7(Cooldown: 5 minutes)");
+        MessageUtils.send(player, "§aTéléporté au spawn! §7(Cooldown: 30s)");
 
         return true;
     }
