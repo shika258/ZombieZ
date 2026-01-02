@@ -34,7 +34,12 @@ import org.bukkit.util.BoundingBox;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
@@ -86,15 +91,12 @@ public class Chapter2Systems implements Listener {
     private final Set<UUID> bossContributors = ConcurrentHashMap.newKeySet();
     private boolean bossRespawnScheduled = false;
 
-    // === TEXTDISPLAY PER-PLAYER (visibilité via Paper API) ===
-    // Deux TextDisplays fixes: un pour "Blessé", un pour "Soigné"
-    // La visibilité est gérée per-player via showEntity/hideEntity
-    private TextDisplay minerDisplayInjured; // Visible par ceux qui n'ont pas soigné
-    private TextDisplay minerDisplayHealed; // Visible par ceux qui ont soigné
-    private final Set<UUID> playersWhoHealedMiner = ConcurrentHashMap.newKeySet(); // Joueurs ayant soigné (en plus de
-                                                                                   // la progression)
+    // === TEXTDISPLAY PER-PLAYER (un display par joueur, véritablement indépendant) ===
+    // Chaque joueur proche du mineur a son propre TextDisplay avec le texte approprié
+    private final Map<UUID, TextDisplay> playerMinerDisplays = new ConcurrentHashMap<>();
+    private final Set<UUID> playersWhoHealedMiner = ConcurrentHashMap.newKeySet(); // Cache session des joueurs ayant soigné
     private static final double MINER_DISPLAY_HEIGHT = 2.3; // Hauteur au-dessus du mineur
-    private static final double MINER_VIEW_DISTANCE = 50.0; // Distance max pour voir l'hologramme
+    private static final double MINER_VIEW_DISTANCE = 50.0; // Distance max pour voir le display
 
     // === SUPPLY CRATES CONFIG ===
     private static final int SUPPLY_CRATE_COUNT = 5;
@@ -456,8 +458,9 @@ public class Chapter2Systems implements Listener {
                 continue;
             }
 
-            // Nettoyer les displays du mineur
-            if (entity.getScoreboardTags().contains("miner_display")) {
+            // Nettoyer les displays du mineur (anciens et nouveaux)
+            if (entity.getScoreboardTags().contains("miner_display") ||
+                    entity.getScoreboardTags().contains("miner_display_perplayer")) {
                 entity.remove();
                 totalRemoved++;
                 continue;
@@ -522,11 +525,10 @@ public class Chapter2Systems implements Listener {
             }
         }
 
-        // Créer les deux TextDisplays pour la visibilité per-player
-        spawnMinerTextDisplays(world, loc);
+        // NOTE: Les TextDisplays per-player sont gérés dynamiquement par startNPCNameUpdater()
+        // Chaque joueur proche aura son propre display créé à la volée
 
-        // Particules de blessure périodiques (visibles uniquement pour les joueurs qui
-        // n'ont pas soigné)
+        // Particules de blessure périodiques (visibles uniquement pour les joueurs qui n'ont pas soigné)
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -585,17 +587,17 @@ public class Chapter2Systems implements Listener {
         // Valider l'étape
         journeyManager.updateProgress(player, JourneyStep.StepType.HEAL_NPC, 1);
 
-        // Marquer le joueur comme ayant soigné le mineur et mettre à jour sa visibilité
+        // Marquer le joueur comme ayant soigné le mineur et mettre à jour son display
         if (injuredMinerEntity instanceof LivingEntity living) {
             living.removePotionEffect(PotionEffectType.SLOWNESS);
 
             // Ajouter au set des joueurs ayant soigné
             playersWhoHealedMiner.add(player.getUniqueId());
 
-            // Mettre à jour IMMÉDIATEMENT la visibilité des TextDisplays pour ce joueur
-            updateMinerDisplayVisibilityForPlayer(player, true);
+            // Mettre à jour IMMÉDIATEMENT le TextDisplay de ce joueur
+            updatePlayerMinerDisplay(player, true);
 
-            // Feedback visuel de l'hologramme mis à jour
+            // Feedback sonore
             player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.8f, 1.5f);
         }
     }
@@ -618,8 +620,9 @@ public class Chapter2Systems implements Listener {
                 continue;
             }
 
-            // Nettoyer aussi les displays du mineur
-            if (entity.getScoreboardTags().contains("miner_display")) {
+            // Nettoyer aussi les displays du mineur (anciens et nouveaux)
+            if (entity.getScoreboardTags().contains("miner_display") ||
+                    entity.getScoreboardTags().contains("miner_display_perplayer")) {
                 entity.remove();
                 removed++;
                 continue;
@@ -638,99 +641,83 @@ public class Chapter2Systems implements Listener {
     }
 
     /**
-     * Spawn les deux TextDisplays au-dessus du mineur (Blessé / Soigné)
-     * Utilise setVisibleByDefault(false) pour contrôler la visibilité per-player
+     * Crée ou met à jour le TextDisplay du mineur pour un joueur spécifique.
+     * Chaque joueur a son propre TextDisplay avec le texte approprié.
+     *
+     * @param player Le joueur
+     * @param healed true si le joueur a soigné le mineur
      */
-    private void spawnMinerTextDisplays(World world, Location minerLoc) {
-        // Nettoyer les anciens displays
-        if (minerDisplayInjured != null && minerDisplayInjured.isValid()) {
-            minerDisplayInjured.remove();
-        }
-        if (minerDisplayHealed != null && minerDisplayHealed.isValid()) {
-            minerDisplayHealed.remove();
-        }
-
-        Location displayLoc = minerLoc.clone().add(0, MINER_DISPLAY_HEIGHT, 0);
-
-        // TextDisplay "Mineur Blessé" - VISIBLE PAR DÉFAUT (tous les joueurs le voient initialement)
-        // Format plus grand et riche avec nom du NPC
-        minerDisplayInjured = world.spawn(displayLoc, TextDisplay.class, entity -> {
-            entity.setBillboard(Display.Billboard.CENTER);
-            entity.setAlignment(TextDisplay.TextAlignment.CENTER);
-            entity.setShadowed(true);
-            entity.setSeeThrough(false);
-            entity.setDefaultBackground(false);
-            entity.setBackgroundColor(Color.fromARGB(100, 0, 0, 0));
-            entity.setText("§c❤ §e§lMINEUR BLESSÉ §c❤\n§7Marco\n§8─────────────\n§7▶ §fUtilise un bandage");
-            entity.setTransformation(new org.bukkit.util.Transformation(
-                    new Vector3f(0, 0, 0),
-                    new AxisAngle4f(0, 0, 0, 1),
-                    new Vector3f(2.0f, 2.0f, 2.0f),
-                    new AxisAngle4f(0, 0, 0, 1)));
-            entity.setViewRange(0.6f);
-            entity.addScoreboardTag("miner_display");
-            entity.addScoreboardTag("zombiez_display");
-            // VISIBLE PAR DÉFAUT - tous les joueurs voient "Blessé" initialement
-            entity.setVisibleByDefault(true);
-        });
-
-        // TextDisplay "Mineur Soigné" - INVISIBLE PAR DÉFAUT (montré uniquement aux joueurs qui ont soigné)
-        // Format plus grand et riche avec nom du NPC
-        minerDisplayHealed = world.spawn(displayLoc, TextDisplay.class, entity -> {
-            entity.setBillboard(Display.Billboard.CENTER);
-            entity.setAlignment(TextDisplay.TextAlignment.CENTER);
-            entity.setShadowed(true);
-            entity.setSeeThrough(false);
-            entity.setDefaultBackground(false);
-            entity.setBackgroundColor(Color.fromARGB(100, 0, 0, 0));
-            entity.setText("§a✓ §f§lMINEUR SOIGNÉ §a✓\n§7Marco\n§8─────────────\n§a§oMerci, survivant !");
-            entity.setTransformation(new org.bukkit.util.Transformation(
-                    new Vector3f(0, 0, 0),
-                    new AxisAngle4f(0, 0, 0, 1),
-                    new Vector3f(2.0f, 2.0f, 2.0f),
-                    new AxisAngle4f(0, 0, 0, 1)));
-            entity.setViewRange(0.6f);
-            entity.addScoreboardTag("miner_display");
-            entity.addScoreboardTag("zombiez_display");
-            // INVISIBLE PAR DÉFAUT - seulement visible pour ceux qui ont soigné
-            entity.setVisibleByDefault(false);
-        });
-
-        // IMPORTANT: Initialiser immédiatement la visibilité pour tous les joueurs en
-        // ligne
-        // Sans cet appel, les displays restent invisibles jusqu'au prochain tick du
-        // updater
-        initializeMinerDisplayVisibility();
-    }
-
-    /**
-     * Initialise la visibilité des TextDisplays pour tous les joueurs en ligne.
-     * Le display "Blessé" est visible par défaut, on doit juste basculer vers
-     * "Soigné"
-     * pour les joueurs qui ont déjà soigné le mineur.
-     */
-    private void initializeMinerDisplayVisibility() {
-        if (minerDisplayInjured == null || !minerDisplayInjured.isValid() ||
-                minerDisplayHealed == null || !minerDisplayHealed.isValid() ||
-                injuredMinerEntity == null || !injuredMinerEntity.isValid()) {
+    private void updatePlayerMinerDisplay(Player player, boolean healed) {
+        if (injuredMinerEntity == null || !injuredMinerEntity.isValid()) {
             return;
         }
 
-        Location minerLoc = injuredMinerEntity.getLocation();
+        UUID playerId = player.getUniqueId();
+        Location displayLoc = injuredMinerEntity.getLocation().clone().add(0, MINER_DISPLAY_HEIGHT, 0);
 
-        for (Player player : Bukkit.getOnlinePlayers()) {
-            boolean inRange = player.getWorld().equals(minerLoc.getWorld()) &&
-                    player.getLocation().distanceSquared(minerLoc) <= MINER_VIEW_DISTANCE * MINER_VIEW_DISTANCE;
+        // Récupérer ou créer le display de ce joueur
+        TextDisplay display = playerMinerDisplays.get(playerId);
 
-            if (inRange) {
-                boolean hasHealed = hasPlayerHealedMiner(player);
-                // Seuls les joueurs qui ont soigné ont besoin d'une mise à jour
-                // (pour voir "Soigné" au lieu de "Blessé" visible par défaut)
-                if (hasHealed) {
-                    updateMinerDisplayVisibilityForPlayer(player, true);
-                }
+        if (display == null || !display.isValid()) {
+            // Créer un nouveau display pour ce joueur
+            display = player.getWorld().spawn(displayLoc, TextDisplay.class, entity -> {
+                entity.setBillboard(Display.Billboard.CENTER);
+                entity.setAlignment(TextDisplay.TextAlignment.CENTER);
+                entity.setShadowed(true);
+                entity.setSeeThrough(false);
+                entity.setDefaultBackground(false);
+                entity.setBackgroundColor(Color.fromARGB(100, 0, 0, 0));
+                entity.setTransformation(new org.bukkit.util.Transformation(
+                        new Vector3f(0, 0, 0),
+                        new AxisAngle4f(0, 0, 0, 1),
+                        new Vector3f(1.8f, 1.8f, 1.8f),
+                        new AxisAngle4f(0, 0, 0, 1)));
+                entity.setViewRange(0.5f);
+                entity.addScoreboardTag("miner_display_perplayer");
+                entity.addScoreboardTag("zombiez_display");
+                entity.setPersistent(false); // Non persistant - sera recréé si nécessaire
+
+                // INVISIBLE PAR DÉFAUT pour tous - visible uniquement par le propriétaire
+                entity.setVisibleByDefault(false);
+            });
+
+            playerMinerDisplays.put(playerId, display);
+
+            // Rendre visible uniquement pour ce joueur
+            player.showEntity(plugin, display);
+        } else {
+            // Mettre à jour la position
+            display.teleport(displayLoc);
+        }
+
+        // Mettre à jour le texte selon l'état
+        if (healed) {
+            display.setText("§a✓ §f§lMARCO §a✓\n§7Mineur\n§8─────────────\n§a§oMerci, survivant !");
+        } else {
+            display.setText("§e⚒ §6§lMARCO §e⚒\n§7Mineur blessé\n§8─────────────\n§7▶ §fUtilise un bandage");
+        }
+    }
+
+    /**
+     * Supprime le TextDisplay d'un joueur spécifique
+     */
+    private void removePlayerMinerDisplay(UUID playerId) {
+        TextDisplay display = playerMinerDisplays.remove(playerId);
+        if (display != null && display.isValid()) {
+            display.remove();
+        }
+    }
+
+    /**
+     * Supprime tous les TextDisplays per-player du mineur
+     */
+    private void removeAllPlayerMinerDisplays() {
+        for (TextDisplay display : playerMinerDisplays.values()) {
+            if (display != null && display.isValid()) {
+                display.remove();
             }
         }
+        playerMinerDisplays.clear();
     }
 
     /**
@@ -1524,15 +1511,13 @@ public class Chapter2Systems implements Listener {
         cooldowns.put(key, System.currentTimeMillis());
     }
 
-    // ==================== TEXTDISPLAY PER-PLAYER VIA VISIBILITÉ (MINEUR)
-    // ====================
-    // Utilise 2 TextDisplays fixes avec Paper API showEntity/hideEntity pour la
-    // visibilité per-player
+    // ==================== TEXTDISPLAY PER-PLAYER (MINEUR) ====================
+    // Chaque joueur proche a son propre TextDisplay avec le texte approprié
 
     /**
      * Démarre le système de TextDisplay per-player pour le Mineur Blessé.
      * Les NPCs sont gérés par JourneyNPCManager (Citizens API).
-     * Ce système gère uniquement les TextDisplays per-player pour le mineur.
+     * Ce système gère les TextDisplays per-player : chaque joueur proche a son propre display.
      */
     private void startNPCNameUpdater() {
         new BukkitRunnable() {
@@ -1562,34 +1547,32 @@ public class Chapter2Systems implements Listener {
                     return;
                 }
 
-                // Vérifier et recréer les displays per-player si nécessaire
-                if ((minerDisplayInjured == null || !minerDisplayInjured.isValid() ||
-                        minerDisplayHealed == null || !minerDisplayHealed.isValid()) &&
-                        minerLoc.getChunk().isLoaded()) {
-                    spawnMinerTextDisplays(world, injuredMinerEntity.getLocation());
-                }
-
-                // Mettre à jour la position des displays (suivre le mineur)
-                Location displayLoc = injuredMinerEntity.getLocation().clone().add(0, MINER_DISPLAY_HEIGHT, 0);
-                if (minerDisplayInjured != null && minerDisplayInjured.isValid()) {
-                    minerDisplayInjured.teleport(displayLoc);
-                }
-                if (minerDisplayHealed != null && minerDisplayHealed.isValid()) {
-                    minerDisplayHealed.teleport(displayLoc);
-                }
-
                 Location entityMinerLoc = injuredMinerEntity.getLocation();
 
-                // Mettre à jour la visibilité pour chaque joueur à portée
+                // === GESTION DES TEXTDISPLAYS PER-PLAYER ===
+                // Chaque joueur proche a son propre display avec le texte approprié
+                Set<UUID> playersInRange = new HashSet<>();
+
                 for (Player player : Bukkit.getOnlinePlayers()) {
                     boolean inRange = player.getWorld().equals(entityMinerLoc.getWorld()) &&
-                            player.getLocation().distanceSquared(entityMinerLoc) <= MINER_VIEW_DISTANCE
-                                    * MINER_VIEW_DISTANCE;
+                            player.getLocation().distanceSquared(entityMinerLoc) <= MINER_VIEW_DISTANCE * MINER_VIEW_DISTANCE;
 
                     if (inRange) {
+                        playersInRange.add(player.getUniqueId());
                         boolean hasHealed = hasPlayerHealedMiner(player);
-                        updateMinerDisplayVisibilityForPlayer(player, hasHealed);
+                        updatePlayerMinerDisplay(player, hasHealed);
                     }
+                }
+
+                // Supprimer les displays des joueurs qui ne sont plus à portée
+                Set<UUID> toRemove = new HashSet<>();
+                for (UUID playerId : playerMinerDisplays.keySet()) {
+                    if (!playersInRange.contains(playerId)) {
+                        toRemove.add(playerId);
+                    }
+                }
+                for (UUID playerId : toRemove) {
+                    removePlayerMinerDisplay(playerId);
                 }
             }
         }.runTaskTimer(plugin, 20L, 20L);
@@ -1624,56 +1607,6 @@ public class Chapter2Systems implements Listener {
         return false;
     }
 
-    /**
-     * Met à jour la visibilité des TextDisplays pour un joueur donné.
-     * Montre le display "Blessé" ou "Soigné" selon l'état.
-     *
-     * @param player Le joueur
-     * @param healed true si le joueur a soigné le mineur, false sinon
-     */
-    private void updateMinerDisplayVisibilityForPlayer(Player player, boolean healed) {
-        if (minerDisplayInjured == null || !minerDisplayInjured.isValid() ||
-                minerDisplayHealed == null || !minerDisplayHealed.isValid()) {
-            return;
-        }
-
-        if (healed) {
-            // Joueur a soigné: montrer "Soigné", cacher "Blessé"
-            player.showEntity(plugin, minerDisplayHealed);
-            player.hideEntity(plugin, minerDisplayInjured);
-        } else {
-            // Joueur n'a pas soigné: montrer "Blessé", cacher "Soigné"
-            player.showEntity(plugin, minerDisplayInjured);
-            player.hideEntity(plugin, minerDisplayHealed);
-        }
-    }
-
-    /**
-     * Cache les deux displays pour un joueur (quand il est hors de portée)
-     */
-    private void hideBothMinerDisplaysForPlayer(Player player) {
-        if (minerDisplayInjured != null && minerDisplayInjured.isValid()) {
-            player.hideEntity(plugin, minerDisplayInjured);
-        }
-        if (minerDisplayHealed != null && minerDisplayHealed.isValid()) {
-            player.hideEntity(plugin, minerDisplayHealed);
-        }
-    }
-
-    /**
-     * Détruit les deux TextDisplays (nettoyage)
-     */
-    private void destroyAllMinerDisplays() {
-        if (minerDisplayInjured != null && minerDisplayInjured.isValid()) {
-            minerDisplayInjured.remove();
-        }
-        if (minerDisplayHealed != null && minerDisplayHealed.isValid()) {
-            minerDisplayHealed.remove();
-        }
-        minerDisplayInjured = null;
-        minerDisplayHealed = null;
-        playersWhoHealedMiner.clear();
-    }
 
     /**
      * Nettoie les données d'un joueur qui se déconnecte
@@ -1682,8 +1615,10 @@ public class Chapter2Systems implements Listener {
     public void onPlayerQuit(PlayerQuitEvent event) {
         UUID playerId = event.getPlayer().getUniqueId();
 
-        // Nettoyer le cache de soin du mineur (sera rechargé via progression au
-        // reconnect)
+        // Nettoyer le TextDisplay per-player du mineur
+        removePlayerMinerDisplay(playerId);
+
+        // Nettoyer le cache de soin du mineur (sera rechargé via progression au reconnect)
         playersWhoHealedMiner.remove(playerId);
 
         // Nettoyer aussi les caisses de ravitaillement du joueur
@@ -1737,8 +1672,9 @@ public class Chapter2Systems implements Listener {
      * NOTE: Les NPCs Citizens sont persistants (gérés par JourneyNPCManager).
      */
     public void cleanup() {
-        // Détruire les TextDisplays per-player du mineur (custom)
-        destroyAllMinerDisplays();
+        // Détruire tous les TextDisplays per-player du mineur
+        removeAllPlayerMinerDisplays();
+        playersWhoHealedMiner.clear();
 
         // Le boss et son display ne sont pas gérés par JourneyNPCManager
         if (manorBossEntity != null)
