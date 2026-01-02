@@ -202,8 +202,6 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter
     private com.rinaorc.zombiez.dopamine.PersonalBestManager personalBestManager;
     @Getter
-    private com.rinaorc.zombiez.dopamine.TimeLimitedBonusManager timeLimitedBonusManager;
-    @Getter
     private com.rinaorc.zombiez.dopamine.DailyLoginStreakManager dailyLoginStreakManager;
     @Getter
     private com.rinaorc.zombiez.dopamine.AssistManager assistManager;
@@ -425,10 +423,6 @@ public class ZombieZPlugin extends JavaPlugin {
         if (multiKillCascadeManager != null) {
             log(Level.INFO, "§7Arrêt du système multi-kill cascade...");
             multiKillCascadeManager.shutdown();
-        }
-        if (timeLimitedBonusManager != null) {
-            log(Level.INFO, "§7Arrêt du système de bonus temporaires...");
-            timeLimitedBonusManager.shutdown();
         }
         if (assistManager != null) {
             log(Level.INFO, "§7Arrêt du système d'assists...");
@@ -743,9 +737,6 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Personal Best - Records personnels et popups de célébration
         personalBestManager = new com.rinaorc.zombiez.dopamine.PersonalBestManager(this);
-
-        // Time-Limited Bonus - Défis temporaires avec bonus
-        timeLimitedBonusManager = new com.rinaorc.zombiez.dopamine.TimeLimitedBonusManager(this);
 
         // Daily Login Streak - Récompenses de connexion quotidienne
         dailyLoginStreakManager = new com.rinaorc.zombiez.dopamine.DailyLoginStreakManager(this);
@@ -1069,11 +1060,6 @@ public class ZombieZPlugin extends JavaPlugin {
         // Listener système dopamine - Multi-Kill Cascade
         if (multiKillCascadeManager != null) {
             pm.registerEvents(multiKillCascadeManager, this);
-        }
-
-        // Listener système dopamine - Time-Limited Bonus
-        if (timeLimitedBonusManager != null) {
-            pm.registerEvents(timeLimitedBonusManager, this);
         }
 
         // Listener système dopamine - Daily Login Streak
