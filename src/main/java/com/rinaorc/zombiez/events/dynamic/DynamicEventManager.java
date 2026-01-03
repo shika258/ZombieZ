@@ -474,6 +474,9 @@ public class DynamicEventManager {
             Zone zone = plugin.getZoneManager().getZoneAt(checkLoc);
             if (zone == null || zone.isSafeZone() || zone.getId() == 0) continue;
 
+            // Vérifier que ce n'est pas dans une zone de refuge protégée
+            if (plugin.getRefugeManager().isInAnyRefugeProtectedArea(checkLoc)) continue;
+
             // Trouver la hauteur du sol
             int highestY = world.getHighestBlockYAt((int) x, (int) z);
 

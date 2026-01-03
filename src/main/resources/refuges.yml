@@ -83,12 +83,12 @@ refuges:
     protected-area:
       corner1:
         x: 783
-        y: 92
-        z: 8277
-      corner2:
-        x: 644
         y: 0
-        z: 8122
+        z: 8275
+      corner2:
+        x: 630
+        y: 200
+        z: 8133
     beacon:
       x: 704
       y: 91
