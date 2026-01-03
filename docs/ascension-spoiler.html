@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ZombieZ - Système d'Ascension</title>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Rajdhani:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a0a0a 50%, #0a0a1a 100%);
+            min-height: 100vh;
+            font-family: 'Rajdhani', sans-serif;
+            color: #e0e0e0;
+            overflow-x: hidden;
+        }
+
+        .background-effects {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 0;
+        }
+
+        .background-effects::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background:
+                radial-gradient(ellipse at 20% 20%, rgba(139, 0, 0, 0.15) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 80%, rgba(75, 0, 130, 0.1) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(255, 215, 0, 0.05) 0%, transparent 60%);
+        }
+
+        .container {
+            position: relative;
+            z-index: 1;
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 50px;
+            position: relative;
+        }
+
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 300px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #8b0000, #ffd700, #8b0000, transparent);
+        }
+
+        .title {
+            font-family: 'Cinzel', serif;
+            font-size: 4rem;
+            font-weight: 900;
+            background: linear-gradient(180deg, #ffd700 0%, #ff8c00 50%, #8b0000 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-shadow: 0 0 60px rgba(255, 215, 0, 0.5);
+            letter-spacing: 8px;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1.5rem;
+            color: #888;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+        }
+
+        .intro-box {
+            background: linear-gradient(135deg, rgba(20, 20, 20, 0.9) 0%, rgba(30, 15, 15, 0.9) 100%);
+            border: 1px solid rgba(139, 0, 0, 0.5);
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 40px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .intro-box::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #8b0000, #ffd700, #4b0082);
+        }
+
+        .intro-text {
+            font-size: 1.2rem;
+            line-height: 1.8;
+            color: #ccc;
+        }
+
+        .intro-text strong {
+            color: #ffd700;
+        }
+
+        .highlight {
+            color: #ff6b6b;
+            font-weight: 600;
+        }
+
+        .stages-section {
+            margin-bottom: 50px;
+        }
+
+        .section-title {
+            font-family: 'Cinzel', serif;
+            font-size: 2rem;
+            color: #ffd700;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .section-title::before,
+        .section-title::after {
+            content: '';
+            flex: 1;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 215, 0, 0.5), transparent);
+        }
+
+        .stages-grid {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 15px;
+        }
+
+        .stage-card {
+            background: linear-gradient(180deg, rgba(30, 30, 30, 0.9) 0%, rgba(20, 20, 20, 0.95) 100%);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            border-radius: 10px;
+            padding: 20px 15px;
+            text-align: center;
+            transition: all 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .stage-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(255, 215, 0, 0.6);
+            box-shadow: 0 10px 30px rgba(255, 215, 0, 0.2);
+        }
+
+        .stage-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #ffd700, #ff8c00);
+        }
+
+        .stage-number {
+            font-family: 'Cinzel', serif;
+            font-size: 2rem;
+            font-weight: 700;
+            color: #ffd700;
+            margin-bottom: 5px;
+        }
+
+        .stage-kills {
+            font-size: 1.1rem;
+            color: #ff6b6b;
+            font-weight: 600;
+        }
+
+        .stage-tier {
+            font-size: 0.85rem;
+            color: #888;
+            margin-top: 5px;
+        }
+
+        .strains-section {
+            margin-bottom: 50px;
+        }
+
+        .strains-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 25px;
+        }
+
+        .strain-card {
+            background: linear-gradient(180deg, rgba(25, 25, 25, 0.95) 0%, rgba(15, 15, 15, 0.98) 100%);
+            border-radius: 15px;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .strain-card.carnage {
+            border: 2px solid rgba(220, 20, 60, 0.5);
+        }
+
+        .strain-card.spectre {
+            border: 2px solid rgba(100, 149, 237, 0.5);
+        }
+
+        .strain-card.butin {
+            border: 2px solid rgba(255, 215, 0, 0.5);
+        }
+
+        .strain-header {
+            padding: 25px;
+            text-align: center;
+            position: relative;
+        }
+
+        .strain-card.carnage .strain-header {
+            background: linear-gradient(180deg, rgba(139, 0, 0, 0.4) 0%, transparent 100%);
+        }
+
+        .strain-card.spectre .strain-header {
+            background: linear-gradient(180deg, rgba(75, 0, 130, 0.4) 0%, transparent 100%);
+        }
+
+        .strain-card.butin .strain-header {
+            background: linear-gradient(180deg, rgba(184, 134, 11, 0.4) 0%, transparent 100%);
+        }
+
+        .strain-icon {
+            font-size: 3rem;
+            margin-bottom: 10px;
+        }
+
+        .strain-name {
+            font-family: 'Cinzel', serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .strain-card.carnage .strain-name { color: #dc143c; }
+        .strain-card.spectre .strain-name { color: #6495ed; }
+        .strain-card.butin .strain-name { color: #ffd700; }
+
+        .strain-desc {
+            font-size: 0.95rem;
+            color: #999;
+        }
+
+        .mutations-list {
+            padding: 20px;
+        }
+
+        .tier-group {
+            margin-bottom: 20px;
+        }
+
+        .tier-label {
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+            padding-bottom: 5px;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .mutation-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        }
+
+        .mutation-item:last-child {
+            border-bottom: none;
+        }
+
+        .mutation-name {
+            font-weight: 600;
+            font-size: 0.95rem;
+            min-width: 140px;
+        }
+
+        .strain-card.carnage .mutation-name { color: #ff6b6b; }
+        .strain-card.spectre .mutation-name { color: #87ceeb; }
+        .strain-card.butin .mutation-name { color: #ffd700; }
+
+        .mutation-effect {
+            font-size: 0.85rem;
+            color: #aaa;
+            line-height: 1.4;
+        }
+
+        .bonuses-section {
+            margin-bottom: 50px;
+        }
+
+        .bonuses-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 25px;
+        }
+
+        .bonus-card {
+            background: linear-gradient(135deg, rgba(25, 25, 25, 0.95) 0%, rgba(15, 15, 15, 0.98) 100%);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            border-radius: 15px;
+            padding: 25px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .bonus-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #8b0000, #ffd700, #4b0082);
+        }
+
+        .bonus-title {
+            font-family: 'Cinzel', serif;
+            font-size: 1.3rem;
+            color: #ffd700;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .bonus-list {
+            list-style: none;
+        }
+
+        .bonus-list li {
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .bonus-list li:last-child {
+            border-bottom: none;
+        }
+
+        .bonus-requirement {
+            color: #888;
+        }
+
+        .bonus-value {
+            color: #4ade80;
+            font-weight: 600;
+        }
+
+        .insurance-section {
+            background: linear-gradient(135deg, rgba(139, 0, 0, 0.2) 0%, rgba(75, 0, 130, 0.2) 100%);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .insurance-section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 3px;
+            background: linear-gradient(90deg, #8b0000, #ffd700, #4b0082);
+        }
+
+        .insurance-title {
+            font-family: 'Cinzel', serif;
+            font-size: 1.8rem;
+            color: #ffd700;
+            margin-bottom: 15px;
+        }
+
+        .insurance-desc {
+            font-size: 1.1rem;
+            color: #ccc;
+            margin-bottom: 20px;
+            line-height: 1.6;
+        }
+
+        .insurance-costs {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .cost-badge {
+            background: rgba(0, 0, 0, 0.5);
+            border: 1px solid rgba(255, 215, 0, 0.3);
+            border-radius: 8px;
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .cost-tier {
+            color: #888;
+            font-size: 0.9rem;
+        }
+
+        .cost-value {
+            color: #00bfff;
+            font-weight: 700;
+            font-size: 1.1rem;
+        }
+
+        .footer {
+            text-align: center;
+            margin-top: 50px;
+            padding-top: 30px;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .footer-text {
+            font-size: 1rem;
+            color: #666;
+        }
+
+        .footer-text strong {
+            color: #ffd700;
+        }
+
+        .glow-text {
+            text-shadow: 0 0 20px currentColor;
+        }
+
+        .warning-box {
+            background: linear-gradient(135deg, rgba(139, 0, 0, 0.3) 0%, rgba(100, 0, 0, 0.2) 100%);
+            border: 1px solid rgba(255, 0, 0, 0.4);
+            border-radius: 10px;
+            padding: 20px;
+            margin-top: 20px;
+            text-align: center;
+        }
+
+        .warning-box strong {
+            color: #ff4444;
+        }
+
+        @media (max-width: 1200px) {
+            .strains-grid {
+                grid-template-columns: 1fr;
+            }
+            .stages-grid {
+                grid-template-columns: repeat(5, 1fr);
+            }
+        }
+
+        @media (max-width: 768px) {
+            .title {
+                font-size: 2.5rem;
+            }
+            .stages-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .bonuses-grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState } = React;
+
+        const stages = [
+            { num: 'I', kills: 50, tier: 'Tier 1' },
+            { num: 'II', kills: 100, tier: 'Tier 1' },
+            { num: 'III', kills: 200, tier: 'Tier 2' },
+            { num: 'IV', kills: 300, tier: 'Tier 2' },
+            { num: 'V', kills: 400, tier: 'Tier 3' },
+            { num: 'VI', kills: 500, tier: 'Tier 3' },
+            { num: 'VII', kills: 650, tier: 'Tier 4' },
+            { num: 'VIII', kills: 800, tier: 'Tier 4' },
+            { num: 'IX', kills: 1000, tier: 'Tier 5' },
+            { num: 'X', kills: 1250, tier: 'Tier 5' },
+        ];
+
+        const strains = {
+            carnage: {
+                name: 'CARNAGE',
+                icon: '💀',
+                desc: 'Puissance brute et destruction',
+                tiers: {
+                    'Tier 1-2': [
+                        { name: 'Griffes Acérées', effect: '+12% Dégâts' },
+                        { name: 'Morsure Vampire', effect: '+8% Lifesteal' },
+                        { name: 'Adrénaline', effect: '+10% Vitesse d\'attaque' },
+                        { name: 'Rage Infectée', effect: '+20% Dmg quand < 50% HP' },
+                        { name: 'Éclats d\'Os', effect: '15% explosion au kill' },
+                        { name: 'Soif Insatiable', effect: '+5% LS/kill (max 25%)' },
+                        { name: 'Frappe Brutale', effect: '5ème coup = +50% dégâts' },
+                    ],
+                    'Tier 3-4': [
+                        { name: 'Éviscération', effect: 'Crits = saignement 3s' },
+                        { name: 'Fureur du Dernier Souffle', effect: '< 20% HP: +40% Dmg' },
+                        { name: 'Cascade Sanglante', effect: 'Kill = +25% next hit (x3)' },
+                        { name: 'Fléau Ambulant', effect: '1% HP/s aura 5 blocs' },
+                        { name: 'Exécuteur', effect: 'Instakill < 10% HP' },
+                        { name: 'Récolte de Sang', effect: 'Kill = +2% HP' },
+                    ],
+                    'Tier 5': [
+                        { name: 'Berserker Ultime', effect: '+30% Dmg / -25% Défense' },
+                        { name: 'Nova Mortelle', effect: 'Explosion AoE tous les 25 kills' },
+                    ],
+                }
+            },
+            spectre: {
+                name: 'SPECTRE',
+                icon: '👻',
+                desc: 'Vitesse, esquive et critiques',
+                tiers: {
+                    'Tier 1-2': [
+                        { name: 'Pas Légers', effect: '+10% Vitesse' },
+                        { name: 'Œil du Chasseur', effect: '+10% Chance Critique' },
+                        { name: 'Réflexes', effect: '+8% Esquive' },
+                        { name: 'Frappe Fantôme', effect: 'Crits ignorent 25% armure' },
+                        { name: 'Traque', effect: '+15% Dmg contre attaquants' },
+                        { name: 'Évanescence', effect: 'Kill = aggro réduit 3s' },
+                        { name: 'Vélocité', effect: '+3% Speed/kill (max 30%)' },
+                    ],
+                    'Tier 3-4': [
+                        { name: 'Double Frappe', effect: '12% double hit' },
+                        { name: 'Prédateur Silencieux', effect: 'Premier hit +30%' },
+                        { name: 'Phase Spectrale', effect: '10% TP quand touché' },
+                        { name: 'Danse Macabre', effect: '+2% Crit/kill (max 20%)' },
+                        { name: 'Lame Fantomatique', effect: '20% crit chain' },
+                        { name: 'Spectre de Guerre', effect: '< 30% HP: +25% Esquive/Speed' },
+                    ],
+                    'Tier 5': [
+                        { name: 'Maître des Ombres', effect: 'Attaque dos = crit garanti' },
+                        { name: 'Vent de la Mort', effect: 'Sprint = traverse les mobs' },
+                    ],
+                }
+            },
+            butin: {
+                name: 'BUTIN',
+                icon: '💎',
+                desc: 'Loot, points et fortune',
+                tiers: {
+                    'Tier 1-2': [
+                        { name: 'Œil Cupide', effect: '+15% Luck' },
+                        { name: 'Collecteur', effect: '+10% Points' },
+                        { name: 'Toucher de Midas', effect: '5% kill = +25 pts' },
+                        { name: 'Détecteur de Trésors', effect: 'Élites +30% loot' },
+                        { name: 'Économiste', effect: '+50 pts tous les 10 kills' },
+                        { name: 'Aimant à XP', effect: '+20% XP' },
+                        { name: 'Instinct du Chercheur', effect: '10% Rare+ → tier up' },
+                    ],
+                    'Tier 3-4': [
+                        { name: 'Pluie d\'Or', effect: '3% kill = +100 pts' },
+                        { name: 'Chance du Diable', effect: '+25% Luck / -10% Dmg' },
+                        { name: 'Combo Payant', effect: 'Combo 10+ = +50% loot' },
+                        { name: 'Prospecteur', effect: '+10% loot zone' },
+                        { name: 'Jackpot Ambulant', effect: '1% kill = +200 pts' },
+                        { name: 'Fortune Ultime', effect: '+40% Luck / +30% Points' },
+                    ],
+                    'Tier 5': [
+                        { name: 'Maître du Marché', effect: '+50% valeur recyclage' },
+                        { name: 'Favori de la Chance', effect: 'Item Rare+ tous les 50 kills' },
+                    ],
+                }
+            }
+        };
+
+        const App = () => {
+            return (
+                <>
+                    <div className="background-effects"></div>
+                    <div className="container">
+                        {/* Header */}
+                        <header className="header">
+                            <h1 className="title">⬆ ASCENSION</h1>
+                            <p className="subtitle">Système de Mutations Roguelike</p>
+                        </header>
+
+                        {/* Introduction */}
+                        <div className="intro-box">
+                            <p className="intro-text">
+                                <strong>Tue des zombies</strong> pour débloquer des <span className="highlight">mutations puissantes</span>.<br/>
+                                À chaque palier, choisis parmi <strong>3 mutations aléatoires</strong> pour personnaliser ton build.<br/>
+                                <strong>45 mutations</strong> réparties en <strong>3 souches</strong> • <strong>10 stades</strong> de progression • <strong>Système d'assurance</strong>
+                            </p>
+                            <div className="warning-box">
+                                <strong>⚠️ ATTENTION:</strong> Les mutations sont <strong>réinitialisées à la mort</strong> et au <strong>redémarrage du serveur</strong>.<br/>
+                                Utilise l'<strong>Assurance</strong> pour conserver UNE mutation après la mort !
+                            </div>
+                        </div>
+
+                        {/* Stages */}
+                        <section className="stages-section">
+                            <h2 className="section-title">🎯 Les 10 Stades</h2>
+                            <div className="stages-grid">
+                                {stages.map((stage, idx) => (
+                                    <div className="stage-card" key={idx}>
+                                        <div className="stage-number">{stage.num}</div>
+                                        <div className="stage-kills">{stage.kills} kills</div>
+                                        <div className="stage-tier">{stage.tier}</div>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+
+                        {/* Strains */}
+                        <section className="strains-section">
+                            <h2 className="section-title">🧬 Les 3 Souches</h2>
+                            <div className="strains-grid">
+                                {Object.entries(strains).map(([key, strain]) => (
+                                    <div className={`strain-card ${key}`} key={key}>
+                                        <div className="strain-header">
+                                            <div className="strain-icon">{strain.icon}</div>
+                                            <h3 className="strain-name">{strain.name}</h3>
+                                            <p className="strain-desc">{strain.desc}</p>
+                                        </div>
+                                        <div className="mutations-list">
+                                            {Object.entries(strain.tiers).map(([tierName, mutations]) => (
+                                                <div className="tier-group" key={tierName}>
+                                                    <div className="tier-label">{tierName}</div>
+                                                    {mutations.map((mut, idx) => (
+                                                        <div className="mutation-item" key={idx}>
+                                                            <span className="mutation-name">{mut.name}</span>
+                                                            <span className="mutation-effect">{mut.effect}</span>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        </section>
+
+                        {/* Bonuses */}
+                        <section className="bonuses-section">
+                            <h2 className="section-title">✨ Bonus de Collection</h2>
+                            <div className="bonuses-grid">
+                                <div className="bonus-card">
+                                    <h3 className="bonus-title">🎯 Bonus de Souche</h3>
+                                    <ul className="bonus-list">
+                                        <li>
+                                            <span className="bonus-requirement">3 mutations d'une souche</span>
+                                            <span className="bonus-value">+5% stat souche</span>
+                                        </li>
+                                        <li>
+                                            <span className="bonus-requirement">5 mutations d'une souche</span>
+                                            <span className="bonus-value">+10% stat souche</span>
+                                        </li>
+                                        <li>
+                                            <span className="bonus-requirement">7 mutations d'une souche</span>
+                                            <span className="bonus-value">+15% stat souche</span>
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div className="bonus-card">
+                                    <h3 className="bonus-title">⚖️ Bonus Équilibriste</h3>
+                                    <ul className="bonus-list">
+                                        <li>
+                                            <span className="bonus-requirement">2-2-2 (6 mutations)</span>
+                                            <span className="bonus-value">+5% Dmg/Speed/Luck</span>
+                                        </li>
+                                        <li>
+                                            <span className="bonus-requirement">3-3-3 (9 mutations)</span>
+                                            <span className="bonus-value">+8% Dmg/Speed/Luck</span>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* Insurance */}
+                        <section className="insurance-section">
+                            <h3 className="insurance-title">🛡️ Système d'Assurance</h3>
+                            <p className="insurance-desc">
+                                À ta mort, tu peux payer des <strong>💎 Gemmes</strong> pour conserver <strong>UNE</strong> mutation.<br/>
+                                Elle sera automatiquement restaurée après ton respawn !
+                            </p>
+                            <div className="insurance-costs">
+                                <div className="cost-badge">
+                                    <span className="cost-tier">Tier 1</span>
+                                    <span className="cost-value">30 💎</span>
+                                </div>
+                                <div className="cost-badge">
+                                    <span className="cost-tier">Tier 2</span>
+                                    <span className="cost-value">60 💎</span>
+                                </div>
+                                <div className="cost-badge">
+                                    <span className="cost-tier">Tier 3</span>
+                                    <span className="cost-value">100 💎</span>
+                                </div>
+                                <div className="cost-badge">
+                                    <span className="cost-tier">Tier 4</span>
+                                    <span className="cost-value">150 💎</span>
+                                </div>
+                                <div className="cost-badge">
+                                    <span className="cost-tier">Tier 5</span>
+                                    <span className="cost-value">250 💎</span>
+                                </div>
+                            </div>
+                        </section>
+
+                        {/* Footer */}
+                        <footer className="footer">
+                            <p className="footer-text">
+                                <strong>ZombieZ</strong> • Système d'Ascension v1.0 • Commande: <strong>/asc</strong>
+                            </p>
+                        </footer>
+                    </div>
+                </>
+            );
+        };
+
+        ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+    </script>
+</body>
+</html>
