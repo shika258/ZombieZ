@@ -17,9 +17,12 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.Team;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
@@ -57,6 +60,8 @@ public class Chapter5Systems implements Listener {
     private final NamespacedKey QUEST_SALMON_KEY;
     private final NamespacedKey ORE_VISUAL_KEY;
     private final NamespacedKey ORE_HITBOX_KEY;
+    private final NamespacedKey SUSPECT_NPC_KEY;
+    private final NamespacedKey TRAITOR_PILLAGER_KEY;
 
     // === ZONE DE PÊCHE (Étape 5.2) ===
     private static final int SALMON_ZONE_MIN_X = 798;
@@ -90,6 +95,32 @@ public class Chapter5Systems implements Listener {
     private static final int HITS_TO_MINE = 8;          // Nombre de coups pour miner un minerai
     private static final float ORE_VIEW_DISTANCE = 48f; // Distance de vue des minerais
     private static final double ORE_DISPLAY_HEIGHT = 2.0; // Hauteur du TextDisplay au-dessus du minerai
+
+    // === CONFIGURATION TRAÎTRE (Étape 5.5) ===
+    private static final int TOTAL_SUSPECTS = 5;
+    private static final int TRAITOR_LEVEL = 12;
+    // Coordonnées des suspects: x, y, z, yaw, pitch
+    private static final double[][] SUSPECT_LOCATIONS = {
+        {678.5, 90, 8222.5, 180, 0},
+        {703.5, 94, 8202.5, -12, 10},
+        {741.5, 100, 8220.5, -140, 0},
+        {656.5, 97, 8195.5, 0, 0},
+        {719.5, 90, 8246.5, 0, 0}
+    };
+    private static final String[] SUSPECT_NAMES = {
+        "§e§lMarchand Louche",
+        "§e§lVoyageur Nerveux",
+        "§e§lGarde Silencieux",
+        "§e§lFermier Méfiant",
+        "§e§lÉtranger Masqué"
+    };
+    private static final String[] SUSPECT_DIALOGUES = {
+        "§7\"Je ne sais rien! Je ne fais que vendre mes potions...\"",
+        "§7\"Pourquoi me regardez-vous comme ça? Je suis juste de passage!\"",
+        "§7\"Les murs ont des oreilles ici... Faites attention.\"",
+        "§7\"La récolte a été mauvaise... mais un traître? Ici?\"",
+        "§7\"...\" §8*Il vous fixe en silence*"
+    };
 
     // Types de minerais avec leurs couleurs de glow
     private enum OreType {
@@ -135,6 +166,19 @@ public class Chapter5Systems implements Listener {
     // Minerais minés par chaque joueur (Set des index)
     private final Map<UUID, Set<Integer>> playerMinedOres = new ConcurrentHashMap<>();
 
+    // === TRACKING TRAÎTRE (Étape 5.5) ===
+    // Suspects (Villagers glowing)
+    private final Villager[] suspectNPCs = new Villager[TOTAL_SUSPECTS];
+    private final TextDisplay[] suspectDisplays = new TextDisplay[TOTAL_SUSPECTS];
+    // Joueurs actifs sur la quête du traître
+    private final Set<UUID> activeTraitorPlayers = ConcurrentHashMap.newKeySet();
+    // Suspects interrogés par chaque joueur (Set des index)
+    private final Map<UUID, Set<Integer>> playerInterrogatedSuspects = new ConcurrentHashMap<>();
+    // Traître actif par joueur (UUID du Pillager spawné)
+    private final Map<UUID, UUID> playerActiveTraitors = new ConcurrentHashMap<>();
+    // Team pour le glow vert des suspects
+    private Team suspectGlowTeam;
+
     public Chapter5Systems(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.journeyManager = plugin.getJourneyManager();
@@ -143,6 +187,8 @@ public class Chapter5Systems implements Listener {
         this.QUEST_SALMON_KEY = new NamespacedKey(plugin, "quest_salmon_ch5");
         this.ORE_VISUAL_KEY = new NamespacedKey(plugin, "quest_ore_visual_ch5");
         this.ORE_HITBOX_KEY = new NamespacedKey(plugin, "quest_ore_hitbox_ch5");
+        this.SUSPECT_NPC_KEY = new NamespacedKey(plugin, "quest_suspect_ch5");
+        this.TRAITOR_PILLAGER_KEY = new NamespacedKey(plugin, "quest_traitor_ch5");
 
         // Enregistrer les événements
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
@@ -150,7 +196,7 @@ public class Chapter5Systems implements Listener {
         // Démarrer les systèmes
         startSalmonSpawnTask();
 
-        // Initialiser les minerais après un délai (attendre que le monde soit chargé)
+        // Initialiser les minerais et suspects après un délai (attendre que le monde soit chargé)
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -159,6 +205,12 @@ public class Chapter5Systems implements Listener {
                     initializeOres(world);
                     startOreVisibilityUpdater();
                     startOreRespawnChecker();
+
+                    // Système du traître
+                    initializeSuspectGlowTeam();
+                    initializeSuspects(world);
+                    startSuspectVisibilityUpdater();
+                    startSuspectRespawnChecker();
                 }
             }
         }.runTaskLater(plugin, 100L);
@@ -985,6 +1037,484 @@ public class Chapter5Systems implements Listener {
         activateMiningQuest(player);
     }
 
+    /**
+     * Appelé quand un joueur arrive à l'étape STEP_5_5
+     */
+    public void onPlayerReachStep55(Player player) {
+        activateTraitorQuest(player);
+    }
+
+    // ==================== SYSTÈME DU TRAÎTRE (Étape 5.5) ====================
+
+    /**
+     * Initialise la team pour le glow vert des suspects
+     */
+    private void initializeSuspectGlowTeam() {
+        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        suspectGlowTeam = scoreboard.getTeam("ch5_suspects");
+        if (suspectGlowTeam == null) {
+            suspectGlowTeam = scoreboard.registerNewTeam("ch5_suspects");
+        }
+        suspectGlowTeam.color(NamedTextColor.GREEN);
+        suspectGlowTeam.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
+    }
+
+    /**
+     * Initialise les suspects dans le village
+     */
+    private void initializeSuspects(World world) {
+        for (int i = 0; i < TOTAL_SUSPECTS; i++) {
+            spawnSuspect(world, i);
+        }
+        plugin.getLogger().info("[Chapter5Systems] " + TOTAL_SUSPECTS + " suspects initialisés à Maraisville");
+    }
+
+    /**
+     * Spawn un suspect à l'index donné
+     */
+    private void spawnSuspect(World world, int suspectIndex) {
+        double[] coords = SUSPECT_LOCATIONS[suspectIndex];
+        Location loc = new Location(world, coords[0], coords[1], coords[2], (float) coords[3], (float) coords[4]);
+
+        // Supprimer l'ancien si existant
+        if (suspectNPCs[suspectIndex] != null && suspectNPCs[suspectIndex].isValid()) {
+            suspectGlowTeam.removeEntity(suspectNPCs[suspectIndex]);
+            suspectNPCs[suspectIndex].remove();
+        }
+        if (suspectDisplays[suspectIndex] != null && suspectDisplays[suspectIndex].isValid()) {
+            suspectDisplays[suspectIndex].remove();
+        }
+
+        final int index = suspectIndex;
+
+        // Créer le Villager suspect
+        suspectNPCs[suspectIndex] = world.spawn(loc, Villager.class, villager -> {
+            villager.customName(Component.text(SUSPECT_NAMES[index]));
+            villager.setCustomNameVisible(false); // On utilise TextDisplay
+            villager.setAI(false);
+            villager.setInvulnerable(true);
+            villager.setSilent(true);
+            villager.setPersistent(true);
+            villager.setRemoveWhenFarAway(false);
+            villager.setCollidable(false);
+
+            // Profession variée
+            Villager.Profession[] professions = {
+                Villager.Profession.CLERIC,
+                Villager.Profession.CARTOGRAPHER,
+                Villager.Profession.WEAPONSMITH,
+                Villager.Profession.FARMER,
+                Villager.Profession.NITWIT
+            };
+            villager.setProfession(professions[index]);
+            villager.setVillagerLevel(2);
+
+            // Glow vert
+            villager.setGlowing(true);
+
+            // Tags
+            villager.addScoreboardTag("chapter5_suspect");
+            villager.addScoreboardTag("suspect_" + index);
+            villager.addScoreboardTag("zombiez_npc");
+
+            // PDC
+            villager.getPersistentDataContainer().set(SUSPECT_NPC_KEY, PersistentDataType.INTEGER, index);
+
+            // Invisible par défaut
+            villager.setVisibleByDefault(false);
+        });
+
+        // Ajouter à la team pour le glow vert
+        if (suspectGlowTeam != null && suspectNPCs[suspectIndex] != null) {
+            suspectGlowTeam.addEntity(suspectNPCs[suspectIndex]);
+        }
+
+        // Créer le TextDisplay au-dessus
+        Location displayLoc = loc.clone().add(0, 2.5, 0);
+        suspectDisplays[suspectIndex] = world.spawn(displayLoc, TextDisplay.class, display -> {
+            display.text(Component.text()
+                    .append(Component.text("§e🔍 ", NamedTextColor.YELLOW))
+                    .append(Component.text(SUSPECT_NAMES[index].replace("§e§l", ""), NamedTextColor.GOLD, TextDecoration.BOLD))
+                    .append(Component.text(" §e🔍", NamedTextColor.YELLOW))
+                    .append(Component.newline())
+                    .append(Component.text("▶ Clic droit pour interroger", NamedTextColor.GRAY))
+                    .build());
+
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setAlignment(TextDisplay.TextAlignment.CENTER);
+            display.setShadowed(true);
+            display.setSeeThrough(false);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(120, 0, 0, 0));
+
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(1.2f, 1.2f, 1.2f),
+                    new AxisAngle4f(0, 0, 0, 1)));
+
+            display.setViewRange(0.3f);
+            display.setPersistent(true);
+            display.addScoreboardTag("chapter5_suspect_display");
+            display.addScoreboardTag("suspect_display_" + index);
+
+            display.setVisibleByDefault(false);
+        });
+    }
+
+    /**
+     * Démarre le système de visibilité per-player pour les suspects
+     */
+    private void startSuspectVisibilityUpdater() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    if (!player.getWorld().equals(world)) {
+                        hideAllSuspectsForPlayer(player);
+                        continue;
+                    }
+
+                    // Vérifier si le joueur est sur la quête et ne l'a pas terminée
+                    boolean shouldSeeSuspects = isPlayerOnTraitorQuest(player) && !hasPlayerCompletedTraitorQuest(player);
+
+                    if (shouldSeeSuspects) {
+                        updateSuspectVisibilityForPlayer(player);
+                    } else {
+                        hideAllSuspectsForPlayer(player);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 100L, 20L);
+    }
+
+    /**
+     * Met à jour la visibilité des suspects pour un joueur
+     */
+    private void updateSuspectVisibilityForPlayer(Player player) {
+        Set<Integer> interrogated = playerInterrogatedSuspects.getOrDefault(player.getUniqueId(), Set.of());
+
+        for (int i = 0; i < TOTAL_SUSPECTS; i++) {
+            boolean hasInterrogated = interrogated.contains(i);
+
+            // Villager
+            if (suspectNPCs[i] != null && suspectNPCs[i].isValid()) {
+                if (hasInterrogated) {
+                    player.hideEntity(plugin, suspectNPCs[i]);
+                } else {
+                    player.showEntity(plugin, suspectNPCs[i]);
+                }
+            }
+
+            // TextDisplay
+            if (suspectDisplays[i] != null && suspectDisplays[i].isValid()) {
+                if (hasInterrogated) {
+                    player.hideEntity(plugin, suspectDisplays[i]);
+                } else {
+                    player.showEntity(plugin, suspectDisplays[i]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Cache tous les suspects pour un joueur
+     */
+    private void hideAllSuspectsForPlayer(Player player) {
+        for (int i = 0; i < TOTAL_SUSPECTS; i++) {
+            if (suspectNPCs[i] != null && suspectNPCs[i].isValid()) {
+                player.hideEntity(plugin, suspectNPCs[i]);
+            }
+            if (suspectDisplays[i] != null && suspectDisplays[i].isValid()) {
+                player.hideEntity(plugin, suspectDisplays[i]);
+            }
+        }
+    }
+
+    /**
+     * Démarre le vérificateur de respawn des suspects
+     */
+    private void startSuspectRespawnChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                for (int i = 0; i < TOTAL_SUSPECTS; i++) {
+                    boolean needsRespawn = (suspectNPCs[i] == null || !suspectNPCs[i].isValid()) ||
+                            (suspectDisplays[i] == null || !suspectDisplays[i].isValid());
+
+                    if (needsRespawn) {
+                        spawnSuspect(world, i);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 200L, 200L);
+    }
+
+    /**
+     * Vérifie si un joueur est sur la quête du traître
+     */
+    private boolean isPlayerOnTraitorQuest(Player player) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        return currentStep == JourneyStep.STEP_5_5;
+    }
+
+    /**
+     * Vérifie si un joueur a terminé la quête du traître
+     */
+    private boolean hasPlayerCompletedTraitorQuest(Player player) {
+        return journeyManager.isStepCompleted(player, JourneyStep.STEP_5_5);
+    }
+
+    /**
+     * Active la quête du traître pour un joueur
+     */
+    public void activateTraitorQuest(Player player) {
+        UUID playerId = player.getUniqueId();
+
+        // Initialiser le tracking
+        playerInterrogatedSuspects.put(playerId, ConcurrentHashMap.newKeySet());
+        activeTraitorPlayers.add(playerId);
+
+        // Afficher l'introduction
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.isOnline()) return;
+
+                // Title d'introduction
+                player.sendTitle(
+                    "§c⚔ §4§lTRAQUE DU TRAÎTRE §c⚔",
+                    "§7Un espion se cache parmi les habitants...",
+                    10, 60, 20
+                );
+
+                // Son d'ambiance
+                player.playSound(player.getLocation(), Sound.ENTITY_WARDEN_HEARTBEAT, 1.0f, 0.8f);
+
+                // Message de briefing
+                player.sendMessage("");
+                player.sendMessage("§4§l══════ TRAQUE DU TRAÎTRE ══════");
+                player.sendMessage("");
+                player.sendMessage("§7Un §ctraître §7s'est infiltré dans le refuge de");
+                player.sendMessage("§e§lMaraisville§7. Il communique avec les morts-vivants...");
+                player.sendMessage("");
+                player.sendMessage("§e▸ §fInterrogez les §c5 suspects §fdu village");
+                player.sendMessage("§e▸ §fLe dernier interrogé révélera sa vraie nature!");
+                player.sendMessage("§e▸ §c⚠ Si vous mourez, vous devrez recommencer!");
+                player.sendMessage("");
+
+                // Activer le GPS vers le premier suspect
+                updateGPSToNextSuspect(player);
+            }
+        }.runTaskLater(plugin, 20L);
+    }
+
+    /**
+     * Met à jour le GPS vers le prochain suspect non interrogé
+     */
+    private void updateGPSToNextSuspect(Player player) {
+        Set<Integer> interrogated = playerInterrogatedSuspects.getOrDefault(player.getUniqueId(), Set.of());
+
+        // Trouver le prochain suspect non interrogé
+        for (int i = 0; i < TOTAL_SUSPECTS; i++) {
+            if (!interrogated.contains(i)) {
+                double[] coords = SUSPECT_LOCATIONS[i];
+                String suspectName = SUSPECT_NAMES[i].replace("§e§l", "");
+                player.sendMessage("§e§l➤ §7GPS: §b" + (int) coords[0] + ", " + (int) coords[1] + ", " + (int) coords[2] + " §7(" + suspectName + ")");
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1f);
+
+                var gpsManager = plugin.getGPSManager();
+                if (gpsManager != null) {
+                    gpsManager.enableGPSSilently(player);
+                }
+                return;
+            }
+        }
+    }
+
+    /**
+     * Gère l'interrogation d'un suspect
+     */
+    private void handleSuspectInterrogation(Player player, int suspectIndex) {
+        UUID playerId = player.getUniqueId();
+
+        // Vérifier si le joueur est sur la bonne étape
+        if (!isPlayerOnTraitorQuest(player)) {
+            return;
+        }
+
+        // Vérifier si déjà interrogé
+        Set<Integer> interrogated = playerInterrogatedSuspects.get(playerId);
+        if (interrogated == null) {
+            interrogated = ConcurrentHashMap.newKeySet();
+            playerInterrogatedSuspects.put(playerId, interrogated);
+        }
+
+        if (interrogated.contains(suspectIndex)) {
+            return;
+        }
+
+        // Marquer comme interrogé
+        interrogated.add(suspectIndex);
+        int totalInterrogated = interrogated.size();
+
+        // Cacher ce suspect pour le joueur
+        if (suspectNPCs[suspectIndex] != null && suspectNPCs[suspectIndex].isValid()) {
+            player.hideEntity(plugin, suspectNPCs[suspectIndex]);
+        }
+        if (suspectDisplays[suspectIndex] != null && suspectDisplays[suspectIndex].isValid()) {
+            player.hideEntity(plugin, suspectDisplays[suspectIndex]);
+        }
+
+        // Afficher le dialogue
+        player.sendMessage("");
+        player.sendMessage("§e§l[" + SUSPECT_NAMES[suspectIndex].replace("§e§l", "") + "]");
+        player.sendMessage(SUSPECT_DIALOGUES[suspectIndex]);
+        player.sendMessage("");
+
+        // Effets
+        player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_AMBIENT, 1.0f, 1.0f);
+
+        // Mettre à jour la progression
+        journeyManager.setStepProgress(player, JourneyStep.STEP_5_5, totalInterrogated);
+        journeyManager.createOrUpdateBossBar(player);
+
+        // Si c'est le 5ème suspect, il se transforme en traître!
+        if (totalInterrogated >= 5) {
+            spawnTraitor(player, suspectIndex);
+        } else {
+            // Mettre à jour le GPS vers le prochain suspect
+            int remaining = 5 - totalInterrogated;
+            player.sendMessage("§7[§e" + totalInterrogated + "/5§7] Suspects interrogés. §cEncore " + remaining + "...");
+            updateGPSToNextSuspect(player);
+        }
+    }
+
+    /**
+     * Spawn le traître (Pillager) à la place du 5ème suspect
+     */
+    private void spawnTraitor(Player player, int suspectIndex) {
+        double[] coords = SUSPECT_LOCATIONS[suspectIndex];
+        World world = player.getWorld();
+        Location loc = new Location(world, coords[0], coords[1], coords[2]);
+
+        // Effets de transformation
+        player.sendMessage("");
+        player.sendMessage("§c§l[!!!] §4LE TRAÎTRE SE RÉVÈLE!");
+        player.sendMessage("§7\"§cVous m'avez démasqué... mais vous ne quitterez pas ce village vivant!§7\"");
+        player.sendMessage("");
+
+        player.sendTitle(
+            "§c☠ §4§lTRAÎTRE DÉMASQUÉ! §c☠",
+            "§7Éliminez-le!",
+            10, 40, 10
+        );
+
+        player.playSound(loc, Sound.ENTITY_WITHER_SPAWN, 0.8f, 1.2f);
+        world.spawnParticle(Particle.EXPLOSION, loc, 5, 0.5, 0.5, 0.5, 0);
+        world.spawnParticle(Particle.SMOKE, loc, 30, 0.5, 1, 0.5, 0.1);
+
+        // Spawner le Pillager via ZombieManager
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                ZombieManager zombieManager = plugin.getZombieManager();
+                ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(
+                    ZombieType.PILLAGER,
+                    loc,
+                    TRAITOR_LEVEL
+                );
+
+                if (activeZombie != null) {
+                    Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
+                    if (entity instanceof LivingEntity traitor) {
+                        // Marquer comme traître de quête
+                        traitor.getPersistentDataContainer().set(TRAITOR_PILLAGER_KEY, PersistentDataType.STRING, player.getUniqueId().toString());
+                        traitor.addScoreboardTag("chapter5_traitor");
+                        traitor.addScoreboardTag("traitor_owner_" + player.getUniqueId());
+
+                        // Stocker l'UUID du traître
+                        playerActiveTraitors.put(player.getUniqueId(), entity.getUniqueId());
+
+                        // Effets de spawn
+                        world.playSound(loc, Sound.ENTITY_PILLAGER_CELEBRATE, 1.0f, 0.8f);
+
+                        // GPS vers le traître
+                        player.sendMessage("§c§l➤ §7Tuez le traître!");
+                    }
+                }
+            }
+        }.runTaskLater(plugin, 10L);
+    }
+
+    /**
+     * Gère la mort du traître
+     */
+    private void handleTraitorDeath(Player killer, Entity traitor) {
+        UUID killerId = killer.getUniqueId();
+
+        // Vérifier que c'est bien le traître de ce joueur
+        UUID expectedTraitorId = playerActiveTraitors.get(killerId);
+        if (expectedTraitorId == null || !expectedTraitorId.equals(traitor.getUniqueId())) {
+            return;
+        }
+
+        // Nettoyer
+        playerActiveTraitors.remove(killerId);
+        activeTraitorPlayers.remove(killerId);
+        playerInterrogatedSuspects.remove(killerId);
+
+        // Compléter la quête
+        journeyManager.setStepProgress(killer, JourneyStep.STEP_5_5, 6); // 5 + 1 pour le kill
+        journeyManager.completeStep(killer, JourneyStep.STEP_5_5);
+
+        // Effets de victoire
+        killer.sendTitle(
+            "§a§l✓ TRAÎTRE ÉLIMINÉ!",
+            "§7Maraisville est en sécurité...",
+            10, 60, 20
+        );
+
+        killer.playSound(killer.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+        killer.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, killer.getLocation().add(0, 1, 0), 50, 1, 1, 1, 0.2);
+
+        killer.sendMessage("");
+        killer.sendMessage("§a§l[QUÊTE TERMINÉE] §7Le traître a été éliminé!");
+        killer.sendMessage("§7Les habitants de Maraisville vous remercient.");
+        killer.sendMessage("");
+    }
+
+    /**
+     * Reset la progression du traître pour un joueur (appelé à la mort)
+     */
+    private void resetTraitorProgress(Player player) {
+        UUID uuid = player.getUniqueId();
+
+        // Supprimer le traître actif s'il existe
+        UUID traitorId = playerActiveTraitors.remove(uuid);
+        if (traitorId != null) {
+            Entity traitor = plugin.getServer().getEntity(traitorId);
+            if (traitor != null && traitor.isValid()) {
+                traitor.remove();
+            }
+        }
+
+        // Réinitialiser les suspects interrogés
+        playerInterrogatedSuspects.put(uuid, ConcurrentHashMap.newKeySet());
+
+        // Réinitialiser la progression dans JourneyManager
+        journeyManager.setStepProgress(player, JourneyStep.STEP_5_5, 0);
+
+        // Mettre à jour la BossBar
+        journeyManager.createOrUpdateBossBar(player);
+    }
+
     // ==================== ÉVÉNEMENTS ====================
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -1009,6 +1539,47 @@ public class Chapter5Systems implements Listener {
                     handleOreHit(attacker, oreIndex);
                 }
             }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
+        Entity clicked = event.getRightClicked();
+        Player player = event.getPlayer();
+
+        // Interaction avec un suspect
+        if (clicked instanceof Villager
+                && clicked.getPersistentDataContainer().has(SUSPECT_NPC_KEY, PersistentDataType.INTEGER)) {
+            event.setCancelled(true);
+
+            Integer suspectIndex = clicked.getPersistentDataContainer().get(SUSPECT_NPC_KEY, PersistentDataType.INTEGER);
+            if (suspectIndex != null) {
+                handleSuspectInterrogation(player, suspectIndex);
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+    public void onTraitorDeath(EntityDeathEvent event) {
+        Entity entity = event.getEntity();
+
+        // Vérifier si c'est un traître de quête
+        if (!entity.getPersistentDataContainer().has(TRAITOR_PILLAGER_KEY, PersistentDataType.STRING)) {
+            return;
+        }
+
+        String ownerIdStr = entity.getPersistentDataContainer().get(TRAITOR_PILLAGER_KEY, PersistentDataType.STRING);
+        if (ownerIdStr == null) {
+            return;
+        }
+
+        Player killer = null;
+        if (event.getEntity() instanceof LivingEntity living) {
+            killer = living.getKiller();
+        }
+
+        if (killer != null && killer.getUniqueId().toString().equals(ownerIdStr)) {
+            handleTraitorDeath(killer, entity);
         }
     }
 
@@ -1043,6 +1614,34 @@ public class Chapter5Systems implements Listener {
                     player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 0.8f);
                 }
             }.runTaskLater(plugin, 40L); // Après le respawn
+        }
+
+        // Si le joueur est sur la quête du traître, reset sa progression
+        if (isPlayerOnTraitorQuest(player)) {
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    if (!player.isOnline()) return;
+
+                    resetTraitorProgress(player);
+
+                    player.sendTitle(
+                        "§c☠ QUÊTE ÉCHOUÉE!",
+                        "§7Votre progression d'enquête a été réinitialisée",
+                        10, 60, 20
+                    );
+
+                    player.sendMessage("");
+                    player.sendMessage("§c§l[TRAÎTRE] §7Vous êtes mort! Votre enquête a été §créinitialisée§7.");
+                    player.sendMessage("§e▸ §fRetournez à Maraisville et recommencez!");
+                    player.sendMessage("");
+
+                    // Réactiver le GPS
+                    updateGPSToNextSuspect(player);
+
+                    player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 0.8f);
+                }
+            }.runTaskLater(plugin, 40L);
         }
     }
 
@@ -1092,6 +1691,29 @@ public class Chapter5Systems implements Listener {
 
                     activateGPSToMine(player);
                 }
+
+                // Quête du traître
+                if (currentStep == JourneyStep.STEP_5_5) {
+                    if (!playerInterrogatedSuspects.containsKey(player.getUniqueId())) {
+                        playerInterrogatedSuspects.put(player.getUniqueId(), ConcurrentHashMap.newKeySet());
+                    }
+                    activeTraitorPlayers.add(player.getUniqueId());
+
+                    int progress = journeyManager.getStepProgress(player, currentStep);
+
+                    player.sendMessage("");
+                    player.sendMessage("§4§l[QUÊTE] §7Traque du Traître en cours!");
+                    if (progress >= 5) {
+                        player.sendMessage("§e▸ §fTuez le traître!");
+                        player.sendMessage("§c§l➤ §7Le traître est dans le village!");
+                    } else {
+                        int remaining = 5 - progress;
+                        player.sendMessage("§e▸ §fProgression: §c" + progress + "/5 §fsuspects interrogés");
+                        player.sendMessage("§e▸ §fRestant: §c" + remaining + " §fsuspects");
+                        player.sendMessage("§c⚠ §7Si vous mourez, vous recommencerez à zéro!");
+                        updateGPSToNextSuspect(player);
+                    }
+                }
             }
         }.runTaskLater(plugin, 40L);
     }
@@ -1105,6 +1727,10 @@ public class Chapter5Systems implements Listener {
 
         // Minage - on garde les données pour la reconnexion
         activeMiningPlayers.remove(playerId);
+
+        // Traître - on garde les données pour la reconnexion
+        activeTraitorPlayers.remove(playerId);
+        // Note: on ne supprime PAS playerInterrogatedSuspects pour que le joueur puisse reprendre
     }
 
     /**
@@ -1133,6 +1759,28 @@ public class Chapter5Systems implements Listener {
         playerOreHits.clear();
         playerMinedOres.clear();
         activeMiningPlayers.clear();
+
+        // Suspects
+        for (int i = 0; i < TOTAL_SUSPECTS; i++) {
+            if (suspectNPCs[i] != null && suspectNPCs[i].isValid()) {
+                suspectGlowTeam.removeEntity(suspectNPCs[i]);
+                suspectNPCs[i].remove();
+            }
+            if (suspectDisplays[i] != null && suspectDisplays[i].isValid()) {
+                suspectDisplays[i].remove();
+            }
+        }
+        playerInterrogatedSuspects.clear();
+        activeTraitorPlayers.clear();
+
+        // Traîtres actifs
+        for (UUID traitorId : playerActiveTraitors.values()) {
+            Entity traitor = plugin.getServer().getEntity(traitorId);
+            if (traitor != null && traitor.isValid()) {
+                traitor.remove();
+            }
+        }
+        playerActiveTraitors.clear();
 
         plugin.getLogger().info("[Chapter5Systems] Cleanup effectué");
     }

@@ -197,9 +197,9 @@ public enum JourneyStep {
         "Tue 3 mobs Élites §6(Mobs Orange Glowing)", StepType.ELITE_KILLS, 3,
         600, 18, Material.GOLDEN_APPLE),
 
-    STEP_5_5(JourneyChapter.CHAPTER_5, 5, "Atteins le niveau 30",
-        "L'arbre de compétences t'attend", StepType.LEVEL, 30,
-        750, 22, Material.OAK_SAPLING),
+    STEP_5_5(JourneyChapter.CHAPTER_5, 5, "Traque le Traître",
+        "Maraisville: §b690, 90, 8220", StepType.INTERROGATE_TRAITOR, 6,
+        750, 22, Material.CROSSBOW),
 
     // ==================== CHAPITRE 6: SPÉCIALISATION ====================
 
@@ -487,6 +487,11 @@ public enum JourneyStep {
             case FORGE_ITEM -> current >= targetValue ? "✓ Objet amélioré!" : "Améliorez un objet §b/forge §7" + current + "/" + targetValue;
             case SALMON_FISHING -> current + "/" + targetValue + " Saumon Pêché";
             case MINE_ORES_QUEST -> current + "/" + targetValue + " minerais extraits";
+            case INTERROGATE_TRAITOR -> {
+                if (current >= 6) yield "✓ Traître éliminé!";
+                else if (current >= 5) yield "Tue le traître!";
+                else yield current + "/5 suspects interrogés";
+            }
         };
     }
 
@@ -687,7 +692,10 @@ public enum JourneyStep {
         SALMON_FISHING("Pêche les saumons mutants"),
 
         // Minage (Chapitre 5)
-        MINE_ORES_QUEST("Mine les filons de minerais");
+        MINE_ORES_QUEST("Mine les filons de minerais"),
+
+        // Enquête du traître (Chapitre 5)
+        INTERROGATE_TRAITOR("Interroge les suspects et élimine le traître");
 
         private final String description;
 

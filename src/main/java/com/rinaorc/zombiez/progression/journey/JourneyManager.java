@@ -707,6 +707,14 @@ public class JourneyManager {
             }
         }
 
+        // Étape 5.5: Traque du Traître - Activer le système d'enquête
+        if (step == JourneyStep.STEP_5_5) {
+            var chapter5Systems = plugin.getChapter5Systems();
+            if (chapter5Systems != null) {
+                chapter5Systems.onPlayerReachStep55(player);
+            }
+        }
+
         // Pour les étapes d'exploration: reset les chunks explorés de la zone cible
         // Évite que les chunks visités AVANT le déblocage de l'étape soient comptés
         if (step.getType() == JourneyStep.StepType.ZONE_EXPLORATION) {
