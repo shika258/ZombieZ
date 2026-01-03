@@ -199,7 +199,7 @@ public class AchievementGUI implements Listener {
                 "§7te donne des §ePoints §7et §dGemmes§7.",
                 "",
                 "§7Les tiers les plus difficiles",
-                "§7offrent des §6titres exclusifs§7!"
+                "§7offrent des §6sous-titres exclusifs§7!"
             )
             .build());
 
@@ -218,7 +218,7 @@ public class AchievementGUI implements Listener {
                 "§e  " + formatNumber(calculateTotalPointsEarned(data, am)) + " Points",
                 "§d  " + calculateTotalGemsEarned(data, am) + " Gemmes",
                 "",
-                "§7Titres débloqués: §6" + countUnlockedTitles(data, am)
+                "§7Sous-titres débloqués: §6" + countUnlockedTitles(data, am)
             )
             .build());
 
@@ -344,8 +344,8 @@ public class AchievementGUI implements Listener {
             lore.add("§e" + formatNumber(progress) + "§7/§e" + formatNumber(requirement));
             lore.add("");
             lore.add("§7Récompenses: §e" + formatNumber(ach.pointReward()) + " pts §8| §d" + ach.gemReward() + " Gemmes");
-            if (ach.title() != null && !ach.title().isEmpty()) {
-                lore.add("§7Titre: " + ach.title());
+            if (ach.subtitle() != null && !ach.subtitle().isEmpty()) {
+                lore.add("§7Sous-titre: " + ach.subtitle());
             }
             lore.add("");
             lore.add(proximityTag);
@@ -461,8 +461,8 @@ public class AchievementGUI implements Listener {
         lore.add("§e  ⬤ " + formatNumber(ach.pointReward()) + " Points");
         lore.add("§d  ◆ " + ach.gemReward() + " Gemmes");
 
-        if (ach.title() != null && !ach.title().isEmpty()) {
-            lore.add("§6  ★ " + ach.title());
+        if (ach.subtitle() != null && !ach.subtitle().isEmpty()) {
+            lore.add("§6  ★ " + ach.subtitle());
         }
 
         return new ItemBuilder(mat)
@@ -651,7 +651,7 @@ public class AchievementGUI implements Listener {
     private int countUnlockedTitles(PlayerData data, AchievementManager am) {
         return (int) am.getAchievements().values().stream()
             .filter(a -> data.hasAchievement(a.id()))
-            .filter(a -> a.title() != null && !a.title().isEmpty())
+            .filter(a -> a.subtitle() != null && !a.subtitle().isEmpty())
             .count();
     }
 

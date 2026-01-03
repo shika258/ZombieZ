@@ -147,7 +147,7 @@ public class AchievementManager {
             .requirement(100000)
             .pointReward(15000)
             .gemReward(200)
-            .title("§4☠ Exterminateur")
+            .subtitle("§4☠ Exterminateur")
             .build());
 
         register(Achievement.builder("genocide")
@@ -159,7 +159,7 @@ public class AchievementManager {
             .requirement(500000)
             .pointReward(50000)
             .gemReward(500)
-            .title("§4§l☠ Fléau des Morts")
+            .subtitle("§4§l☠ Fléau des Morts")
             .build());
 
         // Kills spéciaux
@@ -228,7 +228,7 @@ public class AchievementManager {
             .requirement(100)
             .pointReward(10000)
             .gemReward(150)
-            .title("§5⚔ Tombeur de Titans")
+            .subtitle("§5⚔ Tombeur de Titans")
             .build());
 
         register(Achievement.builder("patient_zero")
@@ -240,7 +240,7 @@ public class AchievementManager {
             .requirement(1)
             .pointReward(10000)
             .gemReward(250)
-            .title("§d✦ Survivant Ultime")
+            .subtitle("§d✦ Survivant Ultime")
             .build());
 
         // Streaks
@@ -297,7 +297,7 @@ public class AchievementManager {
             .requirement(500)
             .pointReward(7500)
             .gemReward(150)
-            .title("§6✧ L'Invincible")
+            .subtitle("§6✧ L'Invincible")
             .build());
     }
 
@@ -378,7 +378,7 @@ public class AchievementManager {
             .requirement(11)
             .pointReward(2500)
             .gemReward(60)
-            .title("§c⚡ Marcheur des Enfers")
+            .subtitle("§c⚡ Marcheur des Enfers")
             .build());
 
         // Temps de survie
@@ -435,7 +435,7 @@ public class AchievementManager {
             .requirement(1800000)
             .pointReward(10000)
             .gemReward(200)
-            .title("§e⏳ L'Ancien")
+            .subtitle("§e⏳ L'Ancien")
             .build());
 
         // Survie consécutive
@@ -529,7 +529,7 @@ public class AchievementManager {
             .requirement(10000000)
             .pointReward(25000)
             .gemReward(300)
-            .title("§e§l💰 Milliardaire")
+            .subtitle("§e§l💰 Milliardaire")
             .build());
 
         // Items
@@ -598,7 +598,7 @@ public class AchievementManager {
             .requirement(1)
             .pointReward(5000)
             .gemReward(100)
-            .title("§d✦ Béni des Dieux")
+            .subtitle("§d✦ Béni des Dieux")
             .build());
 
         register(Achievement.builder("set_collector")
@@ -690,7 +690,7 @@ public class AchievementManager {
             .requirement(100)
             .pointReward(3000)
             .gemReward(75)
-            .title("§b✦ Ange Gardien")
+            .subtitle("§b✦ Ange Gardien")
             .build());
 
         register(Achievement.builder("trader_1")
@@ -724,7 +724,7 @@ public class AchievementManager {
             .requirement(200)
             .pointReward(1500)
             .gemReward(40)
-            .title("§a§l💎 Roi Marchand")
+            .subtitle("§a§l💎 Roi Marchand")
             .build());
     }
 
@@ -772,7 +772,7 @@ public class AchievementManager {
             .requirement(50)
             .pointReward(7500)
             .gemReward(150)
-            .title("§4§l🌙 Lune de Sang")
+            .subtitle("§4§l🌙 Lune de Sang")
             .build());
 
         register(Achievement.builder("horde_breaker_1")
@@ -839,7 +839,7 @@ public class AchievementManager {
             .requirement(500)
             .pointReward(15000)
             .gemReward(250)
-            .title("§5§l⚡ Légende Vivante")
+            .subtitle("§5§l⚡ Légende Vivante")
             .build());
     }
 
@@ -933,7 +933,7 @@ public class AchievementManager {
             .requirement(10)
             .pointReward(25000)
             .gemReward(500)
-            .title("§6§l✦ Maître Suprême ✦")
+            .subtitle("§6§l✦ Maître Suprême ✦")
             .build());
 
         // XP
@@ -994,7 +994,7 @@ public class AchievementManager {
             .requirement(30)
             .pointReward(10000)
             .gemReward(200)
-            .title("§b§l✦ Le Dévoué")
+            .subtitle("§b§l✦ Le Dévoué")
             .build());
 
         register(Achievement.builder("completionist")
@@ -1006,7 +1006,7 @@ public class AchievementManager {
             .requirement(50)
             .pointReward(15000)
             .gemReward(250)
-            .title("§e§l★ Complétionniste")
+            .subtitle("§e§l★ Complétionniste")
             .build());
 
         register(Achievement.builder("true_master")
@@ -1018,7 +1018,7 @@ public class AchievementManager {
             .requirement(75)
             .pointReward(30000)
             .gemReward(500)
-            .title("§d§l✦ Vrai Maître ✦")
+            .subtitle("§d§l✦ Vrai Maître ✦")
             .build());
 
         register(Achievement.builder("perfectionist")
@@ -1030,7 +1030,7 @@ public class AchievementManager {
             .requirement(1) // Special: checked against total
             .pointReward(100000)
             .gemReward(1000)
-            .title("§6§l⚜ PERFECTIONNISTE ⚜")
+            .subtitle("§6§l⚜ PERFECTIONNISTE ⚜")
             .build());
 
         register(Achievement.builder("no_death_run")
@@ -1042,7 +1042,7 @@ public class AchievementManager {
             .requirement(50)
             .pointReward(20000)
             .gemReward(400)
-            .title("§6§l⚔ Intouchable")
+            .subtitle("§6§l⚔ Intouchable")
             .build());
 
         register(Achievement.builder("speedrunner")
@@ -1054,7 +1054,7 @@ public class AchievementManager {
             .requirement(1)
             .pointReward(15000)
             .gemReward(300)
-            .title("§a§l⚡ Speedrunner")
+            .subtitle("§a§l⚡ Speedrunner")
             .build());
 
         register(Achievement.builder("wealthy")
@@ -1066,7 +1066,7 @@ public class AchievementManager {
             .requirement(10000000)
             .pointReward(0) // Pas de récompense, déjà riche!
             .gemReward(200)
-            .title("§e§l💎 Richissime")
+            .subtitle("§e§l💎 Richissime")
             .build());
 
         register(Achievement.builder("legend")
@@ -1078,7 +1078,7 @@ public class AchievementManager {
             .requirement(1000000)
             .pointReward(100000)
             .gemReward(1000)
-            .title("§4§l☠ LA LÉGENDE ☠")
+            .subtitle("§4§l☠ LA LÉGENDE ☠")
             .build());
     }
 
@@ -1220,8 +1220,8 @@ public class AchievementManager {
                 com.rinaorc.zombiez.leaderboards.LeaderboardType.ACHIEVEMENTS, totalAchievements);
         }
 
-        // Débloquer le titre si présent
-        if (achievement.title() != null && !achievement.title().isEmpty()) {
+        // Débloquer le sous-titre si présent
+        if (achievement.subtitle() != null && !achievement.subtitle().isEmpty()) {
             data.addTitle(achievement.id());
         }
 
@@ -1253,8 +1253,8 @@ public class AchievementManager {
         player.sendMessage("       §e§l+" + formatNumber(achievement.pointReward()) + " Points " +
                           "§8| §d§l+" + achievement.gemReward() + " Gemmes");
 
-        if (achievement.title() != null && !achievement.title().isEmpty()) {
-            player.sendMessage("       §7Titre débloqué: " + achievement.title());
+        if (achievement.subtitle() != null && !achievement.subtitle().isEmpty()) {
+            player.sendMessage("       §7Sous-titre: " + achievement.subtitle());
         }
 
         player.sendMessage("");
@@ -1698,7 +1698,7 @@ public class AchievementManager {
         int requirement,
         int pointReward,
         int gemReward,
-        String title
+        String subtitle
     ) {
         public static Builder builder(String id) {
             return new Builder(id);
@@ -1714,7 +1714,7 @@ public class AchievementManager {
             private int requirement;
             private int pointReward;
             private int gemReward;
-            private String title;
+            private String subtitle;
 
             public Builder(String id) {
                 this.id = id;
@@ -1728,11 +1728,11 @@ public class AchievementManager {
             public Builder requirement(int req) { this.requirement = req; return this; }
             public Builder pointReward(int points) { this.pointReward = points; return this; }
             public Builder gemReward(int gems) { this.gemReward = gems; return this; }
-            public Builder title(String title) { this.title = title; return this; }
+            public Builder subtitle(String subtitle) { this.subtitle = subtitle; return this; }
 
             public Achievement build() {
                 return new Achievement(id, name, description, category, tier, icon,
-                    requirement, pointReward, gemReward, title);
+                    requirement, pointReward, gemReward, subtitle);
             }
         }
     }
