@@ -155,16 +155,16 @@ public class Chapter5Systems implements Listener {
     private static final float LUMBERJACK_PITCH = 0;
 
     // === CONFIGURATION GRENOUILLES (Étape 5.7) ===
-    // Zone de spawn des grenouilles: c1(419, 90, 8239) à c2(344, 89, 8040)
-    private static final int FROG_ZONE_MIN_X = 344;
-    private static final int FROG_ZONE_MAX_X = 419;
-    private static final int FROG_ZONE_MIN_Y = 89;
+    // Zone de spawn des grenouilles: c1(370, 90, 8361) à c2(299, 90, 8431)
+    private static final int FROG_ZONE_MIN_X = 299;
+    private static final int FROG_ZONE_MAX_X = 370;
+    private static final int FROG_ZONE_MIN_Y = 85;
     private static final int FROG_ZONE_MAX_Y = 95;
-    private static final int FROG_ZONE_MIN_Z = 8040;
-    private static final int FROG_ZONE_MAX_Z = 8239;
-    private static final int FROG_ZONE_CENTER_X = (FROG_ZONE_MIN_X + FROG_ZONE_MAX_X) / 2; // ~381
-    private static final int FROG_ZONE_CENTER_Y = (FROG_ZONE_MIN_Y + FROG_ZONE_MAX_Y) / 2; // ~92
-    private static final int FROG_ZONE_CENTER_Z = (FROG_ZONE_MIN_Z + FROG_ZONE_MAX_Z) / 2; // ~8140
+    private static final int FROG_ZONE_MIN_Z = 8361;
+    private static final int FROG_ZONE_MAX_Z = 8431;
+    private static final int FROG_ZONE_CENTER_X = (FROG_ZONE_MIN_X + FROG_ZONE_MAX_X) / 2; // ~334
+    private static final int FROG_ZONE_CENTER_Y = 90;
+    private static final int FROG_ZONE_CENTER_Z = (FROG_ZONE_MIN_Z + FROG_ZONE_MAX_Z) / 2; // ~8396
 
     private static final int TOTAL_FROGS = 8;           // Nombre de grenouilles à spawner
     private static final int FROGS_TO_CAPTURE = 5;      // Nombre de grenouilles requises pour compléter
@@ -265,9 +265,8 @@ public class Chapter5Systems implements Listener {
     private final Map<UUID, Integer> playerLumberInInventory = new ConcurrentHashMap<>();
 
     // === TRACKING GRENOUILLES (Étape 5.7) ===
-    // Grenouilles (ItemDisplay grenouille glowing + Interaction hitbox)
-    private final ItemDisplay[] frogVisuals = new ItemDisplay[TOTAL_FROGS];
-    private final Interaction[] frogHitboxes = new Interaction[TOTAL_FROGS];
+    // Grenouilles (vraies entités Frog avec glow)
+    private final Frog[] frogEntities = new Frog[TOTAL_FROGS];
     private final Location[] frogLocations = new Location[TOTAL_FROGS];
     // Biologiste NPC
     private Villager biologistNPC;
@@ -2491,57 +2490,42 @@ public class Chapter5Systems implements Listener {
         Location loc = frogLocations[frogIndex];
         if (loc == null) return;
 
-        // Supprimer les anciens
-        if (frogVisuals[frogIndex] != null && frogVisuals[frogIndex].isValid()) {
-            frogVisuals[frogIndex].remove();
-        }
-        if (frogHitboxes[frogIndex] != null && frogHitboxes[frogIndex].isValid()) {
-            frogHitboxes[frogIndex].remove();
+        // Supprimer l'ancienne grenouille si existante
+        if (frogEntities[frogIndex] != null && frogEntities[frogIndex].isValid()) {
+            frogEntities[frogIndex].remove();
         }
 
-        // 1. Créer le VISUEL (ItemDisplay avec l'oeuf de grenouille glowing)
-        frogVisuals[frogIndex] = world.spawn(loc.clone(), ItemDisplay.class, display -> {
-            display.setItemStack(new ItemStack(Material.FROG_SPAWN_EGG));
+        // Spawner une vraie grenouille
+        frogEntities[frogIndex] = world.spawn(loc.clone(), Frog.class, frog -> {
+            // Configuration de base
+            frog.setAI(false);
+            frog.setInvulnerable(true);
+            frog.setSilent(true);
+            frog.setPersistent(false);
+            frog.setRemoveWhenFarAway(false);
+            frog.setCollidable(false);
 
-            // Taille légèrement plus grande
-            display.setTransformation(new Transformation(
-                    new Vector3f(0, 0, 0),
-                    new AxisAngle4f(0, 0, 0, 1),
-                    new Vector3f(1.2f, 1.2f, 1.2f),
-                    new AxisAngle4f(0, 0, 0, 1)));
+            // Variante aléatoire pour diversité visuelle
+            Frog.Variant[] variants = Frog.Variant.values();
+            frog.setVariant(variants[frogIndex % variants.length]);
 
-            display.setBillboard(Display.Billboard.CENTER);
+            // Glow effect vert pour les identifier
+            frog.setGlowing(true);
 
-            // Glow effect vert
-            display.setGlowing(true);
-            display.setGlowColorOverride(Color.fromRGB(50, 200, 50)); // Vert
-
-            display.setViewRange(FROG_VIEW_DISTANCE);
-            display.setVisibleByDefault(false);
-            display.setPersistent(false);
-            display.addScoreboardTag("chapter5_frog_visual");
-            display.addScoreboardTag("frog_visual_" + frogIndex);
-
-            // PDC
-            display.getPersistentDataContainer().set(FROG_VISUAL_KEY, PersistentDataType.INTEGER, frogIndex);
-        });
-
-        // 2. Créer l'entité INTERACTION (hitbox cliquable)
-        frogHitboxes[frogIndex] = world.spawn(loc.clone(), Interaction.class, interaction -> {
-            interaction.setInteractionWidth(1.2f);
-            interaction.setInteractionHeight(1.2f);
-            interaction.setResponsive(true);
+            // Nom custom pour les identifier
+            frog.customName(Component.text("§a§lGrenouille Mutante", NamedTextColor.GREEN));
+            frog.setCustomNameVisible(false);
 
             // Tags
-            interaction.addScoreboardTag("chapter5_frog_hitbox");
-            interaction.addScoreboardTag("frog_hitbox_" + frogIndex);
-            interaction.addScoreboardTag("zombiez_npc");
+            frog.addScoreboardTag("chapter5_frog");
+            frog.addScoreboardTag("frog_" + frogIndex);
+            frog.addScoreboardTag("zombiez_npc");
 
-            // PDC
-            interaction.getPersistentDataContainer().set(FROG_HITBOX_KEY, PersistentDataType.INTEGER, frogIndex);
+            // PDC pour l'index
+            frog.getPersistentDataContainer().set(FROG_VISUAL_KEY, PersistentDataType.INTEGER, frogIndex);
 
-            interaction.setVisibleByDefault(false);
-            interaction.setPersistent(false);
+            // Visibilité par défaut désactivée (géré per-player)
+            frog.setVisibleByDefault(false);
         });
     }
 
@@ -2666,29 +2650,20 @@ public class Chapter5Systems implements Listener {
         for (int i = 0; i < TOTAL_FROGS; i++) {
             boolean hasCaptured = captured.contains(i);
 
+            // Vérifier la validité de la grenouille
+            if (frogEntities[i] == null || !frogEntities[i].isValid()) {
+                continue;
+            }
+
             // Distance check
-            boolean inRange = false;
-            if (frogVisuals[i] != null && frogVisuals[i].isValid()) {
-                double distSq = player.getLocation().distanceSquared(frogVisuals[i].getLocation());
-                inRange = distSq <= FROG_VIEW_DISTANCE * FROG_VIEW_DISTANCE;
-            }
+            double distSq = player.getLocation().distanceSquared(frogEntities[i].getLocation());
+            boolean inRange = distSq <= FROG_VIEW_DISTANCE * FROG_VIEW_DISTANCE;
 
-            // Visual (grenouille)
-            if (frogVisuals[i] != null && frogVisuals[i].isValid()) {
-                if (hasCaptured || !inRange) {
-                    player.hideEntity(plugin, frogVisuals[i]);
-                } else {
-                    player.showEntity(plugin, frogVisuals[i]);
-                }
-            }
-
-            // Hitbox (Interaction)
-            if (frogHitboxes[i] != null && frogHitboxes[i].isValid()) {
-                if (hasCaptured || !inRange) {
-                    player.hideEntity(plugin, frogHitboxes[i]);
-                } else {
-                    player.showEntity(plugin, frogHitboxes[i]);
-                }
+            // Afficher ou cacher la grenouille
+            if (hasCaptured || !inRange) {
+                player.hideEntity(plugin, frogEntities[i]);
+            } else {
+                player.showEntity(plugin, frogEntities[i]);
             }
         }
     }
@@ -2698,11 +2673,8 @@ public class Chapter5Systems implements Listener {
      */
     private void hideAllFrogsForPlayer(Player player) {
         for (int i = 0; i < TOTAL_FROGS; i++) {
-            if (frogVisuals[i] != null && frogVisuals[i].isValid()) {
-                player.hideEntity(plugin, frogVisuals[i]);
-            }
-            if (frogHitboxes[i] != null && frogHitboxes[i].isValid()) {
-                player.hideEntity(plugin, frogHitboxes[i]);
+            if (frogEntities[i] != null && frogEntities[i].isValid()) {
+                player.hideEntity(plugin, frogEntities[i]);
             }
         }
     }
@@ -2720,8 +2692,7 @@ public class Chapter5Systems implements Listener {
                 for (int i = 0; i < TOTAL_FROGS; i++) {
                     if (frogLocations[i] == null) continue;
 
-                    boolean needsRespawn = (frogVisuals[i] == null || !frogVisuals[i].isValid()) ||
-                            (frogHitboxes[i] == null || !frogHitboxes[i].isValid());
+                    boolean needsRespawn = frogEntities[i] == null || !frogEntities[i].isValid();
 
                     if (needsRespawn) {
                         spawnFrog(world, i);
@@ -3622,11 +3593,11 @@ public class Chapter5Systems implements Listener {
             handleBiologistDelivery(player);
         }
 
-        // Interaction avec une grenouille (hitbox)
-        if (clicked instanceof Interaction
-                && clicked.getPersistentDataContainer().has(FROG_HITBOX_KEY, PersistentDataType.INTEGER)) {
+        // Interaction avec une grenouille (vraie entité Frog)
+        if (clicked instanceof Frog frog
+                && frog.getPersistentDataContainer().has(FROG_VISUAL_KEY, PersistentDataType.INTEGER)) {
             event.setCancelled(true);
-            Integer frogIndex = clicked.getPersistentDataContainer().get(FROG_HITBOX_KEY, PersistentDataType.INTEGER);
+            Integer frogIndex = frog.getPersistentDataContainer().get(FROG_VISUAL_KEY, PersistentDataType.INTEGER);
             if (frogIndex != null) {
                 handleFrogInteraction(player, frogIndex);
             }
@@ -4330,11 +4301,8 @@ public class Chapter5Systems implements Listener {
 
         // Grenouilles
         for (int i = 0; i < TOTAL_FROGS; i++) {
-            if (frogVisuals[i] != null && frogVisuals[i].isValid()) {
-                frogVisuals[i].remove();
-            }
-            if (frogHitboxes[i] != null && frogHitboxes[i].isValid()) {
-                frogHitboxes[i].remove();
+            if (frogEntities[i] != null && frogEntities[i].isValid()) {
+                frogEntities[i].remove();
             }
         }
         playerCapturedFrogs.clear();
