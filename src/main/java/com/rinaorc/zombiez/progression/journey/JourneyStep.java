@@ -205,6 +205,22 @@ public enum JourneyStep {
         "Zone forestière: §b522, 105, 8322", StepType.LUMBER_DELIVERY, 16,
         850, 25, Material.DARK_OAK_WOOD),
 
+    STEP_5_7(JourneyChapter.CHAPTER_5, 7, "Chasse aux Grenouilles Mutantes",
+        "Zone marécageuse: §b380, 90, 8140", StepType.MUTANT_FROG_CAPTURE, 5,
+        950, 30, Material.FROG_SPAWN_EGG),
+
+    STEP_5_8(JourneyChapter.CHAPTER_5, 8, "Les Énigmes de l'Oracle",
+        "Oracle des Marais: §b164, 96, 8149", StepType.RIDDLE_QUEST, 3,
+        1050, 35, Material.ENCHANTED_BOOK),
+
+    STEP_5_9(JourneyChapter.CHAPTER_5, 9, "Mutations d'Ascension",
+        "Débloque 3 mutations via /as", StepType.UNLOCK_MUTATIONS, 3,
+        1150, 40, Material.NETHER_STAR),
+
+    STEP_5_10(JourneyChapter.CHAPTER_5, 10, "Terrasse la Grenouille Géante",
+        "Marais: §b384, 93, 8034", StepType.KILL_SWAMP_FROG_BOSS, 1,
+        1500, 50, Material.FROG_SPAWN_EGG),
+
     // ==================== CHAPITRE 6: SPÉCIALISATION ====================
 
     STEP_6_1(JourneyChapter.CHAPTER_6, 1, "Débloque 3 skills passifs",
@@ -448,6 +464,7 @@ public enum JourneyStep {
             case FIRE_ZOMBIE_KILLS -> current + "/" + targetValue + " Pyromorts";
             case KILL_MANOR_BOSS -> current >= targetValue ? "✓ Boss vaincu!" : "Tue le boss du manoir";
             case KILL_MINE_BOSS -> current >= targetValue ? "✓ Boss vaincu!" : "Tue le Seigneur des Profondeurs";
+            case KILL_SWAMP_FROG_BOSS -> current >= targetValue ? "✓ Boss vaincu!" : "Tue la Grenouille Géante";
             case OPEN_AND_EQUIP_PET -> {
                 if (current >= 2) yield "✓ Compagnon équipé!";
                 else if (current >= 1) yield "1/2 - Équipe ton pet!";
@@ -497,8 +514,20 @@ public enum JourneyStep {
                 else yield current + "/5 suspects interrogés";
             }
             case LUMBER_DELIVERY -> {
-                if (current >= targetValue) yield "✓ Bois livré!";
+                if (current >= targetValue) yield "§e→ Livrez au bûcheron!";
                 else yield current + "/" + targetValue + " bois collecté";
+            }
+            case MUTANT_FROG_CAPTURE -> {
+                if (current >= targetValue) yield "§e→ Livrez au biologiste!";
+                else yield current + "/" + targetValue + " grenouilles capturées";
+            }
+            case RIDDLE_QUEST -> {
+                if (current >= targetValue) yield "✓ Énigmes résolues!";
+                else yield current + "/" + targetValue + " énigmes résolues";
+            }
+            case UNLOCK_MUTATIONS -> {
+                if (current >= targetValue) yield "✓ Mutations débloquées!";
+                else yield current + "/" + targetValue + " mutations activées";
             }
         };
     }
@@ -648,6 +677,7 @@ public enum JourneyStep {
         // Boss spécifiques
         KILL_MANOR_BOSS("Tue le boss du manoir"),
         KILL_MINE_BOSS("Tue le boss de la mine"),
+        KILL_SWAMP_FROG_BOSS("Tue la Grenouille Géante du Marais"),
 
         // Pets
         OPEN_AND_EQUIP_PET("Ouvre et équipe un compagnon"),
@@ -706,7 +736,16 @@ public enum JourneyStep {
         INTERROGATE_TRAITOR("Interroge les suspects et élimine le traître"),
 
         // Livraison de bois (Chapitre 5)
-        LUMBER_DELIVERY("Collecte et livre du bois au bûcheron");
+        LUMBER_DELIVERY("Collecte et livre du bois au bûcheron"),
+
+        // Capture de grenouilles mutantes (Chapitre 5)
+        MUTANT_FROG_CAPTURE("Capture les grenouilles mutantes"),
+
+        // Énigmes de l'Oracle (Chapitre 5)
+        RIDDLE_QUEST("Résous les énigmes de l'Oracle"),
+
+        // Mutations d'Ascension (Chapitre 5)
+        UNLOCK_MUTATIONS("Débloque des mutations d'ascension");
 
         private final String description;
 

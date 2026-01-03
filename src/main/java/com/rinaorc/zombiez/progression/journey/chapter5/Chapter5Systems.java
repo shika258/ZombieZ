@@ -65,6 +65,10 @@ public class Chapter5Systems implements Listener {
     private final NamespacedKey LUMBER_VISUAL_KEY;
     private final NamespacedKey LUMBER_HITBOX_KEY;
     private final NamespacedKey LUMBERJACK_NPC_KEY;
+    private final NamespacedKey FROG_VISUAL_KEY;
+    private final NamespacedKey FROG_HITBOX_KEY;
+    private final NamespacedKey BIOLOGIST_NPC_KEY;
+    private final NamespacedKey ORACLE_NPC_KEY;
 
     // === ZONE DE PÊCHE (Étape 5.2) ===
     private static final int SALMON_ZONE_MIN_X = 798;
@@ -148,6 +152,44 @@ public class Chapter5Systems implements Listener {
     private static final float LUMBERJACK_YAW = -45;
     private static final float LUMBERJACK_PITCH = 0;
 
+    // === CONFIGURATION GRENOUILLES (Étape 5.7) ===
+    // Zone de spawn des grenouilles: c1(419, 90, 8239) à c2(344, 89, 8040)
+    private static final int FROG_ZONE_MIN_X = 344;
+    private static final int FROG_ZONE_MAX_X = 419;
+    private static final int FROG_ZONE_MIN_Y = 89;
+    private static final int FROG_ZONE_MAX_Y = 95;
+    private static final int FROG_ZONE_MIN_Z = 8040;
+    private static final int FROG_ZONE_MAX_Z = 8239;
+    private static final int FROG_ZONE_CENTER_X = (FROG_ZONE_MIN_X + FROG_ZONE_MAX_X) / 2; // ~381
+    private static final int FROG_ZONE_CENTER_Y = (FROG_ZONE_MIN_Y + FROG_ZONE_MAX_Y) / 2; // ~92
+    private static final int FROG_ZONE_CENTER_Z = (FROG_ZONE_MIN_Z + FROG_ZONE_MAX_Z) / 2; // ~8140
+
+    private static final int TOTAL_FROGS = 8;           // Nombre de grenouilles à spawner
+    private static final int FROGS_TO_CAPTURE = 5;      // Nombre de grenouilles requises pour compléter
+    private static final float FROG_VIEW_DISTANCE = 48f; // Distance de vue des grenouilles
+
+    // Biologiste NPC: près de la zone des grenouilles
+    private static final double BIOLOGIST_X = 395.5;
+    private static final double BIOLOGIST_Y = 90;
+    private static final double BIOLOGIST_Z = 8180.5;
+    private static final float BIOLOGIST_YAW = 90;
+    private static final float BIOLOGIST_PITCH = 0;
+
+    // === CONFIGURATION ÉNIGMES (Étape 5.8) ===
+    // Oracle NPC: 164.5, 96, 8149 avec yaw -90, pitch 0
+    private static final double ORACLE_X = 164.5;
+    private static final double ORACLE_Y = 96;
+    private static final double ORACLE_Z = 8149;
+    private static final float ORACLE_YAW = -90;
+    private static final float ORACLE_PITCH = 0;
+    private static final int TOTAL_RIDDLES = 3;  // Nombre d'énigmes à résoudre
+
+    // === CONFIGURATION BOSS GRENOUILLE (Étape 5.10) ===
+    // Boss location: 384, 93, 8034
+    private static final Location SWAMP_FROG_BOSS_LOCATION = new Location(null, 384.5, 93, 8034.5, 0, 0);
+    private static final int BOSS_LEVEL = 15;  // Niveau du boss
+    private static final int BOSS_RESPAWN_SECONDS = 120;  // Respawn après 2 minutes
+
     // Types de minerais avec leurs couleurs de glow
     private enum OreType {
         REDSTONE(Material.REDSTONE_ORE, Color.RED, "§cRedstone"),
@@ -220,6 +262,40 @@ public class Chapter5Systems implements Listener {
     // Nombre de bois dans l'inventaire par joueur
     private final Map<UUID, Integer> playerLumberInInventory = new ConcurrentHashMap<>();
 
+    // === TRACKING GRENOUILLES (Étape 5.7) ===
+    // Grenouilles (ItemDisplay grenouille glowing + Interaction hitbox)
+    private final ItemDisplay[] frogVisuals = new ItemDisplay[TOTAL_FROGS];
+    private final Interaction[] frogHitboxes = new Interaction[TOTAL_FROGS];
+    private final Location[] frogLocations = new Location[TOTAL_FROGS];
+    // Biologiste NPC
+    private Villager biologistNPC;
+    private TextDisplay biologistDisplay;
+    // Joueurs actifs sur la quête des grenouilles
+    private final Set<UUID> activeFrogPlayers = ConcurrentHashMap.newKeySet();
+    // Grenouilles capturées par chaque joueur (Set des index)
+    private final Map<UUID, Set<Integer>> playerCapturedFrogs = new ConcurrentHashMap<>();
+    // Nombre de grenouilles dans l'inventaire par joueur
+    private final Map<UUID, Integer> playerFrogsInInventory = new ConcurrentHashMap<>();
+    // GUI du mini-jeu de capture
+    private FrogCaptureGUI frogCaptureGUI;
+
+    // === TRACKING ÉNIGMES (Étape 5.8) ===
+    // Oracle NPC
+    private Villager oracleNPC;
+    private TextDisplay oracleDisplay;
+    // Joueurs actifs sur la quête des énigmes
+    private final Set<UUID> activeRiddlePlayers = ConcurrentHashMap.newKeySet();
+    // Énigme actuelle par joueur (0, 1, 2)
+    private final Map<UUID, Integer> playerCurrentRiddle = new ConcurrentHashMap<>();
+
+    // === TRACKING BOSS GRENOUILLE (Étape 5.10) ===
+    private NamespacedKey SWAMP_FROG_BOSS_KEY;
+    private Zombie swampFrogBossEntity;
+    private TextDisplay swampFrogBossDisplay;
+    private final Set<UUID> bossContributors = ConcurrentHashMap.newKeySet();
+    private boolean bossRespawnScheduled = false;
+    private long bossRespawnTime = 0;
+
     public Chapter5Systems(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.journeyManager = plugin.getJourneyManager();
@@ -233,6 +309,14 @@ public class Chapter5Systems implements Listener {
         this.LUMBER_VISUAL_KEY = new NamespacedKey(plugin, "quest_lumber_visual_ch5");
         this.LUMBER_HITBOX_KEY = new NamespacedKey(plugin, "quest_lumber_hitbox_ch5");
         this.LUMBERJACK_NPC_KEY = new NamespacedKey(plugin, "quest_lumberjack_ch5");
+        this.FROG_VISUAL_KEY = new NamespacedKey(plugin, "quest_frog_visual_ch5");
+        this.FROG_HITBOX_KEY = new NamespacedKey(plugin, "quest_frog_hitbox_ch5");
+        this.BIOLOGIST_NPC_KEY = new NamespacedKey(plugin, "quest_biologist_ch5");
+        this.ORACLE_NPC_KEY = new NamespacedKey(plugin, "quest_oracle_ch5");
+        this.SWAMP_FROG_BOSS_KEY = new NamespacedKey(plugin, "swamp_frog_boss_ch5");
+
+        // Initialiser le GUI du mini-jeu de grenouilles
+        this.frogCaptureGUI = new FrogCaptureGUI(plugin);
 
         // Enregistrer les événements
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
@@ -261,6 +345,20 @@ public class Chapter5Systems implements Listener {
                     initializeLumberjack(world);
                     startLumberVisibilityUpdater();
                     startLumberRespawnChecker();
+
+                    // Système des grenouilles
+                    initializeFrogs(world);
+                    initializeBiologist(world);
+                    startFrogVisibilityUpdater();
+                    startFrogRespawnChecker();
+
+                    // Système des énigmes
+                    initializeOracle(world);
+                    startOracleRespawnChecker();
+
+                    // Système du boss Grenouille Géante
+                    initializeSwampFrogBoss(world);
+                    startBossRespawnChecker();
                 }
             }
         }.runTaskLater(plugin, 100L);
@@ -1099,6 +1197,20 @@ public class Chapter5Systems implements Listener {
      */
     public void onPlayerReachStep56(Player player) {
         activateLumberQuest(player);
+    }
+
+    /**
+     * Appelé quand un joueur arrive à l'étape STEP_5_7
+     */
+    public void onPlayerReachStep57(Player player) {
+        activateFrogQuest(player);
+    }
+
+    /**
+     * Appelé quand un joueur arrive à l'étape STEP_5_8
+     */
+    public void onPlayerReachStep58(Player player) {
+        activateRiddleQuest(player);
     }
 
     // ==================== SYSTÈME DU TRAÎTRE (Étape 5.5) ====================
@@ -2126,17 +2238,23 @@ public class Chapter5Systems implements Listener {
             return;
         }
 
-        // Retirer le bois de l'inventaire
+        // Retirer le bois de quête de l'inventaire (uniquement les bûches marquées)
         int toRemove = LUMBER_TO_COLLECT;
         for (ItemStack item : player.getInventory().getContents()) {
             if (item != null && item.getType() == Material.DARK_OAK_WOOD && toRemove > 0) {
-                int amount = item.getAmount();
-                if (amount <= toRemove) {
-                    toRemove -= amount;
-                    item.setAmount(0);
-                } else {
-                    item.setAmount(amount - toRemove);
-                    toRemove = 0;
+                // Vérifier que c'est bien une bûche de quête (pas une bûche normale)
+                if (item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
+                    String displayName = item.getItemMeta().getDisplayName();
+                    if (displayName.contains("Quête") || displayName.contains("Bûche de Chêne Noir")) {
+                        int amount = item.getAmount();
+                        if (amount <= toRemove) {
+                            toRemove -= amount;
+                            item.setAmount(0);
+                        } else {
+                            item.setAmount(amount - toRemove);
+                            toRemove = 0;
+                        }
+                    }
                 }
             }
             if (toRemove <= 0) break;
@@ -2215,6 +2333,1137 @@ public class Chapter5Systems implements Listener {
         journeyManager.createOrUpdateBossBar(player);
     }
 
+    // ==================== SYSTÈME DE CAPTURE DES GRENOUILLES (Étape 5.7) ====================
+
+    /**
+     * Initialise les grenouilles dans la zone marécageuse
+     */
+    private void initializeFrogs(World world) {
+        // Générer les positions des grenouilles
+        generateFrogLocations(world);
+
+        // Spawner les grenouilles
+        for (int i = 0; i < TOTAL_FROGS; i++) {
+            if (frogLocations[i] != null) {
+                spawnFrog(world, i);
+            }
+        }
+
+        plugin.getLogger().info("[Chapter5Systems] " + TOTAL_FROGS + " grenouilles initialisées dans la zone marécageuse");
+    }
+
+    /**
+     * Génère les positions des grenouilles dans la zone
+     */
+    private void generateFrogLocations(World world) {
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        int spawned = 0;
+        int maxAttempts = TOTAL_FROGS * 50;
+        int attempts = 0;
+
+        while (spawned < TOTAL_FROGS && attempts < maxAttempts) {
+            attempts++;
+
+            int x = random.nextInt(FROG_ZONE_MIN_X, FROG_ZONE_MAX_X + 1);
+            int z = random.nextInt(FROG_ZONE_MIN_Z, FROG_ZONE_MAX_Z + 1);
+
+            // Chercher le premier bloc solide depuis le haut
+            for (int y = FROG_ZONE_MAX_Y; y >= FROG_ZONE_MIN_Y; y--) {
+                Block block = world.getBlockAt(x, y, z);
+                Block above = world.getBlockAt(x, y + 1, z);
+
+                // Les grenouilles peuvent spawn sur l'eau ou sur la terre
+                boolean validGround = block.getType().isSolid() || block.getType() == Material.WATER;
+                boolean validAbove = above.getType() == Material.AIR || above.getType() == Material.WATER;
+
+                if (validGround && validAbove) {
+                    Location loc = new Location(world, x + 0.5, y + 1.2, z + 0.5);
+
+                    // Vérifier qu'il n'y a pas déjà une grenouille trop proche
+                    boolean tooClose = false;
+                    for (int i = 0; i < spawned; i++) {
+                        if (frogLocations[i] != null && frogLocations[i].distanceSquared(loc) < 64) { // 8 blocs min
+                            tooClose = true;
+                            break;
+                        }
+                    }
+
+                    if (!tooClose) {
+                        frogLocations[spawned] = loc;
+                        spawned++;
+                    }
+                    break;
+                }
+            }
+        }
+
+        if (spawned < TOTAL_FROGS) {
+            plugin.getLogger().warning("[Chapter5Systems] Seulement " + spawned + "/" + TOTAL_FROGS +
+                " positions de grenouilles trouvées");
+        }
+    }
+
+    /**
+     * Spawn une grenouille à l'index donné
+     */
+    private void spawnFrog(World world, int frogIndex) {
+        Location loc = frogLocations[frogIndex];
+        if (loc == null) return;
+
+        // Supprimer les anciens
+        if (frogVisuals[frogIndex] != null && frogVisuals[frogIndex].isValid()) {
+            frogVisuals[frogIndex].remove();
+        }
+        if (frogHitboxes[frogIndex] != null && frogHitboxes[frogIndex].isValid()) {
+            frogHitboxes[frogIndex].remove();
+        }
+
+        // 1. Créer le VISUEL (ItemDisplay avec l'oeuf de grenouille glowing)
+        frogVisuals[frogIndex] = world.spawn(loc.clone(), ItemDisplay.class, display -> {
+            display.setItemStack(new ItemStack(Material.FROG_SPAWN_EGG));
+
+            // Taille légèrement plus grande
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(1.2f, 1.2f, 1.2f),
+                    new AxisAngle4f(0, 0, 0, 1)));
+
+            display.setBillboard(Display.Billboard.CENTER);
+
+            // Glow effect vert
+            display.setGlowing(true);
+            display.setGlowColorOverride(Color.fromRGB(50, 200, 50)); // Vert
+
+            display.setViewRange(FROG_VIEW_DISTANCE);
+            display.setVisibleByDefault(false);
+            display.setPersistent(false);
+            display.addScoreboardTag("chapter5_frog_visual");
+            display.addScoreboardTag("frog_visual_" + frogIndex);
+
+            // PDC
+            display.getPersistentDataContainer().set(FROG_VISUAL_KEY, PersistentDataType.INTEGER, frogIndex);
+        });
+
+        // 2. Créer l'entité INTERACTION (hitbox cliquable)
+        frogHitboxes[frogIndex] = world.spawn(loc.clone(), Interaction.class, interaction -> {
+            interaction.setInteractionWidth(1.2f);
+            interaction.setInteractionHeight(1.2f);
+            interaction.setResponsive(true);
+
+            // Tags
+            interaction.addScoreboardTag("chapter5_frog_hitbox");
+            interaction.addScoreboardTag("frog_hitbox_" + frogIndex);
+            interaction.addScoreboardTag("zombiez_npc");
+
+            // PDC
+            interaction.getPersistentDataContainer().set(FROG_HITBOX_KEY, PersistentDataType.INTEGER, frogIndex);
+
+            interaction.setVisibleByDefault(false);
+            interaction.setPersistent(false);
+        });
+    }
+
+    /**
+     * Initialise le biologiste NPC
+     */
+    private void initializeBiologist(World world) {
+        Location loc = new Location(world, BIOLOGIST_X, BIOLOGIST_Y, BIOLOGIST_Z, BIOLOGIST_YAW, BIOLOGIST_PITCH);
+
+        // Chercher si le biologiste existe déjà
+        for (Entity entity : world.getNearbyEntities(loc, 5, 5, 5)) {
+            if (entity instanceof Villager v && v.getPersistentDataContainer().has(BIOLOGIST_NPC_KEY, PersistentDataType.BYTE)) {
+                biologistNPC = v;
+                // Chercher aussi le display
+                for (Entity displayEntity : world.getNearbyEntities(loc.clone().add(0, 2.5, 0), 2, 2, 2)) {
+                    if (displayEntity instanceof TextDisplay td && td.getScoreboardTags().contains("chapter5_biologist_display")) {
+                        biologistDisplay = td;
+                        break;
+                    }
+                }
+                plugin.getLogger().info("[Chapter5Systems] Biologiste existant trouvé");
+                return;
+            }
+        }
+
+        // Créer le biologiste
+        biologistNPC = world.spawn(loc, Villager.class, villager -> {
+            villager.customName(Component.text("§a§lDr. Marlow").decorate(TextDecoration.BOLD));
+            villager.setCustomNameVisible(false);
+            villager.setAI(false);
+            villager.setInvulnerable(true);
+            villager.setSilent(true);
+            villager.setPersistent(true);
+            villager.setRemoveWhenFarAway(false);
+            villager.setCollidable(false);
+
+            villager.setProfession(Villager.Profession.LIBRARIAN);
+            villager.setVillagerLevel(4);
+
+            // Tags
+            villager.addScoreboardTag("chapter5_biologist");
+            villager.addScoreboardTag("zombiez_npc");
+
+            // PDC
+            villager.getPersistentDataContainer().set(BIOLOGIST_NPC_KEY, PersistentDataType.BYTE, (byte) 1);
+
+            // Visible par défaut
+            villager.setVisibleByDefault(true);
+        });
+
+        // Créer le TextDisplay au-dessus
+        Location displayLoc = loc.clone().add(0, 2.5, 0);
+        biologistDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
+            display.text(Component.text()
+                    .append(Component.text("🐸 ", NamedTextColor.GREEN))
+                    .append(Component.text("Dr. Marlow", NamedTextColor.GREEN, TextDecoration.BOLD))
+                    .append(Component.text(" 🐸", NamedTextColor.GREEN))
+                    .append(Component.newline())
+                    .append(Component.text("§7Biologiste - Spécialiste Faune Mutante", NamedTextColor.GRAY))
+                    .append(Component.newline())
+                    .append(Component.text("▶ Clic droit pour livrer", NamedTextColor.GRAY))
+                    .build());
+
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setAlignment(TextDisplay.TextAlignment.CENTER);
+            display.setShadowed(true);
+            display.setSeeThrough(false);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(120, 0, 0, 0));
+
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(1.2f, 1.2f, 1.2f),
+                    new AxisAngle4f(0, 0, 0, 1)));
+
+            display.setViewRange(0.3f);
+            display.setPersistent(true);
+            display.addScoreboardTag("chapter5_biologist_display");
+
+            display.setVisibleByDefault(true);
+        });
+
+        plugin.getLogger().info("[Chapter5Systems] Dr. Marlow (Biologiste) initialisé");
+    }
+
+    /**
+     * Démarre le système de visibilité per-player pour les grenouilles
+     */
+    private void startFrogVisibilityUpdater() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    if (!player.getWorld().equals(world)) {
+                        hideAllFrogsForPlayer(player);
+                        continue;
+                    }
+
+                    // Vérifier si le joueur est sur la quête et ne l'a pas terminée
+                    boolean shouldSeeFrogs = isPlayerOnFrogQuest(player) && !hasPlayerCompletedFrogQuest(player);
+
+                    if (shouldSeeFrogs) {
+                        updateFrogVisibilityForPlayer(player);
+                    } else {
+                        hideAllFrogsForPlayer(player);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 100L, 20L);
+    }
+
+    /**
+     * Met à jour la visibilité des grenouilles pour un joueur
+     */
+    private void updateFrogVisibilityForPlayer(Player player) {
+        Set<Integer> captured = playerCapturedFrogs.getOrDefault(player.getUniqueId(), Set.of());
+
+        for (int i = 0; i < TOTAL_FROGS; i++) {
+            boolean hasCaptured = captured.contains(i);
+
+            // Distance check
+            boolean inRange = false;
+            if (frogVisuals[i] != null && frogVisuals[i].isValid()) {
+                double distSq = player.getLocation().distanceSquared(frogVisuals[i].getLocation());
+                inRange = distSq <= FROG_VIEW_DISTANCE * FROG_VIEW_DISTANCE;
+            }
+
+            // Visual (grenouille)
+            if (frogVisuals[i] != null && frogVisuals[i].isValid()) {
+                if (hasCaptured || !inRange) {
+                    player.hideEntity(plugin, frogVisuals[i]);
+                } else {
+                    player.showEntity(plugin, frogVisuals[i]);
+                }
+            }
+
+            // Hitbox (Interaction)
+            if (frogHitboxes[i] != null && frogHitboxes[i].isValid()) {
+                if (hasCaptured || !inRange) {
+                    player.hideEntity(plugin, frogHitboxes[i]);
+                } else {
+                    player.showEntity(plugin, frogHitboxes[i]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Cache toutes les grenouilles pour un joueur
+     */
+    private void hideAllFrogsForPlayer(Player player) {
+        for (int i = 0; i < TOTAL_FROGS; i++) {
+            if (frogVisuals[i] != null && frogVisuals[i].isValid()) {
+                player.hideEntity(plugin, frogVisuals[i]);
+            }
+            if (frogHitboxes[i] != null && frogHitboxes[i].isValid()) {
+                player.hideEntity(plugin, frogHitboxes[i]);
+            }
+        }
+    }
+
+    /**
+     * Démarre le vérificateur de respawn des grenouilles
+     */
+    private void startFrogRespawnChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                for (int i = 0; i < TOTAL_FROGS; i++) {
+                    if (frogLocations[i] == null) continue;
+
+                    boolean needsRespawn = (frogVisuals[i] == null || !frogVisuals[i].isValid()) ||
+                            (frogHitboxes[i] == null || !frogHitboxes[i].isValid());
+
+                    if (needsRespawn) {
+                        spawnFrog(world, i);
+                    }
+                }
+
+                // Vérifier aussi le biologiste
+                if (biologistNPC == null || !biologistNPC.isValid()) {
+                    initializeBiologist(world);
+                }
+            }
+        }.runTaskTimer(plugin, 200L, 200L);
+    }
+
+    /**
+     * Vérifie si un joueur est sur la quête des grenouilles
+     */
+    private boolean isPlayerOnFrogQuest(Player player) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        return currentStep == JourneyStep.STEP_5_7;
+    }
+
+    /**
+     * Vérifie si un joueur a terminé la quête des grenouilles
+     */
+    private boolean hasPlayerCompletedFrogQuest(Player player) {
+        return journeyManager.isStepCompleted(player, JourneyStep.STEP_5_7);
+    }
+
+    /**
+     * Initialise la progression de grenouilles d'un joueur
+     */
+    private void initializePlayerFrogProgress(Player player) {
+        UUID uuid = player.getUniqueId();
+        if (!playerCapturedFrogs.containsKey(uuid)) {
+            playerCapturedFrogs.put(uuid, ConcurrentHashMap.newKeySet());
+        }
+        if (!playerFrogsInInventory.containsKey(uuid)) {
+            playerFrogsInInventory.put(uuid, 0);
+        }
+    }
+
+    /**
+     * Active la quête des grenouilles pour un joueur
+     */
+    public void activateFrogQuest(Player player) {
+        UUID playerId = player.getUniqueId();
+
+        // Initialiser le tracking
+        initializePlayerFrogProgress(player);
+        activeFrogPlayers.add(playerId);
+
+        // Afficher l'introduction
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.isOnline()) return;
+
+                // Title d'introduction
+                player.sendTitle(
+                    "§a🐸 §2§lCHASSE AUX GRENOUILLES §a🐸",
+                    "§7Le biologiste a besoin de spécimens!",
+                    10, 60, 20
+                );
+
+                // Son d'ambiance
+                player.playSound(player.getLocation(), Sound.ENTITY_FROG_AMBIENT, 1.0f, 1.0f);
+
+                // Message de briefing
+                player.sendMessage("");
+                player.sendMessage("§a§l══════ CHASSE AUX GRENOUILLES MUTANTES ══════");
+                player.sendMessage("");
+                player.sendMessage("§7Le §a§lDr. Marlow §7étudie les mutations causées par");
+                player.sendMessage("§7l'infection. Il a besoin de §agrouilles mutantes §7vivantes!");
+                player.sendMessage("");
+                player.sendMessage("§e▸ §fCapturez §c" + FROGS_TO_CAPTURE + " grenouilles mutantes");
+                player.sendMessage("§e▸ §fFaites §aclic droit §fsur une grenouille pour la capturer");
+                player.sendMessage("§e▸ §fComplétez le §emini-jeu §fpour réussir la capture!");
+                player.sendMessage("§e▸ §fLivrez ensuite au §aDr. Marlow");
+                player.sendMessage("");
+                player.sendMessage("§c⚠ §7Si vous mourez, vous perdrez vos grenouilles!");
+
+                // Activer le GPS vers la zone
+                activateGPSToFrogZone(player);
+            }
+        }.runTaskLater(plugin, 20L);
+    }
+
+    /**
+     * Active le GPS vers la zone des grenouilles
+     */
+    private void activateGPSToFrogZone(Player player) {
+        player.sendMessage("§e§l➤ §7GPS: §b" + FROG_ZONE_CENTER_X + ", " + FROG_ZONE_CENTER_Y + ", " + FROG_ZONE_CENTER_Z + " §7(Zone marécageuse)");
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1f);
+
+        var gpsManager = plugin.getGPSManager();
+        if (gpsManager != null) {
+            gpsManager.enableGPSSilently(player);
+        }
+    }
+
+    /**
+     * Active le GPS vers le biologiste
+     */
+    private void activateGPSToBiologist(Player player) {
+        player.sendMessage("§e§l➤ §7GPS: §b" + (int) BIOLOGIST_X + ", " + (int) BIOLOGIST_Y + ", " + (int) BIOLOGIST_Z + " §7(Dr. Marlow)");
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1f);
+
+        var gpsManager = plugin.getGPSManager();
+        if (gpsManager != null) {
+            gpsManager.enableGPSSilently(player);
+        }
+    }
+
+    /**
+     * Gère l'interaction avec une grenouille (ouvre le mini-jeu)
+     */
+    private void handleFrogInteraction(Player player, int frogIndex) {
+        UUID playerId = player.getUniqueId();
+
+        // Vérifier si le joueur est sur la bonne étape
+        if (!isPlayerOnFrogQuest(player)) {
+            player.sendMessage("§7Une grenouille mutante... La quête n'est pas encore active.");
+            player.playSound(player.getLocation(), Sound.ENTITY_FROG_AMBIENT, 0.5f, 0.8f);
+            return;
+        }
+
+        // Vérifier si la quête est terminée
+        if (hasPlayerCompletedFrogQuest(player)) {
+            return;
+        }
+
+        // Vérifier si cette grenouille est déjà capturée
+        Set<Integer> captured = playerCapturedFrogs.get(playerId);
+        if (captured == null) {
+            initializePlayerFrogProgress(player);
+            captured = playerCapturedFrogs.get(playerId);
+        }
+
+        if (captured.contains(frogIndex)) {
+            return;
+        }
+
+        // Vérifier si le joueur a déjà un mini-jeu en cours
+        if (frogCaptureGUI.hasActiveGame(player)) {
+            return;
+        }
+
+        // Ouvrir le mini-jeu de capture
+        player.sendMessage("§a[GRENOUILLE] §fTentative de capture...");
+
+        frogCaptureGUI.openGame(player, frogIndex,
+            // Callback de succès
+            p -> handleFrogCaptureSuccess(p, frogIndex),
+            // Callback d'échec
+            p -> handleFrogCaptureFailed(p, frogIndex)
+        );
+    }
+
+    /**
+     * Gère une capture réussie
+     */
+    private void handleFrogCaptureSuccess(Player player, int frogIndex) {
+        UUID playerId = player.getUniqueId();
+
+        // Marquer cette grenouille comme capturée
+        Set<Integer> captured = playerCapturedFrogs.get(playerId);
+        if (captured == null) {
+            initializePlayerFrogProgress(player);
+            captured = playerCapturedFrogs.get(playerId);
+        }
+        captured.add(frogIndex);
+
+        // Ajouter la grenouille à l'inventaire du joueur (item spécial)
+        ItemStack frogItem = new ItemStack(Material.FROG_SPAWN_EGG, 1);
+        var meta = frogItem.getItemMeta();
+        if (meta != null) {
+            meta.displayName(Component.text("§a🐸 Grenouille Mutante §7(Quête)").decoration(TextDecoration.ITALIC, false));
+            meta.lore(List.of(
+                Component.text("§8─────────────────").decoration(TextDecoration.ITALIC, false),
+                Component.text("§7Spécimen capturé pour le").decoration(TextDecoration.ITALIC, false),
+                Component.text("§aDr. Marlow§7.").decoration(TextDecoration.ITALIC, false),
+                Component.text("").decoration(TextDecoration.ITALIC, false),
+                Component.text("§e▶ Livrez au biologiste!").decoration(TextDecoration.ITALIC, false)
+            ));
+            frogItem.setItemMeta(meta);
+        }
+        player.getInventory().addItem(frogItem);
+
+        // Cacher cette grenouille pour le joueur
+        updateFrogVisibilityForPlayer(player);
+
+        // Mettre à jour le compteur
+        int frogsInInv = playerFrogsInInventory.getOrDefault(playerId, 0) + 1;
+        playerFrogsInInventory.put(playerId, frogsInInv);
+
+        // Mettre à jour la progression dans JourneyManager
+        journeyManager.setStepProgress(player, JourneyStep.STEP_5_7, frogsInInv);
+
+        // Effets de capture
+        Location loc = frogLocations[frogIndex];
+        if (loc != null) {
+            player.playSound(loc, Sound.ENTITY_FROG_AMBIENT, 1f, 1.5f);
+            player.playSound(loc, Sound.ENTITY_ITEM_PICKUP, 0.8f, 1.2f);
+            player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, loc, 15, 0.5, 0.5, 0.5, 0);
+        }
+
+        // Message de progression
+        int remaining = FROGS_TO_CAPTURE - frogsInInv;
+        if (remaining > 0) {
+            player.sendMessage("§a[GRENOUILLE] §f+1 grenouille capturée! §7(" + frogsInInv + "/" + FROGS_TO_CAPTURE + ")");
+        }
+
+        // Mettre à jour la BossBar
+        journeyManager.createOrUpdateBossBar(player);
+
+        // Si on a assez de grenouilles, indiquer d'aller voir le biologiste
+        if (frogsInInv >= FROGS_TO_CAPTURE) {
+            player.sendMessage("");
+            player.sendMessage("§a§l[✓] §7Vous avez assez de grenouilles!");
+            player.sendMessage("§e▸ §fAllez livrer au §aDr. Marlow§f!");
+            player.sendMessage("");
+
+            player.sendTitle(
+                "§a✓ GRENOUILLES CAPTURÉES!",
+                "§7Livrez au biologiste pour terminer",
+                10, 60, 20
+            );
+
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.5f);
+
+            // GPS vers le biologiste
+            activateGPSToBiologist(player);
+        }
+    }
+
+    /**
+     * Gère une capture échouée
+     */
+    private void handleFrogCaptureFailed(Player player, int frogIndex) {
+        player.sendMessage("§c[GRENOUILLE] §fLa grenouille s'est échappée! Réessayez...");
+        player.playSound(player.getLocation(), Sound.ENTITY_FROG_LONG_JUMP, 1f, 0.8f);
+    }
+
+    /**
+     * Gère la livraison au biologiste
+     */
+    private void handleBiologistDelivery(Player player) {
+        UUID playerId = player.getUniqueId();
+
+        // Vérifier si le joueur est sur la bonne étape
+        if (!isPlayerOnFrogQuest(player)) {
+            player.sendMessage("");
+            player.sendMessage("§a§l[Dr. Marlow]");
+            player.sendMessage("§7\"Bonjour, aventurier! Je suis le Dr. Marlow,");
+            player.sendMessage("§7spécialiste de la faune mutante. Reviens me voir");
+            player.sendMessage("§7quand tu auras débloqué ma quête!\"");
+            player.sendMessage("");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_TRADE, 1f, 1f);
+            return;
+        }
+
+        // Vérifier si la quête est terminée
+        if (hasPlayerCompletedFrogQuest(player)) {
+            player.sendMessage("");
+            player.sendMessage("§a§l[Dr. Marlow]");
+            player.sendMessage("§7\"Merci encore pour ces spécimens extraordinaires!");
+            player.sendMessage("§7Mes recherches avancent bien grâce à toi!\"");
+            player.sendMessage("");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_YES, 1f, 1f);
+            return;
+        }
+
+        // Vérifier si le joueur a assez de grenouilles
+        int frogsInInv = playerFrogsInInventory.getOrDefault(playerId, 0);
+        if (frogsInInv < FROGS_TO_CAPTURE) {
+            int remaining = FROGS_TO_CAPTURE - frogsInInv;
+            player.sendMessage("");
+            player.sendMessage("§a§l[Dr. Marlow]");
+            player.sendMessage("§7\"Hmm... il me faut encore §c" + remaining + " grenouilles§7!\"");
+            player.sendMessage("§7\"Retourne dans les marais et captures-en d'autres!\"");
+            player.sendMessage("");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
+
+            // GPS vers la zone
+            activateGPSToFrogZone(player);
+            return;
+        }
+
+        // Retirer les grenouilles de quête de l'inventaire
+        int toRemove = FROGS_TO_CAPTURE;
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item != null && item.getType() == Material.FROG_SPAWN_EGG && toRemove > 0) {
+                // Vérifier que c'est bien une grenouille de quête
+                if (item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
+                    String displayName = item.getItemMeta().getDisplayName();
+                    if (displayName.contains("Quête") || displayName.contains("Grenouille Mutante")) {
+                        int amount = item.getAmount();
+                        if (amount <= toRemove) {
+                            toRemove -= amount;
+                            item.setAmount(0);
+                        } else {
+                            item.setAmount(amount - toRemove);
+                            toRemove = 0;
+                        }
+                    }
+                }
+            }
+            if (toRemove <= 0) break;
+        }
+
+        // Compléter la quête
+        completeFrogQuest(player);
+    }
+
+    /**
+     * Termine la quête des grenouilles
+     */
+    private void completeFrogQuest(Player player) {
+        UUID playerId = player.getUniqueId();
+
+        // Nettoyer les données
+        activeFrogPlayers.remove(playerId);
+        playerCapturedFrogs.remove(playerId);
+        playerFrogsInInventory.remove(playerId);
+
+        // Cacher les grenouilles
+        hideAllFrogsForPlayer(player);
+
+        // Compléter l'étape
+        journeyManager.completeStep(player, JourneyStep.STEP_5_7);
+
+        // Dialogue du biologiste
+        player.sendMessage("");
+        player.sendMessage("§a§l[Dr. Marlow]");
+        player.sendMessage("§7\"Extraordinaire! Ces spécimens sont parfaits!");
+        player.sendMessage("§7Leur mutation est fascinante... Je vais pouvoir");
+        player.sendMessage("§7développer un antidote encore plus puissant!\"");
+        player.sendMessage("");
+
+        // Title de victoire
+        player.sendTitle(
+            "§a§l✓ QUÊTE TERMINÉE!",
+            "§7Le Dr. Marlow vous remercie!",
+            10, 60, 20
+        );
+
+        // Effets
+        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+        player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_CELEBRATE, 1.0f, 1.0f);
+        player.playSound(player.getLocation(), Sound.ENTITY_FROG_AMBIENT, 1.0f, 1.2f);
+        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 50, 1, 1, 1, 0.2);
+    }
+
+    /**
+     * Reset la progression des grenouilles pour un joueur (appelé à la mort)
+     */
+    private void resetFrogProgress(Player player) {
+        UUID uuid = player.getUniqueId();
+
+        // Réinitialiser les grenouilles capturées
+        playerCapturedFrogs.put(uuid, ConcurrentHashMap.newKeySet());
+
+        // Retirer les grenouilles de l'inventaire
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item != null && item.getType() == Material.FROG_SPAWN_EGG) {
+                var meta = item.getItemMeta();
+                if (meta != null && meta.hasDisplayName()) {
+                    var displayName = meta.displayName();
+                    if (displayName != null && displayName.toString().contains("Quête")) {
+                        item.setAmount(0);
+                    }
+                }
+            }
+        }
+
+        // Réinitialiser le compteur
+        playerFrogsInInventory.put(uuid, 0);
+
+        // Réinitialiser la progression dans JourneyManager
+        journeyManager.setStepProgress(player, JourneyStep.STEP_5_7, 0);
+
+        // Mettre à jour la BossBar
+        journeyManager.createOrUpdateBossBar(player);
+    }
+
+    // ==================== SYSTÈME DES ÉNIGMES DE L'ORACLE (Étape 5.8) ====================
+
+    /**
+     * Structure d'une énigme
+     */
+    private record Riddle(String question, String[] choices, int correctAnswer, String explanation) {}
+
+    /**
+     * Les 3 énigmes de l'Oracle (adaptées à des joueurs de 12 ans, thème ZombieZ)
+     */
+    private static final Riddle[] RIDDLES = {
+        new Riddle(
+            "§e\"Je suis mort mais je marche encore,\n§eje cherche les vivants pour les dévorer.\n§eQue suis-je?\"",
+            new String[]{"§aUn Zombie", "§7Un Fantôme", "§7Un Squelette", "§7Un Vampire"},
+            0,
+            "§7Les zombies sont des morts-vivants qui errent à la recherche de chair fraîche!"
+        ),
+        new Riddle(
+            "§e\"Je repousse les ténèbres et protège\n§eles survivants des dangers de la nuit.\n§eQue suis-je?\"",
+            new String[]{"§7Une Épée", "§aUne Torche", "§7Un Bouclier", "§7Une Armure"},
+            1,
+            "§7La lumière des torches empêche les zombies d'apparaître près des survivants!"
+        ),
+        new Riddle(
+            "§e\"Dans l'apocalypse zombie, les survivants\n§ese rassemblent en un lieu sûr.\n§eComment appelle-t-on cet endroit?\"",
+            new String[]{"§7Une Forêt", "§7Une Grotte", "§aUn Refuge", "§7Un Marais"},
+            2,
+            "§7Le refuge est l'endroit où les survivants sont en sécurité!"
+        )
+    };
+
+    /**
+     * Initialise l'Oracle NPC
+     */
+    private void initializeOracle(World world) {
+        Location loc = new Location(world, ORACLE_X, ORACLE_Y, ORACLE_Z, ORACLE_YAW, ORACLE_PITCH);
+
+        // Chercher si l'Oracle existe déjà
+        for (Entity entity : world.getNearbyEntities(loc, 5, 5, 5)) {
+            if (entity instanceof Villager v && v.getPersistentDataContainer().has(ORACLE_NPC_KEY, PersistentDataType.BYTE)) {
+                oracleNPC = v;
+                // Chercher aussi le display
+                for (Entity displayEntity : world.getNearbyEntities(loc.clone().add(0, 2.5, 0), 2, 2, 2)) {
+                    if (displayEntity instanceof TextDisplay td && td.getScoreboardTags().contains("chapter5_oracle_display")) {
+                        oracleDisplay = td;
+                        break;
+                    }
+                }
+                plugin.getLogger().info("[Chapter5Systems] Oracle existant trouvé");
+                return;
+            }
+        }
+
+        // Créer l'Oracle
+        oracleNPC = world.spawn(loc, Villager.class, villager -> {
+            villager.customName(Component.text("§5§lOracle des Marais").decorate(TextDecoration.BOLD));
+            villager.setCustomNameVisible(false);
+            villager.setAI(false);
+            villager.setInvulnerable(true);
+            villager.setSilent(true);
+            villager.setPersistent(true);
+            villager.setRemoveWhenFarAway(false);
+            villager.setCollidable(false);
+
+            villager.setProfession(Villager.Profession.CLERIC);
+            villager.setVillagerLevel(5);
+
+            // Tags
+            villager.addScoreboardTag("chapter5_oracle");
+            villager.addScoreboardTag("zombiez_npc");
+
+            // PDC
+            villager.getPersistentDataContainer().set(ORACLE_NPC_KEY, PersistentDataType.BYTE, (byte) 1);
+
+            // Visible par défaut
+            villager.setVisibleByDefault(true);
+        });
+
+        // Créer le TextDisplay au-dessus
+        Location displayLoc = loc.clone().add(0, 2.5, 0);
+        oracleDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
+            display.text(Component.text()
+                    .append(Component.text("✦ ", NamedTextColor.DARK_PURPLE))
+                    .append(Component.text("Oracle des Marais", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD))
+                    .append(Component.text(" ✦", NamedTextColor.DARK_PURPLE))
+                    .append(Component.newline())
+                    .append(Component.text("§7Gardien des Savoirs Anciens", NamedTextColor.GRAY))
+                    .append(Component.newline())
+                    .append(Component.text("▶ Clic droit pour les énigmes", NamedTextColor.GRAY))
+                    .build());
+
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setAlignment(TextDisplay.TextAlignment.CENTER);
+            display.setShadowed(true);
+            display.setSeeThrough(false);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(120, 0, 0, 0));
+
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(1.2f, 1.2f, 1.2f),
+                    new AxisAngle4f(0, 0, 0, 1)));
+
+            display.setViewRange(0.3f);
+            display.setPersistent(true);
+            display.addScoreboardTag("chapter5_oracle_display");
+
+            display.setVisibleByDefault(true);
+        });
+
+        plugin.getLogger().info("[Chapter5Systems] Oracle des Marais initialisé");
+    }
+
+    /**
+     * Démarre le vérificateur de respawn de l'Oracle
+     */
+    private void startOracleRespawnChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                if (oracleNPC == null || !oracleNPC.isValid()) {
+                    initializeOracle(world);
+                }
+            }
+        }.runTaskTimer(plugin, 200L, 200L);
+    }
+
+    /**
+     * Vérifie si un joueur est sur la quête des énigmes
+     */
+    private boolean isPlayerOnRiddleQuest(Player player) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        return currentStep == JourneyStep.STEP_5_8;
+    }
+
+    /**
+     * Vérifie si un joueur a terminé la quête des énigmes
+     */
+    private boolean hasPlayerCompletedRiddleQuest(Player player) {
+        return journeyManager.isStepCompleted(player, JourneyStep.STEP_5_8);
+    }
+
+    /**
+     * Active la quête des énigmes pour un joueur
+     */
+    public void activateRiddleQuest(Player player) {
+        UUID playerId = player.getUniqueId();
+
+        // Initialiser le tracking
+        activeRiddlePlayers.add(playerId);
+        playerCurrentRiddle.put(playerId, 0);
+
+        // Afficher l'introduction
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.isOnline()) return;
+
+                // Title d'introduction
+                player.sendTitle(
+                    "§5✦ §d§lLES ÉNIGMES DE L'ORACLE §5✦",
+                    "§7Prouvez votre sagesse!",
+                    10, 60, 20
+                );
+
+                // Son mystique
+                player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1.0f, 0.8f);
+
+                // Message de briefing
+                player.sendMessage("");
+                player.sendMessage("§5§l══════ LES ÉNIGMES DE L'ORACLE ══════");
+                player.sendMessage("");
+                player.sendMessage("§7L'§5§lOracle des Marais §7détient des savoirs anciens");
+                player.sendMessage("§7sur la survie face aux morts-vivants...");
+                player.sendMessage("");
+                player.sendMessage("§e▸ §fRésolvez §c" + TOTAL_RIDDLES + " énigmes §fpour prouver votre valeur");
+                player.sendMessage("§e▸ §fParlez à l'§5Oracle §fpour commencer");
+                player.sendMessage("§e▸ §fChoisissez la bonne réponse dans le menu");
+                player.sendMessage("");
+
+                // Activer le GPS vers l'Oracle
+                activateGPSToOracle(player);
+            }
+        }.runTaskLater(plugin, 20L);
+    }
+
+    /**
+     * Active le GPS vers l'Oracle
+     */
+    private void activateGPSToOracle(Player player) {
+        player.sendMessage("§e§l➤ §7GPS: §b" + (int) ORACLE_X + ", " + (int) ORACLE_Y + ", " + (int) ORACLE_Z + " §7(Oracle des Marais)");
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1f);
+
+        var gpsManager = plugin.getGPSManager();
+        if (gpsManager != null) {
+            gpsManager.enableGPSSilently(player);
+        }
+    }
+
+    /**
+     * Gère l'interaction avec l'Oracle
+     */
+    private void handleOracleInteraction(Player player) {
+        UUID playerId = player.getUniqueId();
+
+        // Vérifier si le joueur est sur la bonne étape
+        if (!isPlayerOnRiddleQuest(player)) {
+            player.sendMessage("");
+            player.sendMessage("§5§l[Oracle des Marais]");
+            player.sendMessage("§7\"Jeune voyageur... Les étoiles ne m'ont pas");
+            player.sendMessage("§7encore révélé ton destin. Reviens quand tu");
+            player.sendMessage("§7auras débloqué ma quête...\"");
+            player.sendMessage("");
+            player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 0.8f, 0.6f);
+            return;
+        }
+
+        // Vérifier si la quête est terminée
+        if (hasPlayerCompletedRiddleQuest(player)) {
+            player.sendMessage("");
+            player.sendMessage("§5§l[Oracle des Marais]");
+            player.sendMessage("§7\"Tu as prouvé ta sagesse, survivant.");
+            player.sendMessage("§7Que les anciens esprits te guident...\"");
+            player.sendMessage("");
+            player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 0.8f, 1.2f);
+            return;
+        }
+
+        // Obtenir l'énigme actuelle
+        int riddleIndex = playerCurrentRiddle.getOrDefault(playerId, 0);
+
+        if (riddleIndex >= TOTAL_RIDDLES) {
+            // Quête terminée
+            completeRiddleQuest(player);
+            return;
+        }
+
+        // Ouvrir le GUI de l'énigme
+        openRiddleGUI(player, riddleIndex);
+    }
+
+    /**
+     * Ouvre le GUI d'une énigme
+     */
+    private void openRiddleGUI(Player player, int riddleIndex) {
+        Riddle riddle = RIDDLES[riddleIndex];
+
+        // Créer l'inventaire (3 lignes)
+        Inventory gui = Bukkit.createInventory(null, 27,
+            Component.text("✦ Énigme " + (riddleIndex + 1) + "/" + TOTAL_RIDDLES + " ✦", NamedTextColor.DARK_PURPLE));
+
+        // Remplir le fond
+        ItemStack glass = createGlassPane(Material.PURPLE_STAINED_GLASS_PANE, " ");
+        for (int i = 0; i < 27; i++) {
+            gui.setItem(i, glass);
+        }
+
+        // Question au centre (slot 4)
+        ItemStack questionItem = new ItemStack(Material.ENCHANTED_BOOK);
+        var questionMeta = questionItem.getItemMeta();
+        if (questionMeta != null) {
+            questionMeta.displayName(Component.text("§5§l✦ L'Oracle demande... ✦").decoration(TextDecoration.ITALIC, false));
+            String[] lines = riddle.question().split("\n");
+            List<Component> lore = new ArrayList<>();
+            lore.add(Component.text("§8───────────────").decoration(TextDecoration.ITALIC, false));
+            for (String line : lines) {
+                lore.add(Component.text(line).decoration(TextDecoration.ITALIC, false));
+            }
+            lore.add(Component.text("§8───────────────").decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("§7Choisissez la bonne réponse!").decoration(TextDecoration.ITALIC, false));
+            questionMeta.lore(lore);
+            questionItem.setItemMeta(questionMeta);
+        }
+        gui.setItem(4, questionItem);
+
+        // Les 4 choix (slots 10, 12, 14, 16)
+        int[] choiceSlots = {10, 12, 14, 16};
+        Material[] choiceMaterials = {Material.LIME_TERRACOTTA, Material.YELLOW_TERRACOTTA, Material.ORANGE_TERRACOTTA, Material.RED_TERRACOTTA};
+
+        for (int i = 0; i < 4; i++) {
+            ItemStack choiceItem = new ItemStack(choiceMaterials[i]);
+            var choiceMeta = choiceItem.getItemMeta();
+            if (choiceMeta != null) {
+                choiceMeta.displayName(Component.text(riddle.choices()[i]).decoration(TextDecoration.ITALIC, false));
+                choiceMeta.lore(List.of(
+                    Component.text("§7Cliquez pour répondre").decoration(TextDecoration.ITALIC, false)
+                ));
+                // Stocker l'index du choix dans le PDC
+                choiceMeta.getPersistentDataContainer().set(
+                    new NamespacedKey(plugin, "riddle_choice"),
+                    PersistentDataType.INTEGER,
+                    i
+                );
+                choiceItem.setItemMeta(choiceMeta);
+            }
+            gui.setItem(choiceSlots[i], choiceItem);
+        }
+
+        // Ouvrir le GUI
+        player.openInventory(gui);
+        player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 0.6f, 1.0f);
+    }
+
+    /**
+     * Crée un panneau de verre décoratif
+     */
+    private ItemStack createGlassPane(Material material, String name) {
+        ItemStack item = new ItemStack(material);
+        var meta = item.getItemMeta();
+        if (meta != null) {
+            meta.displayName(Component.text(name).decoration(TextDecoration.ITALIC, false));
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    /**
+     * Gère le clic sur une réponse dans le GUI des énigmes
+     */
+    public void handleRiddleAnswer(Player player, int choiceIndex) {
+        UUID playerId = player.getUniqueId();
+
+        if (!isPlayerOnRiddleQuest(player) || hasPlayerCompletedRiddleQuest(player)) {
+            return;
+        }
+
+        int riddleIndex = playerCurrentRiddle.getOrDefault(playerId, 0);
+        if (riddleIndex >= TOTAL_RIDDLES) {
+            return;
+        }
+
+        Riddle riddle = RIDDLES[riddleIndex];
+
+        // Fermer le GUI
+        player.closeInventory();
+
+        if (choiceIndex == riddle.correctAnswer()) {
+            // Bonne réponse!
+            int newProgress = riddleIndex + 1;
+            playerCurrentRiddle.put(playerId, newProgress);
+            journeyManager.setStepProgress(player, JourneyStep.STEP_5_8, newProgress);
+
+            // Effets de succès
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.5f);
+            player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 0.8f, 1.2f);
+
+            // Message de l'Oracle
+            player.sendMessage("");
+            player.sendMessage("§5§l[Oracle des Marais]");
+            player.sendMessage("§a\"Excellente réponse, jeune sage!\"");
+            player.sendMessage(riddle.explanation());
+            player.sendMessage("");
+
+            // Title
+            player.sendTitle(
+                "§a✓ BONNE RÉPONSE!",
+                "§7Énigme " + newProgress + "/" + TOTAL_RIDDLES + " résolue",
+                10, 40, 10
+            );
+
+            // Mettre à jour la BossBar
+            journeyManager.createOrUpdateBossBar(player);
+
+            // Si toutes les énigmes sont résolues
+            if (newProgress >= TOTAL_RIDDLES) {
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        if (player.isOnline()) {
+                            completeRiddleQuest(player);
+                        }
+                    }
+                }.runTaskLater(plugin, 40L);
+            } else {
+                // Indiquer de reparler à l'Oracle
+                player.sendMessage("§e▸ §fParlez à nouveau à l'§5Oracle §fpour la prochaine énigme!");
+            }
+        } else {
+            // Mauvaise réponse
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 0.8f);
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1f, 0.5f);
+
+            // Message de l'Oracle
+            player.sendMessage("");
+            player.sendMessage("§5§l[Oracle des Marais]");
+            player.sendMessage("§c\"Hélas, ce n'est pas la bonne réponse...\"");
+            player.sendMessage("§7\"Réfléchis bien et réessaye, jeune voyageur.\"");
+            player.sendMessage("");
+
+            // Title
+            player.sendTitle(
+                "§c✗ MAUVAISE RÉPONSE",
+                "§7Réessayez en parlant à l'Oracle",
+                10, 40, 10
+            );
+        }
+    }
+
+    /**
+     * Termine la quête des énigmes
+     */
+    private void completeRiddleQuest(Player player) {
+        UUID playerId = player.getUniqueId();
+
+        // Nettoyer les données
+        activeRiddlePlayers.remove(playerId);
+        playerCurrentRiddle.remove(playerId);
+
+        // Compléter l'étape
+        journeyManager.completeStep(player, JourneyStep.STEP_5_8);
+
+        // Dialogue de l'Oracle
+        player.sendMessage("");
+        player.sendMessage("§5§l[Oracle des Marais]");
+        player.sendMessage("§d\"Tu as prouvé ta sagesse, survivant!");
+        player.sendMessage("§dLes anciens esprits reconnaissent ta valeur.");
+        player.sendMessage("§dQue ce savoir te guide dans les ténèbres...\"");
+        player.sendMessage("");
+
+        // Title de victoire
+        player.sendTitle(
+            "§5§l✦ QUÊTE TERMINÉE! ✦",
+            "§7L'Oracle reconnaît votre sagesse!",
+            10, 60, 20
+        );
+
+        // Effets
+        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+        player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1.0f, 1.5f);
+        player.getWorld().spawnParticle(Particle.ENCHANT, player.getLocation().add(0, 1.5, 0), 100, 1, 1, 1, 0.5);
+        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 50, 1, 1, 1, 0.2);
+    }
+
     // ==================== ÉVÉNEMENTS ====================
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -2283,6 +3532,62 @@ public class Chapter5Systems implements Listener {
                 && clicked.getPersistentDataContainer().has(LUMBERJACK_NPC_KEY, PersistentDataType.BYTE)) {
             event.setCancelled(true);
             handleLumberjackDelivery(player);
+        }
+
+        // Interaction avec le biologiste
+        if (clicked instanceof Villager
+                && clicked.getPersistentDataContainer().has(BIOLOGIST_NPC_KEY, PersistentDataType.BYTE)) {
+            event.setCancelled(true);
+            handleBiologistDelivery(player);
+        }
+
+        // Interaction avec une grenouille (hitbox)
+        if (clicked instanceof Interaction
+                && clicked.getPersistentDataContainer().has(FROG_HITBOX_KEY, PersistentDataType.INTEGER)) {
+            event.setCancelled(true);
+            Integer frogIndex = clicked.getPersistentDataContainer().get(FROG_HITBOX_KEY, PersistentDataType.INTEGER);
+            if (frogIndex != null) {
+                handleFrogInteraction(player, frogIndex);
+            }
+        }
+
+        // Interaction avec l'Oracle
+        if (clicked instanceof Villager
+                && clicked.getPersistentDataContainer().has(ORACLE_NPC_KEY, PersistentDataType.BYTE)) {
+            event.setCancelled(true);
+            handleOracleInteraction(player);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+
+        // Vérifier si c'est le GUI des énigmes
+        String title = event.getView().title().toString();
+        if (!title.contains("Énigme")) {
+            return;
+        }
+
+        event.setCancelled(true);
+
+        ItemStack clicked = event.getCurrentItem();
+        if (clicked == null || !clicked.hasItemMeta()) {
+            return;
+        }
+
+        // Vérifier si l'item a un choix de réponse
+        var meta = clicked.getItemMeta();
+        if (meta.getPersistentDataContainer().has(new NamespacedKey(plugin, "riddle_choice"), PersistentDataType.INTEGER)) {
+            Integer choiceIndex = meta.getPersistentDataContainer().get(
+                new NamespacedKey(plugin, "riddle_choice"),
+                PersistentDataType.INTEGER
+            );
+            if (choiceIndex != null) {
+                handleRiddleAnswer(player, choiceIndex);
+            }
         }
     }
 
@@ -2398,6 +3703,34 @@ public class Chapter5Systems implements Listener {
                 }
             }.runTaskLater(plugin, 40L);
         }
+
+        // Si le joueur est sur la quête des grenouilles, reset sa progression
+        if (isPlayerOnFrogQuest(player)) {
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    if (!player.isOnline()) return;
+
+                    resetFrogProgress(player);
+
+                    player.sendTitle(
+                        "§c☠ QUÊTE ÉCHOUÉE!",
+                        "§7Vos grenouilles capturées ont été perdues",
+                        10, 60, 20
+                    );
+
+                    player.sendMessage("");
+                    player.sendMessage("§c§l[GRENOUILLES] §7Vous êtes mort! Vos grenouilles ont été §cperdues§7.");
+                    player.sendMessage("§e▸ §fRetournez au marais et recommencez!");
+                    player.sendMessage("");
+
+                    // Réactiver le GPS
+                    activateGPSToFrogZone(player);
+
+                    player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 0.8f);
+                }
+            }.runTaskLater(plugin, 40L);
+        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -2490,6 +3823,45 @@ public class Chapter5Systems implements Listener {
                         activateGPSToLumberjack(player);
                     }
                 }
+
+                // Quête des grenouilles
+                if (currentStep == JourneyStep.STEP_5_7) {
+                    initializePlayerFrogProgress(player);
+                    activeFrogPlayers.add(player.getUniqueId());
+
+                    int progress = journeyManager.getStepProgress(player, currentStep);
+                    int remaining = FROGS_TO_CAPTURE - progress;
+
+                    player.sendMessage("");
+                    player.sendMessage("§a§l[QUÊTE] §7Chasse aux Grenouilles Mutantes en cours!");
+                    player.sendMessage("§e▸ §fProgression: §c" + progress + "/" + FROGS_TO_CAPTURE);
+                    if (remaining > 0) {
+                        player.sendMessage("§e▸ §fRestant: §c" + remaining + " §fgrenouilles à capturer");
+                        player.sendMessage("§c⚠ §7Si vous mourez, vous perdrez vos grenouilles!");
+                        activateGPSToFrogZone(player);
+                    } else {
+                        player.sendMessage("§e▸ §fLivrez au §aDr. Marlow§f!");
+                        activateGPSToBiologist(player);
+                    }
+                }
+
+                // Quête des énigmes
+                if (currentStep == JourneyStep.STEP_5_8) {
+                    activeRiddlePlayers.add(player.getUniqueId());
+                    // Restaurer la progression si nécessaire
+                    int progress = journeyManager.getStepProgress(player, currentStep);
+                    playerCurrentRiddle.put(player.getUniqueId(), progress);
+
+                    int remaining = TOTAL_RIDDLES - progress;
+
+                    player.sendMessage("");
+                    player.sendMessage("§5§l[QUÊTE] §7Les Énigmes de l'Oracle en cours!");
+                    player.sendMessage("§e▸ §fProgression: §c" + progress + "/" + TOTAL_RIDDLES + " §fénigmes résolues");
+                    if (remaining > 0) {
+                        player.sendMessage("§e▸ §fRestant: §c" + remaining + " §fénigmes");
+                        activateGPSToOracle(player);
+                    }
+                }
             }
         }.runTaskLater(plugin, 40L);
     }
@@ -2511,6 +3883,298 @@ public class Chapter5Systems implements Listener {
         // Bûcheronnage - on garde les données pour la reconnexion
         activeLumberPlayers.remove(playerId);
         // Note: on ne supprime PAS playerCollectedLumber pour que le joueur puisse reprendre
+
+        // Grenouilles - on garde les données pour la reconnexion
+        activeFrogPlayers.remove(playerId);
+        // Note: on ne supprime PAS playerCapturedFrogs pour que le joueur puisse reprendre
+
+        // Annuler le mini-jeu de grenouille si en cours
+        Player player = Bukkit.getPlayer(playerId);
+        if (player != null && frogCaptureGUI.hasActiveGame(player)) {
+            frogCaptureGUI.cancelGame(player);
+        }
+
+        // Énigmes - on garde les données pour la reconnexion
+        activeRiddlePlayers.remove(playerId);
+        // Note: on ne supprime PAS playerCurrentRiddle pour que le joueur puisse reprendre
+    }
+
+    // ==================== SYSTÈME DU BOSS GRENOUILLE GÉANTE (Étape 5.10) ====================
+
+    /**
+     * Initialise le boss de la Grenouille Géante
+     */
+    private void initializeSwampFrogBoss(World world) {
+        spawnSwampFrogBoss(world);
+    }
+
+    /**
+     * Démarre le checker de respawn du boss
+     */
+    private void startBossRespawnChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                // Vérifier si le boss doit être respawné
+                if (swampFrogBossEntity == null || !swampFrogBossEntity.isValid() || swampFrogBossEntity.isDead()) {
+                    if (!bossRespawnScheduled) {
+                        // Check si joueur proche pour spawn
+                        Location bossLoc = SWAMP_FROG_BOSS_LOCATION.clone();
+                        bossLoc.setWorld(world);
+
+                        boolean playerNearby = world.getPlayers().stream()
+                            .anyMatch(p -> p.getLocation().distanceSquared(bossLoc) < 10000); // 100 blocs
+
+                        if (playerNearby && bossLoc.getChunk().isLoaded()) {
+                            spawnSwampFrogBoss(world);
+                        }
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 200L, 100L); // Check toutes les 5 secondes
+    }
+
+    /**
+     * Fait spawn le boss Grenouille Géante via le système ZombieZ
+     */
+    private void spawnSwampFrogBoss(World world) {
+        // Protection anti-spawn multiple
+        if (swampFrogBossEntity != null && swampFrogBossEntity.isValid() && !swampFrogBossEntity.isDead()) {
+            return;
+        }
+
+        Location loc = SWAMP_FROG_BOSS_LOCATION.clone();
+        loc.setWorld(world);
+
+        if (!loc.getChunk().isLoaded()) {
+            return;
+        }
+
+        // Chercher un boss existant dans le monde
+        for (Entity entity : world.getNearbyEntities(loc, 50, 30, 50)) {
+            if (entity instanceof Zombie z
+                    && z.getPersistentDataContainer().has(SWAMP_FROG_BOSS_KEY, PersistentDataType.BYTE)) {
+                swampFrogBossEntity = z;
+                return;
+            }
+        }
+
+        // Nettoyer les contributeurs
+        bossContributors.clear();
+        bossRespawnScheduled = false;
+
+        ZombieManager zombieManager = plugin.getZombieManager();
+        if (zombieManager == null) {
+            plugin.getLogger().warning("ZombieManager non disponible pour le boss grenouille");
+            return;
+        }
+
+        // Spawn via ZombieManager avec l'IA SwampFrogBossAI
+        ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(ZombieType.SWAMP_FROG_BOSS, loc, BOSS_LEVEL);
+
+        if (activeZombie == null) {
+            plugin.getLogger().warning("Échec du spawn du boss Grenouille Géante");
+            return;
+        }
+
+        Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
+        if (!(entity instanceof Zombie boss)) {
+            plugin.getLogger().warning("Boss Grenouille n'est pas un Zombie valide");
+            return;
+        }
+
+        swampFrogBossEntity = boss;
+
+        // Appliquer les visuels
+        applySwampFrogBossVisuals(boss);
+
+        // Marquer comme boss pour le tracking
+        boss.getPersistentDataContainer().set(SWAMP_FROG_BOSS_KEY, PersistentDataType.BYTE, (byte) 1);
+        boss.setPersistent(true);
+
+        // Créer le TextDisplay au-dessus
+        spawnBossDisplay(world, loc);
+
+        // Annoncer le spawn
+        for (Player player : world.getPlayers()) {
+            if (player.getLocation().distance(loc) < 80) {
+                player.sendMessage("");
+                player.sendMessage("§2§l🐸 Une Grenouille Géante émerge du marais!");
+                player.playSound(player.getLocation(), Sound.ENTITY_FROG_LONG_JUMP, 1.5f, 0.3f);
+                player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.6f, 1.5f);
+            }
+        }
+
+        plugin.getLogger().info("§a§lBoss Grenouille Géante spawné (Chapitre 5)");
+    }
+
+    /**
+     * Applique les visuels au boss
+     */
+    private void applySwampFrogBossVisuals(Zombie boss) {
+        // Scale x4 (grenouille géante)
+        var scale = boss.getAttribute(org.bukkit.attribute.Attribute.SCALE);
+        if (scale != null) {
+            scale.setBaseValue(3.5);
+        }
+
+        // Pas d'équipement (c'est une grenouille)
+        boss.getEquipment().clear();
+
+        // Couleur verte (effet de potion pour le glow)
+        boss.addPotionEffect(new org.bukkit.potion.PotionEffect(
+            org.bukkit.potion.PotionEffectType.GLOWING, Integer.MAX_VALUE, 0, false, false));
+
+        boss.setGlowing(true);
+        boss.setCustomNameVisible(true);
+    }
+
+    /**
+     * Crée le TextDisplay au-dessus du boss
+     */
+    private void spawnBossDisplay(World world, Location loc) {
+        if (swampFrogBossDisplay != null && swampFrogBossDisplay.isValid()) {
+            swampFrogBossDisplay.remove();
+        }
+
+        Location displayLoc = loc.clone().add(0, 4.5, 0);
+        swampFrogBossDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
+            display.text(Component.text("🐸 ", NamedTextColor.GREEN)
+                .append(Component.text("GRENOUILLE GÉANTE", NamedTextColor.DARK_GREEN, TextDecoration.BOLD))
+                .append(Component.text(" 🐸", NamedTextColor.GREEN)));
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setBackgroundColor(org.bukkit.Color.fromARGB(180, 0, 80, 0));
+            display.setSeeThrough(false);
+            display.setViewRange(48f);
+
+            Transformation transform = new Transformation(
+                new Vector3f(0, 0, 0),
+                new AxisAngle4f(0, 0, 0, 1),
+                new Vector3f(2.0f, 2.0f, 2.0f),
+                new AxisAngle4f(0, 0, 0, 1)
+            );
+            display.setTransformation(transform);
+
+            display.setPersistent(false);
+        });
+    }
+
+    /**
+     * Appelé quand un joueur atteint l'étape 5.10
+     */
+    public void onPlayerReachStep510(Player player) {
+        player.sendTitle("§2§l🐸 BOSS FINAL 🐸", "§7Terrasse la Grenouille Géante!", 10, 60, 20);
+
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            player.sendMessage("");
+            player.sendMessage("§8§m                                              ");
+            player.sendMessage("§2§l    🐸 GRENOUILLE GÉANTE DU MARAIS 🐸");
+            player.sendMessage("§8§m                                              ");
+            player.sendMessage("");
+            player.sendMessage("§7Une §2créature monstrueuse §7hante les marais.");
+            player.sendMessage("§7Cette grenouille mutante est la source de la corruption.");
+            player.sendMessage("");
+            player.sendMessage("§e§l➤ §7Zone: §2Marais - 384, 93, 8034");
+            player.sendMessage("");
+            player.sendMessage("§c⚠ §7Attaques du boss:");
+            player.sendMessage("§e  • §fLangue Venimeuse §7- T'attire vers elle");
+            player.sendMessage("§e  • §fSaut Écrasant §7- Saute et atterrit sur toi");
+            player.sendMessage("§e  • §fCrachat Toxique §7- Projectiles empoisonnés");
+            player.sendMessage("");
+            player.playSound(player.getLocation(), Sound.ENTITY_FROG_AMBIENT, 1f, 0.5f);
+        }, 40L);
+    }
+
+    /**
+     * Tracker les joueurs qui attaquent le boss
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onSwampFrogBossDamage(EntityDamageByEntityEvent event) {
+        if (!(event.getEntity() instanceof Zombie boss)) return;
+        if (!boss.getPersistentDataContainer().has(SWAMP_FROG_BOSS_KEY, PersistentDataType.BYTE)) return;
+
+        Player damager = null;
+        if (event.getDamager() instanceof Player player) {
+            damager = player;
+        } else if (event.getDamager() instanceof Projectile projectile &&
+                projectile.getShooter() instanceof Player player) {
+            damager = player;
+        }
+
+        if (damager != null) {
+            bossContributors.add(damager.getUniqueId());
+        }
+    }
+
+    /**
+     * Gère la mort du boss
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onSwampFrogBossDeath(EntityDeathEvent event) {
+        if (!(event.getEntity() instanceof Zombie boss)) return;
+        if (!boss.getPersistentDataContainer().has(SWAMP_FROG_BOSS_KEY, PersistentDataType.BYTE)) return;
+
+        Location deathLoc = boss.getLocation();
+        World world = boss.getWorld();
+
+        // Effets de mort épiques
+        world.playSound(deathLoc, Sound.ENTITY_FROG_DEATH, 2f, 0.3f);
+        world.playSound(deathLoc, Sound.ENTITY_GENERIC_EXPLODE, 2f, 0.8f);
+        world.spawnParticle(Particle.EXPLOSION_EMITTER, deathLoc, 5, 2, 1, 2, 0);
+        world.spawnParticle(Particle.SLIME, deathLoc, 100, 3, 2, 3, 0);
+
+        // Valider l'étape pour tous les contributeurs
+        for (UUID uuid : bossContributors) {
+            Player contributor = Bukkit.getPlayer(uuid);
+            if (contributor != null && contributor.isOnline()) {
+                JourneyStep currentStep = journeyManager.getCurrentStep(contributor);
+                if (currentStep != null && currentStep == JourneyStep.STEP_5_10) {
+                    journeyManager.updateProgress(contributor, JourneyStep.StepType.KILL_SWAMP_FROG_BOSS, 1);
+
+                    contributor.sendMessage("");
+                    contributor.sendMessage("§2§l🐸 La Grenouille Géante a été vaincue!");
+                    contributor.sendMessage("§7Tu as contribué à sa défaite.");
+                    contributor.sendMessage("§a§lChapitre 5 terminé!");
+                    contributor.sendMessage("");
+
+                    // Son de victoire
+                    contributor.playSound(contributor.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
+                }
+            }
+        }
+
+        // Nettoyer
+        bossContributors.clear();
+        swampFrogBossEntity = null;
+
+        // Supprimer le display
+        if (swampFrogBossDisplay != null && swampFrogBossDisplay.isValid()) {
+            swampFrogBossDisplay.remove();
+        }
+
+        // Programmer le respawn
+        if (!bossRespawnScheduled) {
+            bossRespawnScheduled = true;
+            bossRespawnTime = System.currentTimeMillis() + (BOSS_RESPAWN_SECONDS * 1000L);
+
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    spawnSwampFrogBoss(world);
+                    bossRespawnTime = 0;
+                }
+            }.runTaskLater(plugin, 20L * BOSS_RESPAWN_SECONDS);
+
+            // Annoncer le respawn
+            for (Player player : world.getPlayers()) {
+                if (player.getLocation().distance(deathLoc) < 100) {
+                    player.sendMessage("§7La Grenouille Géante réapparaîtra dans §e" + BOSS_RESPAWN_SECONDS + " secondes§7...");
+                }
+            }
+        }
     }
 
     /**
@@ -2582,6 +4246,51 @@ public class Chapter5Systems implements Listener {
         if (lumberjackDisplay != null && lumberjackDisplay.isValid()) {
             lumberjackDisplay.remove();
         }
+
+        // Grenouilles
+        for (int i = 0; i < TOTAL_FROGS; i++) {
+            if (frogVisuals[i] != null && frogVisuals[i].isValid()) {
+                frogVisuals[i].remove();
+            }
+            if (frogHitboxes[i] != null && frogHitboxes[i].isValid()) {
+                frogHitboxes[i].remove();
+            }
+        }
+        playerCapturedFrogs.clear();
+        playerFrogsInInventory.clear();
+        activeFrogPlayers.clear();
+
+        // Biologiste
+        if (biologistNPC != null && biologistNPC.isValid()) {
+            biologistNPC.remove();
+        }
+        if (biologistDisplay != null && biologistDisplay.isValid()) {
+            biologistDisplay.remove();
+        }
+
+        // GUI du mini-jeu
+        if (frogCaptureGUI != null) {
+            frogCaptureGUI.cleanup();
+        }
+
+        // Oracle
+        if (oracleNPC != null && oracleNPC.isValid()) {
+            oracleNPC.remove();
+        }
+        if (oracleDisplay != null && oracleDisplay.isValid()) {
+            oracleDisplay.remove();
+        }
+        activeRiddlePlayers.clear();
+        playerCurrentRiddle.clear();
+
+        // Boss Grenouille Géante
+        if (swampFrogBossEntity != null && swampFrogBossEntity.isValid()) {
+            swampFrogBossEntity.remove();
+        }
+        if (swampFrogBossDisplay != null && swampFrogBossDisplay.isValid()) {
+            swampFrogBossDisplay.remove();
+        }
+        bossContributors.clear();
 
         plugin.getLogger().info("[Chapter5Systems] Cleanup effectué");
     }

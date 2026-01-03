@@ -92,6 +92,7 @@ public class ZombieAIManager {
         return switch (type) {
             case GRAVEDIGGER_BOSS -> new GravediggerBossAI(plugin, entity, type, level);
             case CREAKING_BOSS -> new CreakingBossAI(plugin, entity, type, level);
+            case SWAMP_FROG_BOSS -> new SwampFrogBossAI(plugin, entity, type, level);
             default -> new JourneyBossAI(plugin, entity, type, level);
         };
     }

@@ -201,6 +201,9 @@ public enum ZombieType {
     QUEST_SALMON("ZZ_QuestSalmon", "Saumon Mutant", 2, 100, 5, 0.35,  // Chapitre 5 Étape 2 - Saumons à pêcher
         new int[]{}, ZombieCategory.QUEST),  // Pas de zone: spawn uniquement via Chapter5Systems
 
+    SWAMP_FROG_BOSS("ZZ_SwampFrogBoss", "Grenouille Géante du Marais", 0, 700, 18, 0.26,  // Boss Chapitre 5 Étape 10
+        new int[]{}, ZombieCategory.JOURNEY_BOSS),  // Spawn via Chapter5Systems uniquement
+
     // ═══════════════════════════════════════════════════════════════════
     // MINI-BOSS - Les Redoutés (Noms épiques avec titres)
     // ═══════════════════════════════════════════════════════════════════

@@ -654,6 +654,18 @@ public class JourneyListener implements Listener {
     }
 
     /**
+     * Appelé quand le joueur débloque une mutation d'ascension
+     */
+    public void onMutationUnlocked(Player player, int totalMutations) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        if (currentStep == null) return;
+
+        if (currentStep.getType() == JourneyStep.StepType.UNLOCK_MUTATIONS) {
+            journeyManager.updateProgress(player, JourneyStep.StepType.UNLOCK_MUTATIONS, totalMutations);
+        }
+    }
+
+    /**
      * Appelé quand le joueur ouvre un oeuf de pet
      */
     public void onPetEggOpen(Player player) {

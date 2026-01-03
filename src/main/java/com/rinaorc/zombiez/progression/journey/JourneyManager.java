@@ -657,8 +657,17 @@ public class JourneyManager {
      * Vérifie si l'étape actuelle est déjà complétée (basée sur l'état actuel du joueur)
      * Utile pour les étapes de type LEVEL, CLASS_LEVEL, etc. où la progression
      * peut avoir été atteinte avant d'arriver à cette étape
+     *
+     * NOTE: Certains types d'étapes nécessitent une action manuelle (livraison à un NPC)
+     * et ne doivent PAS être auto-complétées même si la progression atteint le target.
      */
     private void checkCurrentStepCompletion(Player player, JourneyStep step) {
+        // Exclure les types d'étapes qui nécessitent une livraison/validation manuelle
+        // Ces étapes sont complétées via le système de quête (Chapter5Systems, etc.)
+        if (requiresManualCompletion(step.getType())) {
+            return;
+        }
+
         int currentProgress = getStepProgress(player, step);
         if (step.isCompleted(currentProgress)) {
             // Utiliser un délai court pour éviter les appels récursifs trop rapides
@@ -674,6 +683,22 @@ public class JourneyManager {
                 }
             }.runTaskLater(plugin, 5L);
         }
+    }
+
+    /**
+     * Vérifie si un type d'étape nécessite une complétion manuelle
+     * (livraison à un NPC, validation par interaction, etc.)
+     *
+     * @param type Le type d'étape
+     * @return true si l'étape ne doit pas être auto-complétée
+     */
+    private boolean requiresManualCompletion(JourneyStep.StepType type) {
+        return switch (type) {
+            // Quêtes avec livraison à un NPC
+            case LUMBER_DELIVERY, MUTANT_FROG_CAPTURE -> true;
+            // Autres types: auto-completion normale
+            default -> false;
+        };
     }
 
     /**
@@ -720,6 +745,53 @@ public class JourneyManager {
             var chapter5Systems = plugin.getChapter5Systems();
             if (chapter5Systems != null) {
                 chapter5Systems.onPlayerReachStep56(player);
+            }
+        }
+
+        // Étape 5.7: Chasse aux Grenouilles Mutantes - Activer le système de capture
+        if (step == JourneyStep.STEP_5_7) {
+            var chapter5Systems = plugin.getChapter5Systems();
+            if (chapter5Systems != null) {
+                chapter5Systems.onPlayerReachStep57(player);
+            }
+        }
+
+        // Étape 5.8: Énigmes de l'Oracle - Activer le système d'énigmes
+        if (step == JourneyStep.STEP_5_8) {
+            var chapter5Systems = plugin.getChapter5Systems();
+            if (chapter5Systems != null) {
+                chapter5Systems.onPlayerReachStep58(player);
+            }
+        }
+
+        // Étape 5.9: Mutations d'Ascension - Expliquer le système
+        if (step == JourneyStep.STEP_5_9) {
+            player.sendTitle("§d§l☣ ASCENSION ☣", "§7Débloque des mutations de combat", 10, 60, 20);
+
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                player.sendMessage("");
+                player.sendMessage("§8§m                                              ");
+                player.sendMessage("§d§l    ☣ MUTATIONS D'ASCENSION ☣");
+                player.sendMessage("§8§m                                              ");
+                player.sendMessage("");
+                player.sendMessage("§7Le système d'Ascension te permet de débloquer");
+                player.sendMessage("§7des §dmutations §7qui améliorent tes capacités.");
+                player.sendMessage("");
+                player.sendMessage("§e▸ §fTue des zombies pour remplir ta jauge (§7☣§f)");
+                player.sendMessage("§e▸ §fQuand elle est pleine, tape §e/as §fpour muter");
+                player.sendMessage("§e▸ §fChoisis parmi §d3 mutations §funiques");
+                player.sendMessage("");
+                player.sendMessage("§7Objectif: §dDébloque 3 mutations");
+                player.sendMessage("");
+                player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_WITHER_SPAWN, 0.5f, 1.5f);
+            }, 40L);
+        }
+
+        // Étape 5.10: Grenouille Géante du Marais - Activer le boss
+        if (step == JourneyStep.STEP_5_10) {
+            var chapter5Systems = plugin.getChapter5Systems();
+            if (chapter5Systems != null) {
+                chapter5Systems.onPlayerReachStep510(player);
             }
         }
 
