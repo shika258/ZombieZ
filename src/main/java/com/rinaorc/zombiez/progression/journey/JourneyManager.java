@@ -699,6 +699,14 @@ public class JourneyManager {
             }
         }
 
+        // Étape 5.3: Extraction Minière - Activer le système de minage
+        if (step == JourneyStep.STEP_5_3) {
+            var chapter5Systems = plugin.getChapter5Systems();
+            if (chapter5Systems != null) {
+                chapter5Systems.onPlayerReachStep53(player);
+            }
+        }
+
         // Pour les étapes d'exploration: reset les chunks explorés de la zone cible
         // Évite que les chunks visités AVANT le déblocage de l'étape soient comptés
         if (step.getType() == JourneyStep.StepType.ZONE_EXPLORATION) {
