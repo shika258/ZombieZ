@@ -677,7 +677,7 @@ public class AscensionManager {
     public String getActionBarProgress(Player player) {
         AscensionData data = getData(player);
         if (data == null) {
-            return "§8⬆0/50";
+            return "§8☣ 0/50";
         }
 
         int kills = data.getSessionKills().get();
@@ -690,9 +690,9 @@ public class AscensionManager {
         }
 
         if (data.getCurrentStage() >= 10) {
-            return "§6⬆MAX";
+            return "§6☣ MAX";
         }
 
-        return "§7⬆" + kills + "/" + nextStage;
+        return "§7☣ " + kills + "/" + nextStage;
     }
 }
