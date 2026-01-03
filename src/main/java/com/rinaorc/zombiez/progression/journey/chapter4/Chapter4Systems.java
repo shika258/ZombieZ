@@ -30,6 +30,7 @@ import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.boss.BarColor;
 import org.bukkit.boss.BarStyle;
 import org.bukkit.boss.BossBar;
@@ -319,6 +320,24 @@ public class Chapter4Systems implements Listener {
     private final Set<UUID> playersIntroducedToCrystal = ConcurrentHashMap.newKeySet();
     private final Set<UUID> playersAttackingCrystal = ConcurrentHashMap.newKeySet();
 
+    // === TASKS (pour cleanup propre) ===
+    private BukkitTask priestCheckerTask;
+    private BukkitTask graveVisibilityUpdaterTask;
+    private BukkitTask graveRespawnCheckerTask;
+    private BukkitTask mushroomCollectorCheckerTask;
+    private BukkitTask mushroomVisibilityUpdaterTask;
+    private BukkitTask mushroomRespawnCheckerTask;
+    private BukkitTask damnedSoulSpawnerTask;
+    private BukkitTask corruptionSourceVisibilityTask;
+    private BukkitTask corruptionSourceRespawnTask;
+    private BukkitTask swampPoisonTickerTask;
+    private BukkitTask orbVisibilityUpdaterTask;
+    private BukkitTask orbRespawnCheckerTask;
+    private BukkitTask alchemistCheckerTask;
+    private BukkitTask crystalRespawnTask;
+    private BukkitTask crystalRegenTask;
+    private BukkitTask crystalVisibilityTask;
+
     public Chapter4Systems(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.journeyManager = plugin.getJourneyManager();
@@ -564,7 +583,7 @@ public class Chapter4Systems implements Listener {
      * Utilise JourneyNPCManager pour la récupération/création automatique.
      */
     private void startPriestRespawnChecker() {
-        new BukkitRunnable() {
+        priestCheckerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -895,7 +914,7 @@ public class Chapter4Systems implements Listener {
      * Démarre le système de visibilité per-player pour les tombes
      */
     private void startGraveVisibilityUpdater() {
-        new BukkitRunnable() {
+        graveVisibilityUpdaterTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -986,7 +1005,7 @@ public class Chapter4Systems implements Listener {
      * Démarre le vérificateur de respawn des tombes
      */
     private void startGraveRespawnChecker() {
-        new BukkitRunnable() {
+        graveRespawnCheckerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -1449,7 +1468,7 @@ public class Chapter4Systems implements Listener {
      * Utilise JourneyNPCManager pour la récupération/création automatique.
      */
     private void startMushroomCollectorRespawnChecker() {
-        new BukkitRunnable() {
+        mushroomCollectorCheckerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -1605,7 +1624,7 @@ public class Chapter4Systems implements Listener {
      * Démarre le système de visibilité per-player pour les champignons
      */
     private void startMushroomVisibilityUpdater() {
-        new BukkitRunnable() {
+        mushroomVisibilityUpdaterTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -1688,7 +1707,7 @@ public class Chapter4Systems implements Listener {
      * Démarre le vérificateur de respawn des champignons
      */
     private void startMushroomRespawnChecker() {
-        new BukkitRunnable() {
+        mushroomRespawnCheckerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -2442,7 +2461,7 @@ public class Chapter4Systems implements Listener {
      * Spawn prioritaire si un joueur est à l'étape 4_6
      */
     private void startDamnedSoulSpawner(World world) {
-        new BukkitRunnable() {
+        damnedSoulSpawnerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 // Vérifier si des joueurs sont proches ET à l'étape 4_6
@@ -2929,7 +2948,7 @@ public class Chapter4Systems implements Listener {
      * Démarre le système de visibilité per-player pour les sources
      */
     private void startCorruptionSourceVisibilityUpdater() {
-        new BukkitRunnable() {
+        corruptionSourceVisibilityTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -3017,7 +3036,7 @@ public class Chapter4Systems implements Listener {
      * Démarre le vérificateur de respawn des sources
      */
     private void startCorruptionSourceRespawnChecker() {
-        new BukkitRunnable() {
+        corruptionSourceRespawnTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -3043,7 +3062,7 @@ public class Chapter4Systems implements Listener {
      * Démarre le système de poison dans le marais
      */
     private void startSwampPoisonChecker() {
-        new BukkitRunnable() {
+        swampPoisonTickerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 for (Player player : Bukkit.getOnlinePlayers()) {
@@ -3368,7 +3387,7 @@ public class Chapter4Systems implements Listener {
      * Démarre le système de mise à jour de visibilité des orbes
      */
     private void startOrbVisibilityUpdater() {
-        new BukkitRunnable() {
+        orbVisibilityUpdaterTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -3454,7 +3473,7 @@ public class Chapter4Systems implements Listener {
      * Vérifie et respawn les orbes si nécessaire
      */
     private void startOrbRespawnChecker() {
-        new BukkitRunnable() {
+        orbRespawnCheckerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -3788,7 +3807,7 @@ public class Chapter4Systems implements Listener {
      * Utilise JourneyNPCManager pour la récupération/création automatique.
      */
     private void startAlchemistNpcRespawnChecker() {
-        new BukkitRunnable() {
+        alchemistCheckerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -4151,7 +4170,7 @@ public class Chapter4Systems implements Listener {
      * REFACTORISÉ: Vérification globale pour éviter l'empilement
      */
     private void startCrystalRespawnChecker() {
-        new BukkitRunnable() {
+        crystalRespawnTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -4251,7 +4270,7 @@ public class Chapter4Systems implements Listener {
     private void startCrystalRegenSystem() {
         double regenPerTick = CRYSTAL_REGEN_PER_SECOND * (CRYSTAL_REGEN_INTERVAL / 20.0);
 
-        new BukkitRunnable() {
+        crystalRegenTask = new BukkitRunnable() {
             @Override
             public void run() {
                 // Pour chaque joueur qui attaque le cristal
@@ -4289,7 +4308,7 @@ public class Chapter4Systems implements Listener {
      * Démarre le système de mise à jour de visibilité du cristal
      */
     private void startCrystalVisibilityUpdater() {
-        new BukkitRunnable() {
+        crystalVisibilityTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -4571,5 +4590,82 @@ public class Chapter4Systems implements Listener {
         }
         int progress = journeyManager.getStepProgress(player, JourneyStep.STEP_4_10);
         return progress >= 1;
+    }
+
+    /**
+     * Nettoie toutes les ressources du chapitre 4
+     */
+    public void cleanup() {
+        // === ANNULATION DE TOUTES LES TASKS ===
+        if (priestCheckerTask != null && !priestCheckerTask.isCancelled()) {
+            priestCheckerTask.cancel();
+        }
+        if (graveVisibilityUpdaterTask != null && !graveVisibilityUpdaterTask.isCancelled()) {
+            graveVisibilityUpdaterTask.cancel();
+        }
+        if (graveRespawnCheckerTask != null && !graveRespawnCheckerTask.isCancelled()) {
+            graveRespawnCheckerTask.cancel();
+        }
+        if (mushroomCollectorCheckerTask != null && !mushroomCollectorCheckerTask.isCancelled()) {
+            mushroomCollectorCheckerTask.cancel();
+        }
+        if (mushroomVisibilityUpdaterTask != null && !mushroomVisibilityUpdaterTask.isCancelled()) {
+            mushroomVisibilityUpdaterTask.cancel();
+        }
+        if (mushroomRespawnCheckerTask != null && !mushroomRespawnCheckerTask.isCancelled()) {
+            mushroomRespawnCheckerTask.cancel();
+        }
+        if (damnedSoulSpawnerTask != null && !damnedSoulSpawnerTask.isCancelled()) {
+            damnedSoulSpawnerTask.cancel();
+        }
+        if (corruptionSourceVisibilityTask != null && !corruptionSourceVisibilityTask.isCancelled()) {
+            corruptionSourceVisibilityTask.cancel();
+        }
+        if (corruptionSourceRespawnTask != null && !corruptionSourceRespawnTask.isCancelled()) {
+            corruptionSourceRespawnTask.cancel();
+        }
+        if (swampPoisonTickerTask != null && !swampPoisonTickerTask.isCancelled()) {
+            swampPoisonTickerTask.cancel();
+        }
+        if (orbVisibilityUpdaterTask != null && !orbVisibilityUpdaterTask.isCancelled()) {
+            orbVisibilityUpdaterTask.cancel();
+        }
+        if (orbRespawnCheckerTask != null && !orbRespawnCheckerTask.isCancelled()) {
+            orbRespawnCheckerTask.cancel();
+        }
+        if (alchemistCheckerTask != null && !alchemistCheckerTask.isCancelled()) {
+            alchemistCheckerTask.cancel();
+        }
+        if (crystalRespawnTask != null && !crystalRespawnTask.isCancelled()) {
+            crystalRespawnTask.cancel();
+        }
+        if (crystalRegenTask != null && !crystalRegenTask.isCancelled()) {
+            crystalRegenTask.cancel();
+        }
+        if (crystalVisibilityTask != null && !crystalVisibilityTask.isCancelled()) {
+            crystalVisibilityTask.cancel();
+        }
+
+        // === NETTOYAGE DES DONNÉES JOUEURS ===
+        playersIntroducedToPriest.clear();
+        playersWhoCompletedPriestQuest.clear();
+        playerGravesCollected.clear();
+        playersIntroducedToMushroom.clear();
+        playersWhoCompletedMushroomQuest.clear();
+        playerMushroomsCollected.clear();
+        playersInSwampZone.clear();
+        playerSwampPoisonWarned.clear();
+        playersIntroducedToCreaking.clear();
+        playersWhoCompletedCreakingQuest.clear();
+        playerCollectedOrbs.clear();
+        playersIntroducedToAntidote.clear();
+        playersWhoDeliveredAntidote.clear();
+        playersIntroducedToCrystal.clear();
+        playersWhoDestroyedCrystal.clear();
+        playersAttackingCrystal.clear();
+        playerCrystalHealth.clear();
+        playerCrystalBossBar.clear();
+
+        plugin.log(Level.INFO, "§a✓ Chapter4Systems cleanup terminé");
     }
 }

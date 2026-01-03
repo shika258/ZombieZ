@@ -206,7 +206,7 @@ public enum JourneyStep {
         850, 25, Material.DARK_OAK_WOOD),
 
     STEP_5_7(JourneyChapter.CHAPTER_5, 7, "Chasse aux Grenouilles Mutantes",
-        "Zone marécageuse: §b380, 90, 8140", StepType.MUTANT_FROG_CAPTURE, 5,
+        "Zone marécageuse: §b334, 90, 8396", StepType.MUTANT_FROG_CAPTURE, 5,
         950, 30, Material.FROG_SPAWN_EGG),
 
     STEP_5_8(JourneyChapter.CHAPTER_5, 8, "Les Énigmes de l'Oracle",

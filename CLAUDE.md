@@ -163,6 +163,68 @@ if (minion != null) {
 6. ☐ Tracker sur `PlayerJoin` (restaurer progression)
 7. ☐ Cleanup sur `PlayerQuit` (nettoyer Maps/Sets)
 8. ☐ **Vérifier : AUCUN sendActionBar()**
+9. ☐ **Tracker TOUTES les BukkitTasks** (voir section ci-dessous)
+
+### ⏱️ RÈGLE CRITIQUE : Gestion des BukkitTasks (OBLIGATOIRE)
+
+> **Problème identifié :** Les `runTaskTimer()` non-trackées causent des fuites de tâches qui s'accumulent et provoquent des lags massifs (43% ChunkMap.newTrackerTick, 34% EntityTickList.forEach dans Spark).
+
+#### ✅ Pattern OBLIGATOIRE pour toute task récurrente :
+
+**1. Déclarer une variable `BukkitTask` pour CHAQUE task :**
+```java
+// === TASKS (pour cleanup propre) ===
+private BukkitTask myVisibilityUpdaterTask;
+private BukkitTask myRespawnCheckerTask;
+private BukkitTask mySpawnerTask;
+```
+
+**2. Assigner la task à la variable :**
+```java
+// ❌ MAUVAIS - Task orpheline, jamais annulée
+private void startMyUpdater() {
+    new BukkitRunnable() {
+        @Override
+        public void run() { /* ... */ }
+    }.runTaskTimer(plugin, 20L, 20L);
+}
+
+// ✅ BON - Task trackée
+private void startMyUpdater() {
+    myVisibilityUpdaterTask = new BukkitRunnable() {
+        @Override
+        public void run() { /* ... */ }
+    }.runTaskTimer(plugin, 20L, 20L);
+}
+```
+
+**3. Annuler dans `cleanup()` ou `shutdown()` :**
+```java
+public void cleanup() {
+    // === ANNULATION DE TOUTES LES TASKS ===
+    if (myVisibilityUpdaterTask != null && !myVisibilityUpdaterTask.isCancelled()) {
+        myVisibilityUpdaterTask.cancel();
+    }
+    if (myRespawnCheckerTask != null && !myRespawnCheckerTask.isCancelled()) {
+        myRespawnCheckerTask.cancel();
+    }
+    // ... toutes les autres tasks
+
+    // === NETTOYAGE DES DONNÉES JOUEURS ===
+    playersIntroducedTo.clear();
+    playersWhoCompleted.clear();
+    // ... tous les Maps/Sets
+}
+```
+
+#### 📊 Référence : Tasks par chapitre
+| Chapitre | Nombre de tasks | Fichier |
+|----------|-----------------|---------|
+| Chapter1 | 1 (auto-cancel) | `Chapter1Systems.java` |
+| Chapter2 | 3 | `Chapter2Systems.java` |
+| Chapter3 | 6 | `Chapter3Systems.java` |
+| Chapter4 | 16 | `Chapter4Systems.java` |
+| Chapter5 | 11 | `Chapter5Systems.java` |
 
 ---
 

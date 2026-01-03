@@ -542,6 +542,28 @@ public class ZombieManager {
                 entity.setGlowing(true);
             });
 
+            // ═══════════════════════════════════════════════════════════════════
+            // SWAMP FROG BOSS (Chapitre 5 Étape 10 - Boss Grenouille Géante)
+            // ═══════════════════════════════════════════════════════════════════
+            case SWAMP_FROG_BOSS -> location.getWorld().spawn(location, Frog.class, entity -> {
+                configureNonZombieEntity(entity, type, level, effectiveHealth, effectiveDamage, effectiveSpeed, effectiveName);
+                // Grenouille GÉANTE - Scale x5
+                var scaleAttr = entity.getAttribute(Attribute.SCALE);
+                if (scaleAttr != null) {
+                    scaleAttr.setBaseValue(5.0);
+                }
+                // Variante tempérée (verte)
+                entity.setVariant(Frog.Variant.TEMPERATE);
+                // Effets de boss
+                entity.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0, false, false));
+                entity.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 1, false, false));
+                // Glow vert pour l'identifier
+                entity.setGlowing(true);
+                // Boss ne disparaît pas
+                entity.setRemoveWhenFarAway(false);
+                entity.setPersistent(true);
+            });
+
             default -> location.getWorld().spawn(location, Zombie.class, entity -> {
                 configureZombieEntity(entity, type, level, effectiveHealth, effectiveDamage, effectiveSpeed, effectiveName);
             });

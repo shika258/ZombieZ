@@ -155,16 +155,16 @@ public class Chapter5Systems implements Listener {
     private static final float LUMBERJACK_PITCH = 0;
 
     // === CONFIGURATION GRENOUILLES (Étape 5.7) ===
-    // Zone de spawn des grenouilles: c1(419, 90, 8239) à c2(344, 89, 8040)
-    private static final int FROG_ZONE_MIN_X = 344;
-    private static final int FROG_ZONE_MAX_X = 419;
-    private static final int FROG_ZONE_MIN_Y = 89;
+    // Zone de spawn des grenouilles: c1(370, 90, 8361) à c2(299, 90, 8431)
+    private static final int FROG_ZONE_MIN_X = 299;
+    private static final int FROG_ZONE_MAX_X = 370;
+    private static final int FROG_ZONE_MIN_Y = 85;
     private static final int FROG_ZONE_MAX_Y = 95;
-    private static final int FROG_ZONE_MIN_Z = 8040;
-    private static final int FROG_ZONE_MAX_Z = 8239;
-    private static final int FROG_ZONE_CENTER_X = (FROG_ZONE_MIN_X + FROG_ZONE_MAX_X) / 2; // ~381
-    private static final int FROG_ZONE_CENTER_Y = (FROG_ZONE_MIN_Y + FROG_ZONE_MAX_Y) / 2; // ~92
-    private static final int FROG_ZONE_CENTER_Z = (FROG_ZONE_MIN_Z + FROG_ZONE_MAX_Z) / 2; // ~8140
+    private static final int FROG_ZONE_MIN_Z = 8361;
+    private static final int FROG_ZONE_MAX_Z = 8431;
+    private static final int FROG_ZONE_CENTER_X = (FROG_ZONE_MIN_X + FROG_ZONE_MAX_X) / 2; // ~334
+    private static final int FROG_ZONE_CENTER_Y = 90;
+    private static final int FROG_ZONE_CENTER_Z = (FROG_ZONE_MIN_Z + FROG_ZONE_MAX_Z) / 2; // ~8396
 
     private static final int TOTAL_FROGS = 8;           // Nombre de grenouilles à spawner
     private static final int FROGS_TO_CAPTURE = 5;      // Nombre de grenouilles requises pour compléter
@@ -222,6 +222,19 @@ public class Chapter5Systems implements Listener {
     private final Map<UUID, UUID> activeSalmons = new ConcurrentHashMap<>();
     private BukkitTask salmonSpawnTask;
 
+    // === TOUTES LES TASKS (pour cleanup propre) ===
+    private BukkitTask oreUpdaterTask;
+    private BukkitTask oreCheckerTask;
+    private BukkitTask suspectUpdaterTask;
+    private BukkitTask suspectCheckerTask;
+    private BukkitTask lumberUpdaterTask;
+    private BukkitTask lumberjackCheckerTask;
+    private BukkitTask frogUpdaterTask;
+    private BukkitTask biologistCheckerTask;
+    private BukkitTask oracleCheckerTask;
+    private BukkitTask bossSpawnCheckerTask;
+    private BukkitTask bossDisplayUpdaterTask;
+
     // === TRACKING MINERAIS ===
     // Joueurs actifs sur la quête de minage
     private final Set<UUID> activeMiningPlayers = ConcurrentHashMap.newKeySet();
@@ -265,9 +278,8 @@ public class Chapter5Systems implements Listener {
     private final Map<UUID, Integer> playerLumberInInventory = new ConcurrentHashMap<>();
 
     // === TRACKING GRENOUILLES (Étape 5.7) ===
-    // Grenouilles (ItemDisplay grenouille glowing + Interaction hitbox)
-    private final ItemDisplay[] frogVisuals = new ItemDisplay[TOTAL_FROGS];
-    private final Interaction[] frogHitboxes = new Interaction[TOTAL_FROGS];
+    // Grenouilles (vraies entités Frog avec glow)
+    private final Frog[] frogEntities = new Frog[TOTAL_FROGS];
     private final Location[] frogLocations = new Location[TOTAL_FROGS];
     // Biologiste NPC
     private Villager biologistNPC;
@@ -292,9 +304,12 @@ public class Chapter5Systems implements Listener {
 
     // === TRACKING BOSS GRENOUILLE (Étape 5.10) ===
     private NamespacedKey SWAMP_FROG_BOSS_KEY;
-    private Zombie swampFrogBossEntity;
+    private Frog swampFrogBossEntity;
     private TextDisplay swampFrogBossDisplay;
     private final Set<UUID> bossContributors = ConcurrentHashMap.newKeySet();
+    private boolean bossDisplayInitialized = false;
+    private static final String BOSS_NAME = "Grenouille Géante";
+    private static final double BOSS_DISPLAY_HEIGHT = 6.0; // Hauteur du display au-dessus du boss
     private boolean bossRespawnScheduled = false;
     private long bossRespawnTime = 0;
 
@@ -361,6 +376,7 @@ public class Chapter5Systems implements Listener {
                     // Système du boss Grenouille Géante
                     initializeSwampFrogBoss(world);
                     startBossRespawnChecker();
+                    startBossDisplayUpdater();
                 }
             }
         }.runTaskLater(plugin, 100L);
@@ -378,25 +394,67 @@ public class Chapter5Systems implements Listener {
                     return;
                 }
 
+                // Vérifier si AU MOINS un joueur est réellement proche de la zone
+                boolean anyPlayerNearby = false;
+                World targetWorld = null;
+
                 for (UUID playerId : activeSalmonPlayers) {
                     Player player = plugin.getServer().getPlayer(playerId);
-                    if (player == null || !player.isOnline()) {
-                        continue;
+                    if (player != null && player.isOnline() && isPlayerNearSalmonZone(player)) {
+                        anyPlayerNearby = true;
+                        targetWorld = player.getWorld();
+                        break;
                     }
-
-                    if (!isPlayerNearSalmonZone(player)) {
-                        continue;
-                    }
-
-                    int currentSalmons = countActiveSalmons();
-                    if (currentSalmons >= MAX_SALMONS_IN_ZONE) {
-                        continue;
-                    }
-
-                    spawnSalmon(player.getWorld());
                 }
+
+                if (!anyPlayerNearby || targetWorld == null) {
+                    return;
+                }
+
+                // Compter les saumons une seule fois par tick (optimisation)
+                int currentSalmons = countActiveSalmons();
+
+                // Limite de sécurité absolue : si > 2x max, nettoyer les excédents
+                if (currentSalmons > MAX_SALMONS_IN_ZONE * 2) {
+                    plugin.getLogger().warning("[Chapter5] Trop de saumons détectés (" + currentSalmons + "), nettoyage...");
+                    cleanupExcessSalmons(targetWorld, MAX_SALMONS_IN_ZONE);
+                    return;
+                }
+
+                if (currentSalmons >= MAX_SALMONS_IN_ZONE) {
+                    return;
+                }
+
+                // Spawner UN SEUL saumon par tick (pas un par joueur)
+                spawnSalmon(targetWorld);
             }
         }.runTaskTimer(plugin, 20L, SPAWN_INTERVAL_TICKS);
+    }
+
+    /**
+     * Nettoie les saumons excédentaires dans la zone (sécurité anti-accumulation)
+     */
+    private void cleanupExcessSalmons(World world, int maxToKeep) {
+        Location zoneCenter = new Location(world, SALMON_ZONE_CENTER_X, SALMON_ZONE_Y, SALMON_ZONE_CENTER_Z);
+        List<Entity> salmonsToRemove = new java.util.ArrayList<>();
+
+        for (Entity entity : world.getNearbyEntities(zoneCenter, 80, 40, 80)) {
+            if (entity instanceof Salmon salmon) {
+                if (salmon.getPersistentDataContainer().has(QUEST_SALMON_KEY, PersistentDataType.BYTE)) {
+                    salmonsToRemove.add(salmon);
+                }
+            }
+        }
+
+        // Garder seulement maxToKeep, supprimer le reste
+        if (salmonsToRemove.size() > maxToKeep) {
+            for (int i = maxToKeep; i < salmonsToRemove.size(); i++) {
+                salmonsToRemove.get(i).remove();
+            }
+            plugin.getLogger().info("[Chapter5] " + (salmonsToRemove.size() - maxToKeep) + " saumons excédentaires supprimés.");
+        }
+
+        activeSalmons.clear();
     }
 
     private boolean isPlayerNearSalmonZone(Player player) {
@@ -406,18 +464,43 @@ public class Chapter5Systems implements Listener {
         return distanceSquared < 10000;
     }
 
+    /**
+     * Compte les saumons mutants RÉELLEMENT présents dans la zone via PDC.
+     * Cette méthode est robuste aux chunks non chargés car elle scanne
+     * uniquement les entités chargées dans la zone.
+     */
     private int countActiveSalmons() {
+        World world = plugin.getServer().getWorld("world");
+        if (world == null) {
+            return 0;
+        }
+
+        // Vérifier si le chunk de la zone est chargé
+        Location zoneCenter = new Location(world, SALMON_ZONE_CENTER_X, SALMON_ZONE_Y, SALMON_ZONE_CENTER_Z);
+        if (!zoneCenter.getChunk().isLoaded()) {
+            // Chunk non chargé = pas de joueur à proximité = pas besoin de spawner
+            return MAX_SALMONS_IN_ZONE; // Retourne max pour bloquer le spawn
+        }
+
         int count = 0;
-        Iterator<UUID> it = activeSalmons.keySet().iterator();
-        while (it.hasNext()) {
-            UUID salmonId = it.next();
-            Entity entity = plugin.getServer().getEntity(salmonId);
-            if (entity == null || !entity.isValid() || entity.isDead()) {
-                it.remove();
-            } else {
-                count++;
+        double radius = 60; // Rayon de recherche (zone + marge)
+
+        for (Entity entity : world.getNearbyEntities(zoneCenter, radius, 30, radius)) {
+            if (entity instanceof Salmon salmon) {
+                if (salmon.getPersistentDataContainer().has(QUEST_SALMON_KEY, PersistentDataType.BYTE)) {
+                    count++;
+                }
             }
         }
+
+        // Synchroniser la Map activeSalmons avec les entités réelles trouvées
+        // Nettoyer les entrées obsolètes
+        activeSalmons.keySet().removeIf(uuid -> {
+            Entity entity = plugin.getServer().getEntity(uuid);
+            // Retirer seulement si l'entité est confirmée morte, pas juste null
+            return entity != null && (!entity.isValid() || entity.isDead());
+        });
+
         return count;
     }
 
@@ -799,7 +882,7 @@ public class Chapter5Systems implements Listener {
      * Démarre le système de visibilité per-player pour les minerais
      */
     private void startOreVisibilityUpdater() {
-        new BukkitRunnable() {
+        oreUpdaterTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -890,7 +973,7 @@ public class Chapter5Systems implements Listener {
      * Démarre le vérificateur de respawn des minerais
      */
     private void startOreRespawnChecker() {
-        new BukkitRunnable() {
+        oreCheckerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -1337,7 +1420,7 @@ public class Chapter5Systems implements Listener {
      * Démarre le système de visibilité per-player pour les suspects
      */
     private void startSuspectVisibilityUpdater() {
-        new BukkitRunnable() {
+        suspectUpdaterTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -1409,7 +1492,7 @@ public class Chapter5Systems implements Listener {
      * Démarre le vérificateur de respawn des suspects
      */
     private void startSuspectRespawnChecker() {
-        new BukkitRunnable() {
+        suspectCheckerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -1898,7 +1981,7 @@ public class Chapter5Systems implements Listener {
      * Démarre le système de visibilité per-player pour les bois
      */
     private void startLumberVisibilityUpdater() {
-        new BukkitRunnable() {
+        lumberUpdaterTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -1977,7 +2060,7 @@ public class Chapter5Systems implements Listener {
      * Démarre le vérificateur de respawn des bois
      */
     private void startLumberRespawnChecker() {
-        new BukkitRunnable() {
+        lumberjackCheckerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -2088,14 +2171,20 @@ public class Chapter5Systems implements Listener {
     }
 
     /**
-     * Active le GPS vers le bûcheron
+     * Active le GPS vers le bûcheron avec destination custom
      */
     private void activateGPSToLumberjack(Player player) {
-        player.sendMessage("§e§l➤ §7GPS: §b" + (int) LUMBERJACK_X + ", " + (int) LUMBERJACK_Y + ", " + (int) LUMBERJACK_Z + " §7(Bûcheron Aldric)");
-        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1f);
+        player.sendMessage("§e§l➤ §7GPS mis à jour: §b" + (int) LUMBERJACK_X + ", " + (int) LUMBERJACK_Y + ", " + (int) LUMBERJACK_Z + " §7(Bûcheron Aldric)");
+        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.7f, 1.5f);
 
         var gpsManager = plugin.getGPSManager();
         if (gpsManager != null) {
+            // Définir la destination custom vers le bûcheron
+            World world = player.getWorld();
+            Location lumberjackLoc = new Location(world, LUMBERJACK_X, LUMBERJACK_Y, LUMBERJACK_Z);
+            gpsManager.setCustomDestination(player, lumberjackLoc);
+
+            // Activer/rafraîchir le GPS
             gpsManager.enableGPSSilently(player);
         }
     }
@@ -2277,6 +2366,12 @@ public class Chapter5Systems implements Listener {
         playerCollectedLumber.remove(playerId);
         playerLumberInInventory.remove(playerId);
 
+        // Nettoyer la destination GPS custom
+        var gpsManager = plugin.getGPSManager();
+        if (gpsManager != null) {
+            gpsManager.clearCustomDestination(player);
+        }
+
         // Cacher les bois
         hideAllLumberForPlayer(player);
 
@@ -2412,57 +2507,42 @@ public class Chapter5Systems implements Listener {
         Location loc = frogLocations[frogIndex];
         if (loc == null) return;
 
-        // Supprimer les anciens
-        if (frogVisuals[frogIndex] != null && frogVisuals[frogIndex].isValid()) {
-            frogVisuals[frogIndex].remove();
-        }
-        if (frogHitboxes[frogIndex] != null && frogHitboxes[frogIndex].isValid()) {
-            frogHitboxes[frogIndex].remove();
+        // Supprimer l'ancienne grenouille si existante
+        if (frogEntities[frogIndex] != null && frogEntities[frogIndex].isValid()) {
+            frogEntities[frogIndex].remove();
         }
 
-        // 1. Créer le VISUEL (ItemDisplay avec l'oeuf de grenouille glowing)
-        frogVisuals[frogIndex] = world.spawn(loc.clone(), ItemDisplay.class, display -> {
-            display.setItemStack(new ItemStack(Material.FROG_SPAWN_EGG));
+        // Spawner une vraie grenouille
+        frogEntities[frogIndex] = world.spawn(loc.clone(), Frog.class, frog -> {
+            // Configuration de base
+            frog.setAI(false);
+            frog.setInvulnerable(true);
+            frog.setSilent(true);
+            frog.setPersistent(false);
+            frog.setRemoveWhenFarAway(false);
+            frog.setCollidable(false);
 
-            // Taille légèrement plus grande
-            display.setTransformation(new Transformation(
-                    new Vector3f(0, 0, 0),
-                    new AxisAngle4f(0, 0, 0, 1),
-                    new Vector3f(1.2f, 1.2f, 1.2f),
-                    new AxisAngle4f(0, 0, 0, 1)));
+            // Variante aléatoire pour diversité visuelle
+            Frog.Variant[] variants = Frog.Variant.values();
+            frog.setVariant(variants[frogIndex % variants.length]);
 
-            display.setBillboard(Display.Billboard.CENTER);
+            // Glow effect vert pour les identifier
+            frog.setGlowing(true);
 
-            // Glow effect vert
-            display.setGlowing(true);
-            display.setGlowColorOverride(Color.fromRGB(50, 200, 50)); // Vert
-
-            display.setViewRange(FROG_VIEW_DISTANCE);
-            display.setVisibleByDefault(false);
-            display.setPersistent(false);
-            display.addScoreboardTag("chapter5_frog_visual");
-            display.addScoreboardTag("frog_visual_" + frogIndex);
-
-            // PDC
-            display.getPersistentDataContainer().set(FROG_VISUAL_KEY, PersistentDataType.INTEGER, frogIndex);
-        });
-
-        // 2. Créer l'entité INTERACTION (hitbox cliquable)
-        frogHitboxes[frogIndex] = world.spawn(loc.clone(), Interaction.class, interaction -> {
-            interaction.setInteractionWidth(1.2f);
-            interaction.setInteractionHeight(1.2f);
-            interaction.setResponsive(true);
+            // Nom custom pour les identifier
+            frog.customName(Component.text("§a§lGrenouille Mutante", NamedTextColor.GREEN));
+            frog.setCustomNameVisible(false);
 
             // Tags
-            interaction.addScoreboardTag("chapter5_frog_hitbox");
-            interaction.addScoreboardTag("frog_hitbox_" + frogIndex);
-            interaction.addScoreboardTag("zombiez_npc");
+            frog.addScoreboardTag("chapter5_frog");
+            frog.addScoreboardTag("frog_" + frogIndex);
+            frog.addScoreboardTag("zombiez_npc");
 
-            // PDC
-            interaction.getPersistentDataContainer().set(FROG_HITBOX_KEY, PersistentDataType.INTEGER, frogIndex);
+            // PDC pour l'index
+            frog.getPersistentDataContainer().set(FROG_VISUAL_KEY, PersistentDataType.INTEGER, frogIndex);
 
-            interaction.setVisibleByDefault(false);
-            interaction.setPersistent(false);
+            // Visibilité par défaut désactivée (géré per-player)
+            frog.setVisibleByDefault(false);
         });
     }
 
@@ -2553,7 +2633,7 @@ public class Chapter5Systems implements Listener {
      * Démarre le système de visibilité per-player pour les grenouilles
      */
     private void startFrogVisibilityUpdater() {
-        new BukkitRunnable() {
+        frogUpdaterTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -2587,29 +2667,20 @@ public class Chapter5Systems implements Listener {
         for (int i = 0; i < TOTAL_FROGS; i++) {
             boolean hasCaptured = captured.contains(i);
 
+            // Vérifier la validité de la grenouille
+            if (frogEntities[i] == null || !frogEntities[i].isValid()) {
+                continue;
+            }
+
             // Distance check
-            boolean inRange = false;
-            if (frogVisuals[i] != null && frogVisuals[i].isValid()) {
-                double distSq = player.getLocation().distanceSquared(frogVisuals[i].getLocation());
-                inRange = distSq <= FROG_VIEW_DISTANCE * FROG_VIEW_DISTANCE;
-            }
+            double distSq = player.getLocation().distanceSquared(frogEntities[i].getLocation());
+            boolean inRange = distSq <= FROG_VIEW_DISTANCE * FROG_VIEW_DISTANCE;
 
-            // Visual (grenouille)
-            if (frogVisuals[i] != null && frogVisuals[i].isValid()) {
-                if (hasCaptured || !inRange) {
-                    player.hideEntity(plugin, frogVisuals[i]);
-                } else {
-                    player.showEntity(plugin, frogVisuals[i]);
-                }
-            }
-
-            // Hitbox (Interaction)
-            if (frogHitboxes[i] != null && frogHitboxes[i].isValid()) {
-                if (hasCaptured || !inRange) {
-                    player.hideEntity(plugin, frogHitboxes[i]);
-                } else {
-                    player.showEntity(plugin, frogHitboxes[i]);
-                }
+            // Afficher ou cacher la grenouille
+            if (hasCaptured || !inRange) {
+                player.hideEntity(plugin, frogEntities[i]);
+            } else {
+                player.showEntity(plugin, frogEntities[i]);
             }
         }
     }
@@ -2619,11 +2690,8 @@ public class Chapter5Systems implements Listener {
      */
     private void hideAllFrogsForPlayer(Player player) {
         for (int i = 0; i < TOTAL_FROGS; i++) {
-            if (frogVisuals[i] != null && frogVisuals[i].isValid()) {
-                player.hideEntity(plugin, frogVisuals[i]);
-            }
-            if (frogHitboxes[i] != null && frogHitboxes[i].isValid()) {
-                player.hideEntity(plugin, frogHitboxes[i]);
+            if (frogEntities[i] != null && frogEntities[i].isValid()) {
+                player.hideEntity(plugin, frogEntities[i]);
             }
         }
     }
@@ -2632,7 +2700,7 @@ public class Chapter5Systems implements Listener {
      * Démarre le vérificateur de respawn des grenouilles
      */
     private void startFrogRespawnChecker() {
-        new BukkitRunnable() {
+        biologistCheckerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -2641,8 +2709,7 @@ public class Chapter5Systems implements Listener {
                 for (int i = 0; i < TOTAL_FROGS; i++) {
                     if (frogLocations[i] == null) continue;
 
-                    boolean needsRespawn = (frogVisuals[i] == null || !frogVisuals[i].isValid()) ||
-                            (frogHitboxes[i] == null || !frogHitboxes[i].isValid());
+                    boolean needsRespawn = frogEntities[i] == null || !frogEntities[i].isValid();
 
                     if (needsRespawn) {
                         spawnFrog(world, i);
@@ -3147,7 +3214,7 @@ public class Chapter5Systems implements Listener {
      * Démarre le vérificateur de respawn de l'Oracle
      */
     private void startOracleRespawnChecker() {
-        new BukkitRunnable() {
+        oracleCheckerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -3543,11 +3610,11 @@ public class Chapter5Systems implements Listener {
             handleBiologistDelivery(player);
         }
 
-        // Interaction avec une grenouille (hitbox)
-        if (clicked instanceof Interaction
-                && clicked.getPersistentDataContainer().has(FROG_HITBOX_KEY, PersistentDataType.INTEGER)) {
+        // Interaction avec une grenouille (vraie entité Frog)
+        if (clicked instanceof Frog frog
+                && frog.getPersistentDataContainer().has(FROG_VISUAL_KEY, PersistentDataType.INTEGER)) {
             event.setCancelled(true);
-            Integer frogIndex = clicked.getPersistentDataContainer().get(FROG_HITBOX_KEY, PersistentDataType.INTEGER);
+            Integer frogIndex = frog.getPersistentDataContainer().get(FROG_VISUAL_KEY, PersistentDataType.INTEGER);
             if (frogIndex != null) {
                 handleFrogInteraction(player, frogIndex);
             }
@@ -3914,7 +3981,7 @@ public class Chapter5Systems implements Listener {
      * Démarre le checker de respawn du boss
      */
     private void startBossRespawnChecker() {
-        new BukkitRunnable() {
+        bossSpawnCheckerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -3957,9 +4024,9 @@ public class Chapter5Systems implements Listener {
 
         // Chercher un boss existant dans le monde
         for (Entity entity : world.getNearbyEntities(loc, 50, 30, 50)) {
-            if (entity instanceof Zombie z
-                    && z.getPersistentDataContainer().has(SWAMP_FROG_BOSS_KEY, PersistentDataType.BYTE)) {
-                swampFrogBossEntity = z;
+            if (entity instanceof Frog f
+                    && f.getPersistentDataContainer().has(SWAMP_FROG_BOSS_KEY, PersistentDataType.BYTE)) {
+                swampFrogBossEntity = f;
                 return;
             }
         }
@@ -3974,7 +4041,7 @@ public class Chapter5Systems implements Listener {
             return;
         }
 
-        // Spawn via ZombieManager avec l'IA SwampFrogBossAI
+        // Spawn via ZombieManager (maintenant spawn un Frog)
         ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(ZombieType.SWAMP_FROG_BOSS, loc, BOSS_LEVEL);
 
         if (activeZombie == null) {
@@ -3983,29 +4050,28 @@ public class Chapter5Systems implements Listener {
         }
 
         Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
-        if (!(entity instanceof Zombie boss)) {
-            plugin.getLogger().warning("Boss Grenouille n'est pas un Zombie valide");
+        if (!(entity instanceof Frog boss)) {
+            plugin.getLogger().warning("Boss Grenouille n'est pas un Frog valide");
             return;
         }
 
         swampFrogBossEntity = boss;
 
-        // Appliquer les visuels
-        applySwampFrogBossVisuals(boss);
-
         // Marquer comme boss pour le tracking
         boss.getPersistentDataContainer().set(SWAMP_FROG_BOSS_KEY, PersistentDataType.BYTE, (byte) 1);
         boss.setPersistent(true);
+        boss.setCustomNameVisible(false); // On utilise le TextDisplay à la place
 
-        // Créer le TextDisplay au-dessus
-        spawnBossDisplay(world, loc);
+        // Initialiser le display
+        initializeBossDisplay(world);
 
         // Annoncer le spawn
         for (Player player : world.getPlayers()) {
             if (player.getLocation().distance(loc) < 80) {
                 player.sendMessage("");
-                player.sendMessage("§2§l🐸 Une Grenouille Géante émerge du marais!");
-                player.playSound(player.getLocation(), Sound.ENTITY_FROG_LONG_JUMP, 1.5f, 0.3f);
+                player.sendMessage("§2§l🐸 La Grenouille Géante émerge du marais!");
+                player.sendMessage("§7Cette créature mutante est la source de la corruption...");
+                player.playSound(player.getLocation(), Sound.ENTITY_FROG_LONG_JUMP, 2.0f, 0.3f);
                 player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.6f, 1.5f);
             }
         }
@@ -4014,54 +4080,131 @@ public class Chapter5Systems implements Listener {
     }
 
     /**
-     * Applique les visuels au boss
+     * Initialise le TextDisplay du boss (style Chapitre 2)
      */
-    private void applySwampFrogBossVisuals(Zombie boss) {
-        // Scale x4 (grenouille géante)
-        var scale = boss.getAttribute(org.bukkit.attribute.Attribute.SCALE);
-        if (scale != null) {
-            scale.setBaseValue(3.5);
+    private void initializeBossDisplay(World world) {
+        Location displayLoc = SWAMP_FROG_BOSS_LOCATION.clone();
+        displayLoc.setWorld(world);
+        displayLoc.add(0.5, BOSS_DISPLAY_HEIGHT, 0.5);
+
+        // Ne créer le display que si le chunk est chargé
+        if (!displayLoc.getChunk().isLoaded()) {
+            return;
         }
 
-        // Pas d'équipement (c'est une grenouille)
-        boss.getEquipment().clear();
+        // Si on a déjà un display valide, ne rien faire
+        if (swampFrogBossDisplay != null && swampFrogBossDisplay.isValid()) {
+            return;
+        }
 
-        // Couleur verte (effet de potion pour le glow)
-        boss.addPotionEffect(new org.bukkit.potion.PotionEffect(
-            org.bukkit.potion.PotionEffectType.GLOWING, Integer.MAX_VALUE, 0, false, false));
+        // Chercher un display existant (persisté après reboot)
+        for (Entity entity : world.getNearbyEntities(displayLoc, 20, 20, 20)) {
+            if (entity instanceof TextDisplay td && entity.getScoreboardTags().contains("swamp_frog_boss_display")) {
+                swampFrogBossDisplay = td;
+                return;
+            }
+        }
 
-        boss.setGlowing(true);
-        boss.setCustomNameVisible(true);
+        // Créer un nouveau display
+        swampFrogBossDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setAlignment(TextDisplay.TextAlignment.CENTER);
+            display.setShadowed(true);
+            display.setSeeThrough(false);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(180, 0, 60, 0));
+
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(3f, 3f, 3f),
+                    new AxisAngle4f(0, 0, 0, 1)));
+
+            display.setViewRange(100f);
+            display.addScoreboardTag("swamp_frog_boss_display");
+            display.setPersistent(true);
+
+            updateBossDisplayText(display, true, 0);
+        });
     }
 
     /**
-     * Crée le TextDisplay au-dessus du boss
+     * Met à jour le texte du display selon l'état du boss (style Chapitre 2)
      */
-    private void spawnBossDisplay(World world, Location loc) {
-        if (swampFrogBossDisplay != null && swampFrogBossDisplay.isValid()) {
-            swampFrogBossDisplay.remove();
+    private void updateBossDisplayText(TextDisplay display, boolean bossAlive, int respawnSeconds) {
+        if (display == null || !display.isValid()) return;
+
+        StringBuilder text = new StringBuilder();
+        text.append("§2§l🐸 ").append(BOSS_NAME).append(" §2§l🐸\n");
+
+        if (bossAlive && swampFrogBossEntity != null && swampFrogBossEntity.isValid()) {
+            // Boss vivant - afficher les HP
+            double currentHealth = swampFrogBossEntity.getHealth();
+            var maxHealthAttr = swampFrogBossEntity.getAttribute(org.bukkit.attribute.Attribute.MAX_HEALTH);
+            double maxHealth = maxHealthAttr != null ? maxHealthAttr.getValue() : 700;
+            int healthPercent = (int) ((currentHealth / maxHealth) * 100);
+
+            // Couleur selon le pourcentage de vie
+            String healthColor;
+            if (healthPercent > 50) {
+                healthColor = "§a"; // Vert
+            } else if (healthPercent > 25) {
+                healthColor = "§e"; // Jaune
+            } else {
+                healthColor = "§c"; // Rouge
+            }
+
+            text.append(healthColor).append("❤ ")
+                .append((int) currentHealth).append("§7/§f").append((int) maxHealth);
+        } else {
+            // Boss mort - afficher countdown de respawn
+            if (respawnSeconds > 0) {
+                text.append("§e⏱ Respawn dans: §f").append(respawnSeconds).append("s");
+            } else {
+                text.append("§7En attente de spawn...");
+            }
         }
 
-        Location displayLoc = loc.clone().add(0, 4.5, 0);
-        swampFrogBossDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
-            display.text(Component.text("🐸 ", NamedTextColor.GREEN)
-                .append(Component.text("GRENOUILLE GÉANTE", NamedTextColor.DARK_GREEN, TextDecoration.BOLD))
-                .append(Component.text(" 🐸", NamedTextColor.GREEN)));
-            display.setBillboard(Display.Billboard.CENTER);
-            display.setBackgroundColor(org.bukkit.Color.fromARGB(180, 0, 80, 0));
-            display.setSeeThrough(false);
-            display.setViewRange(48f);
+        display.text(Component.text(text.toString()));
+    }
 
-            Transformation transform = new Transformation(
-                new Vector3f(0, 0, 0),
-                new AxisAngle4f(0, 0, 0, 1),
-                new Vector3f(2.0f, 2.0f, 2.0f),
-                new AxisAngle4f(0, 0, 0, 1)
-            );
-            display.setTransformation(transform);
+    /**
+     * Démarre la tâche de mise à jour du display (style Chapitre 2)
+     */
+    private void startBossDisplayUpdater() {
+        bossDisplayUpdaterTask = new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
 
-            display.setPersistent(false);
-        });
+                Location bossLoc = SWAMP_FROG_BOSS_LOCATION.clone();
+                bossLoc.setWorld(world);
+
+                // Ne rien faire si aucun joueur n'est à proximité (100 blocs)
+                boolean playerNearby = world.getPlayers().stream()
+                        .anyMatch(p -> p.getLocation().distanceSquared(bossLoc) < 10000);
+                if (!playerNearby) {
+                    return;
+                }
+
+                // Recréer le display s'il est invalide
+                if (swampFrogBossDisplay == null || !swampFrogBossDisplay.isValid()) {
+                    initializeBossDisplay(world);
+                }
+
+                // Vérifier si le boss doit être respawné
+                boolean bossAlive = swampFrogBossEntity != null && swampFrogBossEntity.isValid() && !swampFrogBossEntity.isDead();
+                int respawnSeconds = 0;
+
+                if (!bossAlive && bossRespawnScheduled) {
+                    respawnSeconds = (int) Math.max(0, (bossRespawnTime - System.currentTimeMillis()) / 1000);
+                }
+
+                // Mettre à jour le texte du display
+                updateBossDisplayText(swampFrogBossDisplay, bossAlive, respawnSeconds);
+            }
+        }.runTaskTimer(plugin, 20L, 20L); // Update chaque seconde
     }
 
     /**
@@ -4095,7 +4238,7 @@ public class Chapter5Systems implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onSwampFrogBossDamage(EntityDamageByEntityEvent event) {
-        if (!(event.getEntity() instanceof Zombie boss)) return;
+        if (!(event.getEntity() instanceof Frog boss)) return;
         if (!boss.getPersistentDataContainer().has(SWAMP_FROG_BOSS_KEY, PersistentDataType.BYTE)) return;
 
         Player damager = null;
@@ -4116,7 +4259,7 @@ public class Chapter5Systems implements Listener {
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onSwampFrogBossDeath(EntityDeathEvent event) {
-        if (!(event.getEntity() instanceof Zombie boss)) return;
+        if (!(event.getEntity() instanceof Frog boss)) return;
         if (!boss.getPersistentDataContainer().has(SWAMP_FROG_BOSS_KEY, PersistentDataType.BYTE)) return;
 
         Location deathLoc = boss.getLocation();
@@ -4183,10 +4326,45 @@ public class Chapter5Systems implements Listener {
      * Nettoyage lors de la désactivation du plugin
      */
     public void cleanup() {
-        // Saumons
-        if (salmonSpawnTask != null) {
+        // === ANNULATION DE TOUTES LES TASKS ===
+        if (salmonSpawnTask != null && !salmonSpawnTask.isCancelled()) {
             salmonSpawnTask.cancel();
         }
+        if (oreUpdaterTask != null && !oreUpdaterTask.isCancelled()) {
+            oreUpdaterTask.cancel();
+        }
+        if (oreCheckerTask != null && !oreCheckerTask.isCancelled()) {
+            oreCheckerTask.cancel();
+        }
+        if (suspectUpdaterTask != null && !suspectUpdaterTask.isCancelled()) {
+            suspectUpdaterTask.cancel();
+        }
+        if (suspectCheckerTask != null && !suspectCheckerTask.isCancelled()) {
+            suspectCheckerTask.cancel();
+        }
+        if (lumberUpdaterTask != null && !lumberUpdaterTask.isCancelled()) {
+            lumberUpdaterTask.cancel();
+        }
+        if (lumberjackCheckerTask != null && !lumberjackCheckerTask.isCancelled()) {
+            lumberjackCheckerTask.cancel();
+        }
+        if (frogUpdaterTask != null && !frogUpdaterTask.isCancelled()) {
+            frogUpdaterTask.cancel();
+        }
+        if (biologistCheckerTask != null && !biologistCheckerTask.isCancelled()) {
+            biologistCheckerTask.cancel();
+        }
+        if (oracleCheckerTask != null && !oracleCheckerTask.isCancelled()) {
+            oracleCheckerTask.cancel();
+        }
+        if (bossSpawnCheckerTask != null && !bossSpawnCheckerTask.isCancelled()) {
+            bossSpawnCheckerTask.cancel();
+        }
+        if (bossDisplayUpdaterTask != null && !bossDisplayUpdaterTask.isCancelled()) {
+            bossDisplayUpdaterTask.cancel();
+        }
+
+        // Saumons
         cleanupPlayerSalmons();
         activeSalmonPlayers.clear();
 
@@ -4251,11 +4429,8 @@ public class Chapter5Systems implements Listener {
 
         // Grenouilles
         for (int i = 0; i < TOTAL_FROGS; i++) {
-            if (frogVisuals[i] != null && frogVisuals[i].isValid()) {
-                frogVisuals[i].remove();
-            }
-            if (frogHitboxes[i] != null && frogHitboxes[i].isValid()) {
-                frogHitboxes[i].remove();
+            if (frogEntities[i] != null && frogEntities[i].isValid()) {
+                frogEntities[i].remove();
             }
         }
         playerCapturedFrogs.clear();
