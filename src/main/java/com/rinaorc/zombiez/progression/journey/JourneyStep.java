@@ -201,6 +201,10 @@ public enum JourneyStep {
         "Maraisville: §b690, 90, 8220", StepType.INTERROGATE_TRAITOR, 6,
         750, 22, Material.CROSSBOW),
 
+    STEP_5_6(JourneyChapter.CHAPTER_5, 6, "Livraison de Bois",
+        "Zone forestière: §b522, 105, 8322", StepType.LUMBER_DELIVERY, 16,
+        850, 25, Material.DARK_OAK_WOOD),
+
     // ==================== CHAPITRE 6: SPÉCIALISATION ====================
 
     STEP_6_1(JourneyChapter.CHAPTER_6, 1, "Débloque 3 skills passifs",
@@ -492,6 +496,10 @@ public enum JourneyStep {
                 else if (current >= 5) yield "Tue le traître!";
                 else yield current + "/5 suspects interrogés";
             }
+            case LUMBER_DELIVERY -> {
+                if (current >= targetValue) yield "✓ Bois livré!";
+                else yield current + "/" + targetValue + " bois collecté";
+            }
         };
     }
 
@@ -695,7 +703,10 @@ public enum JourneyStep {
         MINE_ORES_QUEST("Mine les filons de minerais"),
 
         // Enquête du traître (Chapitre 5)
-        INTERROGATE_TRAITOR("Interroge les suspects et élimine le traître");
+        INTERROGATE_TRAITOR("Interroge les suspects et élimine le traître"),
+
+        // Livraison de bois (Chapitre 5)
+        LUMBER_DELIVERY("Collecte et livre du bois au bûcheron");
 
         private final String description;
 
