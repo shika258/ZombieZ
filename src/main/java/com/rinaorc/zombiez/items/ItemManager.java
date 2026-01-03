@@ -350,6 +350,9 @@ public class ItemManager {
     /**
      * Calcule les stats totales d'un joueur basées sur son équipement
      * Inclut le bonus de forge sur chaque pièce d'équipement
+     *
+     * IMPORTANT: Retourne une COPIE de la Map pour éviter les corruptions de cache
+     * Les appelants peuvent modifier la Map retournée sans affecter le cache
      */
     public Map<StatType, Double> calculatePlayerStats(Player player) {
         UUID playerUuid = player.getUniqueId();
@@ -357,7 +360,9 @@ public class ItemManager {
         // Vérifier le cache
         CachedPlayerStats cached = playerStatsCache.get(playerUuid);
         if (cached != null && !cached.isExpired()) {
-            return cached.stats;
+            // IMPORTANT: Retourner une COPIE pour éviter la corruption du cache
+            // quand les appelants font merge() ou put() sur la Map
+            return new EnumMap<>(cached.stats);
         }
 
         Map<StatType, Double> totalStats = new EnumMap<>(StatType.class);
@@ -408,7 +413,9 @@ public class ItemManager {
         // Mettre en cache (expire après 5 secondes)
         playerStatsCache.put(playerUuid, new CachedPlayerStats(totalStats));
 
-        return totalStats;
+        // Retourner une COPIE pour éviter que les modifications de l'appelant
+        // ne corrompent le cache (même comportement que le cas cache-hit)
+        return new EnumMap<>(totalStats);
     }
 
     /**
