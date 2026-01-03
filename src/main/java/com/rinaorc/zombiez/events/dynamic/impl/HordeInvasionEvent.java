@@ -751,6 +751,31 @@ public class HordeInvasionEvent extends DynamicEvent {
                 player.sendMessage("");
 
                 player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
+
+                // ============ ACHIEVEMENTS & JOURNEY D'ÉVÉNEMENTS ============
+                var playerData = plugin.getPlayerDataManager().getPlayer(uuid);
+                if (playerData != null) {
+                    // Incrémenter le compteur de participations aux événements
+                    playerData.incrementStat("events_completed");
+                    int eventsCompleted = (int) playerData.getStat("events_completed");
+
+                    // Achievements horde spécifiques
+                    var achievementManager = plugin.getAchievementManager();
+                    playerData.incrementStat("hordes_completed");
+                    int hordesCompleted = (int) playerData.getStat("hordes_completed");
+                    achievementManager.checkAndUnlock(player, "horde_breaker_1", hordesCompleted);
+                    achievementManager.checkAndUnlock(player, "horde_breaker_2", hordesCompleted);
+                    achievementManager.checkAndUnlock(player, "horde_destroyer", hordesCompleted);
+
+                    // Notifier le système de Parcours (Journey)
+                    if (plugin.getJourneyListener() != null) {
+                        plugin.getJourneyListener().onEventParticipation(player, eventsCompleted);
+                    }
+
+                    // Tracker missions
+                    plugin.getMissionManager().updateProgress(player,
+                        com.rinaorc.zombiez.progression.MissionManager.MissionTracker.EVENTS_PARTICIPATED, 1);
+                }
             }
         }
     }

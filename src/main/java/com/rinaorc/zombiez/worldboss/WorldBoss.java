@@ -1116,12 +1116,32 @@ public abstract class WorldBoss {
             }
         }
 
-        // Points pour tous les participants
+        // Points pour tous les participants + notification Journey
         long participantPoints = basePoints / 2;
         for (UUID uuid : damageDealt.keySet()) {
             Player participant = plugin.getServer().getPlayer(uuid);
-            if (participant != null && participant != topPlayer) {
-                plugin.getEconomyManager().addPoints(participant, participantPoints, "World Boss - Participation");
+            if (participant != null) {
+                // Points (sauf top player qui a déjà reçu)
+                if (participant != topPlayer) {
+                    plugin.getEconomyManager().addPoints(participant, participantPoints, "World Boss - Participation");
+                }
+
+                // ============ ACHIEVEMENTS & JOURNEY D'ÉVÉNEMENTS ============
+                var playerData = plugin.getPlayerDataManager().getPlayer(uuid);
+                if (playerData != null) {
+                    // Incrémenter le compteur de participations aux événements
+                    playerData.incrementStat("events_completed");
+                    int eventsCompleted = (int) playerData.getStat("events_completed");
+
+                    // Notifier le système de Parcours (Journey)
+                    if (plugin.getJourneyListener() != null) {
+                        plugin.getJourneyListener().onEventParticipation(participant, eventsCompleted);
+                    }
+
+                    // Tracker missions
+                    plugin.getMissionManager().updateProgress(participant,
+                        com.rinaorc.zombiez.progression.MissionManager.MissionTracker.EVENTS_PARTICIPATED, 1);
+                }
             }
         }
 
