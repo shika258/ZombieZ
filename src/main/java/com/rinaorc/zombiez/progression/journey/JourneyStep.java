@@ -209,6 +209,10 @@ public enum JourneyStep {
         "Zone marécageuse: §b380, 90, 8140", StepType.MUTANT_FROG_CAPTURE, 5,
         950, 30, Material.FROG_SPAWN_EGG),
 
+    STEP_5_8(JourneyChapter.CHAPTER_5, 8, "Les Énigmes de l'Oracle",
+        "Oracle des Marais: §b164, 96, 8149", StepType.RIDDLE_QUEST, 3,
+        1050, 35, Material.ENCHANTED_BOOK),
+
     // ==================== CHAPITRE 6: SPÉCIALISATION ====================
 
     STEP_6_1(JourneyChapter.CHAPTER_6, 1, "Débloque 3 skills passifs",
@@ -508,6 +512,10 @@ public enum JourneyStep {
                 if (current >= targetValue) yield "§e→ Livrez au biologiste!";
                 else yield current + "/" + targetValue + " grenouilles capturées";
             }
+            case RIDDLE_QUEST -> {
+                if (current >= targetValue) yield "✓ Énigmes résolues!";
+                else yield current + "/" + targetValue + " énigmes résolues";
+            }
         };
     }
 
@@ -717,7 +725,10 @@ public enum JourneyStep {
         LUMBER_DELIVERY("Collecte et livre du bois au bûcheron"),
 
         // Capture de grenouilles mutantes (Chapitre 5)
-        MUTANT_FROG_CAPTURE("Capture les grenouilles mutantes");
+        MUTANT_FROG_CAPTURE("Capture les grenouilles mutantes"),
+
+        // Énigmes de l'Oracle (Chapitre 5)
+        RIDDLE_QUEST("Résous les énigmes de l'Oracle");
 
         private final String description;
 

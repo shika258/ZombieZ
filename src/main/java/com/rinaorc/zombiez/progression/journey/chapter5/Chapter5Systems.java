@@ -68,6 +68,7 @@ public class Chapter5Systems implements Listener {
     private final NamespacedKey FROG_VISUAL_KEY;
     private final NamespacedKey FROG_HITBOX_KEY;
     private final NamespacedKey BIOLOGIST_NPC_KEY;
+    private final NamespacedKey ORACLE_NPC_KEY;
 
     // === ZONE DE PÊCHE (Étape 5.2) ===
     private static final int SALMON_ZONE_MIN_X = 798;
@@ -174,6 +175,15 @@ public class Chapter5Systems implements Listener {
     private static final float BIOLOGIST_YAW = 90;
     private static final float BIOLOGIST_PITCH = 0;
 
+    // === CONFIGURATION ÉNIGMES (Étape 5.8) ===
+    // Oracle NPC: 164.5, 96, 8149 avec yaw -90, pitch 0
+    private static final double ORACLE_X = 164.5;
+    private static final double ORACLE_Y = 96;
+    private static final double ORACLE_Z = 8149;
+    private static final float ORACLE_YAW = -90;
+    private static final float ORACLE_PITCH = 0;
+    private static final int TOTAL_RIDDLES = 3;  // Nombre d'énigmes à résoudre
+
     // Types de minerais avec leurs couleurs de glow
     private enum OreType {
         REDSTONE(Material.REDSTONE_ORE, Color.RED, "§cRedstone"),
@@ -263,6 +273,15 @@ public class Chapter5Systems implements Listener {
     // GUI du mini-jeu de capture
     private FrogCaptureGUI frogCaptureGUI;
 
+    // === TRACKING ÉNIGMES (Étape 5.8) ===
+    // Oracle NPC
+    private Villager oracleNPC;
+    private TextDisplay oracleDisplay;
+    // Joueurs actifs sur la quête des énigmes
+    private final Set<UUID> activeRiddlePlayers = ConcurrentHashMap.newKeySet();
+    // Énigme actuelle par joueur (0, 1, 2)
+    private final Map<UUID, Integer> playerCurrentRiddle = new ConcurrentHashMap<>();
+
     public Chapter5Systems(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.journeyManager = plugin.getJourneyManager();
@@ -279,6 +298,7 @@ public class Chapter5Systems implements Listener {
         this.FROG_VISUAL_KEY = new NamespacedKey(plugin, "quest_frog_visual_ch5");
         this.FROG_HITBOX_KEY = new NamespacedKey(plugin, "quest_frog_hitbox_ch5");
         this.BIOLOGIST_NPC_KEY = new NamespacedKey(plugin, "quest_biologist_ch5");
+        this.ORACLE_NPC_KEY = new NamespacedKey(plugin, "quest_oracle_ch5");
 
         // Initialiser le GUI du mini-jeu de grenouilles
         this.frogCaptureGUI = new FrogCaptureGUI(plugin);
@@ -316,6 +336,10 @@ public class Chapter5Systems implements Listener {
                     initializeBiologist(world);
                     startFrogVisibilityUpdater();
                     startFrogRespawnChecker();
+
+                    // Système des énigmes
+                    initializeOracle(world);
+                    startOracleRespawnChecker();
                 }
             }
         }.runTaskLater(plugin, 100L);
@@ -1161,6 +1185,13 @@ public class Chapter5Systems implements Listener {
      */
     public void onPlayerReachStep57(Player player) {
         activateFrogQuest(player);
+    }
+
+    /**
+     * Appelé quand un joueur arrive à l'étape STEP_5_8
+     */
+    public void onPlayerReachStep58(Player player) {
+        activateRiddleQuest(player);
     }
 
     // ==================== SYSTÈME DU TRAÎTRE (Étape 5.5) ====================
@@ -2977,6 +3008,443 @@ public class Chapter5Systems implements Listener {
         journeyManager.createOrUpdateBossBar(player);
     }
 
+    // ==================== SYSTÈME DES ÉNIGMES DE L'ORACLE (Étape 5.8) ====================
+
+    /**
+     * Structure d'une énigme
+     */
+    private record Riddle(String question, String[] choices, int correctAnswer, String explanation) {}
+
+    /**
+     * Les 3 énigmes de l'Oracle (adaptées à des joueurs de 12 ans, thème ZombieZ)
+     */
+    private static final Riddle[] RIDDLES = {
+        new Riddle(
+            "§e\"Je suis mort mais je marche encore,\n§eje cherche les vivants pour les dévorer.\n§eQue suis-je?\"",
+            new String[]{"§aUn Zombie", "§7Un Fantôme", "§7Un Squelette", "§7Un Vampire"},
+            0,
+            "§7Les zombies sont des morts-vivants qui errent à la recherche de chair fraîche!"
+        ),
+        new Riddle(
+            "§e\"Je repousse les ténèbres et protège\n§eles survivants des dangers de la nuit.\n§eQue suis-je?\"",
+            new String[]{"§7Une Épée", "§aUne Torche", "§7Un Bouclier", "§7Une Armure"},
+            1,
+            "§7La lumière des torches empêche les zombies d'apparaître près des survivants!"
+        ),
+        new Riddle(
+            "§e\"Dans l'apocalypse zombie, les survivants\n§ese rassemblent en un lieu sûr.\n§eComment appelle-t-on cet endroit?\"",
+            new String[]{"§7Une Forêt", "§7Une Grotte", "§aUn Refuge", "§7Un Marais"},
+            2,
+            "§7Le refuge est l'endroit où les survivants sont en sécurité!"
+        )
+    };
+
+    /**
+     * Initialise l'Oracle NPC
+     */
+    private void initializeOracle(World world) {
+        Location loc = new Location(world, ORACLE_X, ORACLE_Y, ORACLE_Z, ORACLE_YAW, ORACLE_PITCH);
+
+        // Chercher si l'Oracle existe déjà
+        for (Entity entity : world.getNearbyEntities(loc, 5, 5, 5)) {
+            if (entity instanceof Villager v && v.getPersistentDataContainer().has(ORACLE_NPC_KEY, PersistentDataType.BYTE)) {
+                oracleNPC = v;
+                // Chercher aussi le display
+                for (Entity displayEntity : world.getNearbyEntities(loc.clone().add(0, 2.5, 0), 2, 2, 2)) {
+                    if (displayEntity instanceof TextDisplay td && td.getScoreboardTags().contains("chapter5_oracle_display")) {
+                        oracleDisplay = td;
+                        break;
+                    }
+                }
+                plugin.getLogger().info("[Chapter5Systems] Oracle existant trouvé");
+                return;
+            }
+        }
+
+        // Créer l'Oracle
+        oracleNPC = world.spawn(loc, Villager.class, villager -> {
+            villager.customName(Component.text("§5§lOracle des Marais").decorate(TextDecoration.BOLD));
+            villager.setCustomNameVisible(false);
+            villager.setAI(false);
+            villager.setInvulnerable(true);
+            villager.setSilent(true);
+            villager.setPersistent(true);
+            villager.setRemoveWhenFarAway(false);
+            villager.setCollidable(false);
+
+            villager.setProfession(Villager.Profession.CLERIC);
+            villager.setVillagerLevel(5);
+
+            // Tags
+            villager.addScoreboardTag("chapter5_oracle");
+            villager.addScoreboardTag("zombiez_npc");
+
+            // PDC
+            villager.getPersistentDataContainer().set(ORACLE_NPC_KEY, PersistentDataType.BYTE, (byte) 1);
+
+            // Visible par défaut
+            villager.setVisibleByDefault(true);
+        });
+
+        // Créer le TextDisplay au-dessus
+        Location displayLoc = loc.clone().add(0, 2.5, 0);
+        oracleDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
+            display.text(Component.text()
+                    .append(Component.text("✦ ", NamedTextColor.DARK_PURPLE))
+                    .append(Component.text("Oracle des Marais", NamedTextColor.DARK_PURPLE, TextDecoration.BOLD))
+                    .append(Component.text(" ✦", NamedTextColor.DARK_PURPLE))
+                    .append(Component.newline())
+                    .append(Component.text("§7Gardien des Savoirs Anciens", NamedTextColor.GRAY))
+                    .append(Component.newline())
+                    .append(Component.text("▶ Clic droit pour les énigmes", NamedTextColor.GRAY))
+                    .build());
+
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setAlignment(TextDisplay.TextAlignment.CENTER);
+            display.setShadowed(true);
+            display.setSeeThrough(false);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(120, 0, 0, 0));
+
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(1.2f, 1.2f, 1.2f),
+                    new AxisAngle4f(0, 0, 0, 1)));
+
+            display.setViewRange(0.3f);
+            display.setPersistent(true);
+            display.addScoreboardTag("chapter5_oracle_display");
+
+            display.setVisibleByDefault(true);
+        });
+
+        plugin.getLogger().info("[Chapter5Systems] Oracle des Marais initialisé");
+    }
+
+    /**
+     * Démarre le vérificateur de respawn de l'Oracle
+     */
+    private void startOracleRespawnChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                if (oracleNPC == null || !oracleNPC.isValid()) {
+                    initializeOracle(world);
+                }
+            }
+        }.runTaskTimer(plugin, 200L, 200L);
+    }
+
+    /**
+     * Vérifie si un joueur est sur la quête des énigmes
+     */
+    private boolean isPlayerOnRiddleQuest(Player player) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        return currentStep == JourneyStep.STEP_5_8;
+    }
+
+    /**
+     * Vérifie si un joueur a terminé la quête des énigmes
+     */
+    private boolean hasPlayerCompletedRiddleQuest(Player player) {
+        return journeyManager.isStepCompleted(player, JourneyStep.STEP_5_8);
+    }
+
+    /**
+     * Active la quête des énigmes pour un joueur
+     */
+    public void activateRiddleQuest(Player player) {
+        UUID playerId = player.getUniqueId();
+
+        // Initialiser le tracking
+        activeRiddlePlayers.add(playerId);
+        playerCurrentRiddle.put(playerId, 0);
+
+        // Afficher l'introduction
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.isOnline()) return;
+
+                // Title d'introduction
+                player.sendTitle(
+                    "§5✦ §d§lLES ÉNIGMES DE L'ORACLE §5✦",
+                    "§7Prouvez votre sagesse!",
+                    10, 60, 20
+                );
+
+                // Son mystique
+                player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1.0f, 0.8f);
+
+                // Message de briefing
+                player.sendMessage("");
+                player.sendMessage("§5§l══════ LES ÉNIGMES DE L'ORACLE ══════");
+                player.sendMessage("");
+                player.sendMessage("§7L'§5§lOracle des Marais §7détient des savoirs anciens");
+                player.sendMessage("§7sur la survie face aux morts-vivants...");
+                player.sendMessage("");
+                player.sendMessage("§e▸ §fRésolvez §c" + TOTAL_RIDDLES + " énigmes §fpour prouver votre valeur");
+                player.sendMessage("§e▸ §fParlez à l'§5Oracle §fpour commencer");
+                player.sendMessage("§e▸ §fChoisissez la bonne réponse dans le menu");
+                player.sendMessage("");
+
+                // Activer le GPS vers l'Oracle
+                activateGPSToOracle(player);
+            }
+        }.runTaskLater(plugin, 20L);
+    }
+
+    /**
+     * Active le GPS vers l'Oracle
+     */
+    private void activateGPSToOracle(Player player) {
+        player.sendMessage("§e§l➤ §7GPS: §b" + (int) ORACLE_X + ", " + (int) ORACLE_Y + ", " + (int) ORACLE_Z + " §7(Oracle des Marais)");
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1f);
+
+        var gpsManager = plugin.getGPSManager();
+        if (gpsManager != null) {
+            gpsManager.enableGPSSilently(player);
+        }
+    }
+
+    /**
+     * Gère l'interaction avec l'Oracle
+     */
+    private void handleOracleInteraction(Player player) {
+        UUID playerId = player.getUniqueId();
+
+        // Vérifier si le joueur est sur la bonne étape
+        if (!isPlayerOnRiddleQuest(player)) {
+            player.sendMessage("");
+            player.sendMessage("§5§l[Oracle des Marais]");
+            player.sendMessage("§7\"Jeune voyageur... Les étoiles ne m'ont pas");
+            player.sendMessage("§7encore révélé ton destin. Reviens quand tu");
+            player.sendMessage("§7auras débloqué ma quête...\"");
+            player.sendMessage("");
+            player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 0.8f, 0.6f);
+            return;
+        }
+
+        // Vérifier si la quête est terminée
+        if (hasPlayerCompletedRiddleQuest(player)) {
+            player.sendMessage("");
+            player.sendMessage("§5§l[Oracle des Marais]");
+            player.sendMessage("§7\"Tu as prouvé ta sagesse, survivant.");
+            player.sendMessage("§7Que les anciens esprits te guident...\"");
+            player.sendMessage("");
+            player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 0.8f, 1.2f);
+            return;
+        }
+
+        // Obtenir l'énigme actuelle
+        int riddleIndex = playerCurrentRiddle.getOrDefault(playerId, 0);
+
+        if (riddleIndex >= TOTAL_RIDDLES) {
+            // Quête terminée
+            completeRiddleQuest(player);
+            return;
+        }
+
+        // Ouvrir le GUI de l'énigme
+        openRiddleGUI(player, riddleIndex);
+    }
+
+    /**
+     * Ouvre le GUI d'une énigme
+     */
+    private void openRiddleGUI(Player player, int riddleIndex) {
+        Riddle riddle = RIDDLES[riddleIndex];
+
+        // Créer l'inventaire (3 lignes)
+        Inventory gui = Bukkit.createInventory(null, 27,
+            Component.text("✦ Énigme " + (riddleIndex + 1) + "/" + TOTAL_RIDDLES + " ✦", NamedTextColor.DARK_PURPLE));
+
+        // Remplir le fond
+        ItemStack glass = createGlassPane(Material.PURPLE_STAINED_GLASS_PANE, " ");
+        for (int i = 0; i < 27; i++) {
+            gui.setItem(i, glass);
+        }
+
+        // Question au centre (slot 4)
+        ItemStack questionItem = new ItemStack(Material.ENCHANTED_BOOK);
+        var questionMeta = questionItem.getItemMeta();
+        if (questionMeta != null) {
+            questionMeta.displayName(Component.text("§5§l✦ L'Oracle demande... ✦").decoration(TextDecoration.ITALIC, false));
+            String[] lines = riddle.question().split("\n");
+            List<Component> lore = new ArrayList<>();
+            lore.add(Component.text("§8───────────────").decoration(TextDecoration.ITALIC, false));
+            for (String line : lines) {
+                lore.add(Component.text(line).decoration(TextDecoration.ITALIC, false));
+            }
+            lore.add(Component.text("§8───────────────").decoration(TextDecoration.ITALIC, false));
+            lore.add(Component.text("§7Choisissez la bonne réponse!").decoration(TextDecoration.ITALIC, false));
+            questionMeta.lore(lore);
+            questionItem.setItemMeta(questionMeta);
+        }
+        gui.setItem(4, questionItem);
+
+        // Les 4 choix (slots 10, 12, 14, 16)
+        int[] choiceSlots = {10, 12, 14, 16};
+        Material[] choiceMaterials = {Material.LIME_TERRACOTTA, Material.YELLOW_TERRACOTTA, Material.ORANGE_TERRACOTTA, Material.RED_TERRACOTTA};
+
+        for (int i = 0; i < 4; i++) {
+            ItemStack choiceItem = new ItemStack(choiceMaterials[i]);
+            var choiceMeta = choiceItem.getItemMeta();
+            if (choiceMeta != null) {
+                choiceMeta.displayName(Component.text(riddle.choices()[i]).decoration(TextDecoration.ITALIC, false));
+                choiceMeta.lore(List.of(
+                    Component.text("§7Cliquez pour répondre").decoration(TextDecoration.ITALIC, false)
+                ));
+                // Stocker l'index du choix dans le PDC
+                choiceMeta.getPersistentDataContainer().set(
+                    new NamespacedKey(plugin, "riddle_choice"),
+                    PersistentDataType.INTEGER,
+                    i
+                );
+                choiceItem.setItemMeta(choiceMeta);
+            }
+            gui.setItem(choiceSlots[i], choiceItem);
+        }
+
+        // Ouvrir le GUI
+        player.openInventory(gui);
+        player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 0.6f, 1.0f);
+    }
+
+    /**
+     * Crée un panneau de verre décoratif
+     */
+    private ItemStack createGlassPane(Material material, String name) {
+        ItemStack item = new ItemStack(material);
+        var meta = item.getItemMeta();
+        if (meta != null) {
+            meta.displayName(Component.text(name).decoration(TextDecoration.ITALIC, false));
+            item.setItemMeta(meta);
+        }
+        return item;
+    }
+
+    /**
+     * Gère le clic sur une réponse dans le GUI des énigmes
+     */
+    public void handleRiddleAnswer(Player player, int choiceIndex) {
+        UUID playerId = player.getUniqueId();
+
+        if (!isPlayerOnRiddleQuest(player) || hasPlayerCompletedRiddleQuest(player)) {
+            return;
+        }
+
+        int riddleIndex = playerCurrentRiddle.getOrDefault(playerId, 0);
+        if (riddleIndex >= TOTAL_RIDDLES) {
+            return;
+        }
+
+        Riddle riddle = RIDDLES[riddleIndex];
+
+        // Fermer le GUI
+        player.closeInventory();
+
+        if (choiceIndex == riddle.correctAnswer()) {
+            // Bonne réponse!
+            int newProgress = riddleIndex + 1;
+            playerCurrentRiddle.put(playerId, newProgress);
+            journeyManager.setStepProgress(player, JourneyStep.STEP_5_8, newProgress);
+
+            // Effets de succès
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.5f);
+            player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 0.8f, 1.2f);
+
+            // Message de l'Oracle
+            player.sendMessage("");
+            player.sendMessage("§5§l[Oracle des Marais]");
+            player.sendMessage("§a\"Excellente réponse, jeune sage!\"");
+            player.sendMessage(riddle.explanation());
+            player.sendMessage("");
+
+            // Title
+            player.sendTitle(
+                "§a✓ BONNE RÉPONSE!",
+                "§7Énigme " + newProgress + "/" + TOTAL_RIDDLES + " résolue",
+                10, 40, 10
+            );
+
+            // Mettre à jour la BossBar
+            journeyManager.createOrUpdateBossBar(player);
+
+            // Si toutes les énigmes sont résolues
+            if (newProgress >= TOTAL_RIDDLES) {
+                new BukkitRunnable() {
+                    @Override
+                    public void run() {
+                        if (player.isOnline()) {
+                            completeRiddleQuest(player);
+                        }
+                    }
+                }.runTaskLater(plugin, 40L);
+            } else {
+                // Indiquer de reparler à l'Oracle
+                player.sendMessage("§e▸ §fParlez à nouveau à l'§5Oracle §fpour la prochaine énigme!");
+            }
+        } else {
+            // Mauvaise réponse
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 0.8f);
+            player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_BASS, 1f, 0.5f);
+
+            // Message de l'Oracle
+            player.sendMessage("");
+            player.sendMessage("§5§l[Oracle des Marais]");
+            player.sendMessage("§c\"Hélas, ce n'est pas la bonne réponse...\"");
+            player.sendMessage("§7\"Réfléchis bien et réessaye, jeune voyageur.\"");
+            player.sendMessage("");
+
+            // Title
+            player.sendTitle(
+                "§c✗ MAUVAISE RÉPONSE",
+                "§7Réessayez en parlant à l'Oracle",
+                10, 40, 10
+            );
+        }
+    }
+
+    /**
+     * Termine la quête des énigmes
+     */
+    private void completeRiddleQuest(Player player) {
+        UUID playerId = player.getUniqueId();
+
+        // Nettoyer les données
+        activeRiddlePlayers.remove(playerId);
+        playerCurrentRiddle.remove(playerId);
+
+        // Compléter l'étape
+        journeyManager.completeStep(player, JourneyStep.STEP_5_8);
+
+        // Dialogue de l'Oracle
+        player.sendMessage("");
+        player.sendMessage("§5§l[Oracle des Marais]");
+        player.sendMessage("§d\"Tu as prouvé ta sagesse, survivant!");
+        player.sendMessage("§dLes anciens esprits reconnaissent ta valeur.");
+        player.sendMessage("§dQue ce savoir te guide dans les ténèbres...\"");
+        player.sendMessage("");
+
+        // Title de victoire
+        player.sendTitle(
+            "§5§l✦ QUÊTE TERMINÉE! ✦",
+            "§7L'Oracle reconnaît votre sagesse!",
+            10, 60, 20
+        );
+
+        // Effets
+        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+        player.playSound(player.getLocation(), Sound.BLOCK_ENCHANTMENT_TABLE_USE, 1.0f, 1.5f);
+        player.getWorld().spawnParticle(Particle.ENCHANT, player.getLocation().add(0, 1.5, 0), 100, 1, 1, 1, 0.5);
+        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 50, 1, 1, 1, 0.2);
+    }
+
     // ==================== ÉVÉNEMENTS ====================
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -3061,6 +3529,45 @@ public class Chapter5Systems implements Listener {
             Integer frogIndex = clicked.getPersistentDataContainer().get(FROG_HITBOX_KEY, PersistentDataType.INTEGER);
             if (frogIndex != null) {
                 handleFrogInteraction(player, frogIndex);
+            }
+        }
+
+        // Interaction avec l'Oracle
+        if (clicked instanceof Villager
+                && clicked.getPersistentDataContainer().has(ORACLE_NPC_KEY, PersistentDataType.BYTE)) {
+            event.setCancelled(true);
+            handleOracleInteraction(player);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH)
+    public void onInventoryClick(InventoryClickEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+
+        // Vérifier si c'est le GUI des énigmes
+        String title = event.getView().title().toString();
+        if (!title.contains("Énigme")) {
+            return;
+        }
+
+        event.setCancelled(true);
+
+        ItemStack clicked = event.getCurrentItem();
+        if (clicked == null || !clicked.hasItemMeta()) {
+            return;
+        }
+
+        // Vérifier si l'item a un choix de réponse
+        var meta = clicked.getItemMeta();
+        if (meta.getPersistentDataContainer().has(new NamespacedKey(plugin, "riddle_choice"), PersistentDataType.INTEGER)) {
+            Integer choiceIndex = meta.getPersistentDataContainer().get(
+                new NamespacedKey(plugin, "riddle_choice"),
+                PersistentDataType.INTEGER
+            );
+            if (choiceIndex != null) {
+                handleRiddleAnswer(player, choiceIndex);
             }
         }
     }
@@ -3318,6 +3825,24 @@ public class Chapter5Systems implements Listener {
                         activateGPSToBiologist(player);
                     }
                 }
+
+                // Quête des énigmes
+                if (currentStep == JourneyStep.STEP_5_8) {
+                    activeRiddlePlayers.add(player.getUniqueId());
+                    // Restaurer la progression si nécessaire
+                    int progress = journeyManager.getStepProgress(player, currentStep);
+                    playerCurrentRiddle.put(player.getUniqueId(), progress);
+
+                    int remaining = TOTAL_RIDDLES - progress;
+
+                    player.sendMessage("");
+                    player.sendMessage("§5§l[QUÊTE] §7Les Énigmes de l'Oracle en cours!");
+                    player.sendMessage("§e▸ §fProgression: §c" + progress + "/" + TOTAL_RIDDLES + " §fénigmes résolues");
+                    if (remaining > 0) {
+                        player.sendMessage("§e▸ §fRestant: §c" + remaining + " §fénigmes");
+                        activateGPSToOracle(player);
+                    }
+                }
             }
         }.runTaskLater(plugin, 40L);
     }
@@ -3349,6 +3874,10 @@ public class Chapter5Systems implements Listener {
         if (player != null && frogCaptureGUI.hasActiveGame(player)) {
             frogCaptureGUI.cancelGame(player);
         }
+
+        // Énigmes - on garde les données pour la reconnexion
+        activeRiddlePlayers.remove(playerId);
+        // Note: on ne supprime PAS playerCurrentRiddle pour que le joueur puisse reprendre
     }
 
     /**
@@ -3446,6 +3975,16 @@ public class Chapter5Systems implements Listener {
         if (frogCaptureGUI != null) {
             frogCaptureGUI.cleanup();
         }
+
+        // Oracle
+        if (oracleNPC != null && oracleNPC.isValid()) {
+            oracleNPC.remove();
+        }
+        if (oracleDisplay != null && oracleDisplay.isValid()) {
+            oracleDisplay.remove();
+        }
+        activeRiddlePlayers.clear();
+        playerCurrentRiddle.clear();
 
         plugin.getLogger().info("[Chapter5Systems] Cleanup effectué");
     }
