@@ -1228,17 +1228,30 @@ public class ZombieManager {
         if (table == null) return;
 
         // === CALCUL DU BONUS DE LUCK TOTAL ===
+        // Stats d'équipement (cappé à 50% dans ItemManager)
         double luckBonus = plugin.getItemManager().getPlayerStat(killer,
             com.rinaorc.zombiez.items.types.StatType.LUCK) / 100.0;
+
+        // === BONUS ASCENSION (mutations LUCK) ===
+        var ascensionManager = plugin.getAscensionManager();
+        if (ascensionManager != null) {
+            var ascData = ascensionManager.getData(killer);
+            if (ascData != null) {
+                // Récupérer le bonus LUCK des mutations (cappé à 25% max pour l'ascension)
+                double ascensionLuck = ascData.getCachedStatBonuses()
+                    .getOrDefault(com.rinaorc.zombiez.items.types.StatType.LUCK, 0.0);
+                luckBonus += Math.min(0.25, ascensionLuck / 100.0);
+            }
+        }
 
         // Bonus d'affix du zombie
         if (zombie.hasAffix()) {
             luckBonus += zombie.getAffix().getLootBonus();
         }
 
-        // === BONUS ÉLITE (+100% drop rate, +15% rare chance) ===
+        // === BONUS ÉLITE (+50% drop rate au lieu de +100%) ===
         if (zombie.isElite()) {
-            luckBonus += com.rinaorc.zombiez.zombies.elite.EliteManager.DROP_RATE_MULTIPLIER - 1.0; // +100%
+            luckBonus += 0.50; // Nerfé de +100% à +50%
             luckBonus += com.rinaorc.zombiez.zombies.elite.EliteManager.RARE_CHANCE_BONUS; // +15%
         }
 
@@ -1251,15 +1264,15 @@ public class ZombieManager {
             streak = plugin.getMomentumManager().getStreak(killer);
             inFever = plugin.getMomentumManager().isInFever(killer);
 
-            // Combo bonus: +0.5% par combo (max +20%)
-            luckBonus += Math.min(0.20, combo * 0.005);
+            // Combo bonus: +0.3% par combo (max +12%) - Nerfé
+            luckBonus += Math.min(0.12, combo * 0.003);
 
-            // Streak bonus: +0.25% par streak (max +12.5%)
-            luckBonus += Math.min(0.125, streak * 0.0025);
+            // Streak bonus: +0.15% par streak (max +7.5%) - Nerfé
+            luckBonus += Math.min(0.075, streak * 0.0015);
 
-            // FEVER bonus: +35% de luck
+            // FEVER bonus: +20% de luck - Nerfé de 35% à 20%
             if (inFever) {
-                luckBonus += 0.35;
+                luckBonus += 0.20;
             }
         }
 
@@ -1267,8 +1280,11 @@ public class ZombieManager {
         int killsNoDrop = killsWithoutDrop.getOrDefault(playerId, 0);
         boolean forceDrop = killsNoDrop >= PITY_THRESHOLD;
 
-        // Bonus progressif de pity (+2% par kill sans drop)
-        luckBonus += killsNoDrop * PITY_BONUS_PER_KILL;
+        // Bonus progressif de pity (+1.5% par kill sans drop) - Nerfé de 2% à 1.5%
+        luckBonus += killsNoDrop * 0.015;
+
+        // === CAP FINAL SUR LE LUCK BONUS (max +150% = x2.5 drop chance) ===
+        luckBonus = Math.min(1.50, luckBonus);
 
         // === GÉNÉRATION DU LOOT ===
         var items = table.generateLoot(zoneId, luckBonus);

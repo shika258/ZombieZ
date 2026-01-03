@@ -305,7 +305,7 @@ public enum Mutation {
         MutationStrain.BUTIN,
         MutationTier.TIER_1,
         MutationEffect.STAT_BONUS,
-        Map.of(StatType.LUCK, 15.0)
+        Map.of(StatType.LUCK, 8.0) // Nerfé de 15% à 8%
     ),
 
     COLLECTEUR(
@@ -379,7 +379,7 @@ public enum Mutation {
         MutationStrain.BUTIN,
         MutationTier.TIER_3,
         MutationEffect.STAT_BONUS,
-        Map.of(StatType.LUCK, 25.0, StatType.DAMAGE_PERCENT, -10.0)
+        Map.of(StatType.LUCK, 12.0, StatType.DAMAGE_PERCENT, -10.0) // Nerfé de 25% à 12%
     ),
 
     COMBO_PAYANT(
@@ -416,7 +416,7 @@ public enum Mutation {
         MutationStrain.BUTIN,
         MutationTier.TIER_4,
         MutationEffect.STAT_BONUS,
-        Map.of(StatType.LUCK, 40.0, StatType.POINTS_BONUS, 30.0)
+        Map.of(StatType.LUCK, 18.0, StatType.POINTS_BONUS, 20.0) // Nerfé de 40%/30% à 18%/20%
     ),
 
     MAITRE_DU_MARCHE(

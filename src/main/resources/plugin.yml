@@ -195,11 +195,17 @@ commands:
     aliases: [mutation, daily]
 
   # Commandes Ascension
-  ascension:
+  as:
     description: Système d'Ascension (mutations de session)
     usage: /<command>
     permission: zombiez.ascension
-    aliases: [asc]
+    aliases: [ascension, asc]
+
+  asadmin:
+    description: Administration du système d'Ascension
+    usage: /<command> <reset|info> <joueur>
+    permission: zombiez.admin.ascension
+    aliases: [zzas, ascensionadmin]
 
   talent:
     description: Gestion des talents de classe
@@ -253,6 +259,7 @@ permissions:
       zombiez.admin.weather: true
       zombiez.admin.class: true
       zombiez.admin.economy: true
+      zombiez.admin.ascension: true
       zombiez.pet.admin: true
       zombiez.admin.leaderboard: true
 
@@ -286,6 +293,10 @@ permissions:
 
   zombiez.admin.awaken:
     description: Gestion du système d'éveils
+    default: op
+
+  zombiez.admin.ascension:
+    description: Administration du système d'Ascension
     default: op
 
   zombiez.admin.economy:
