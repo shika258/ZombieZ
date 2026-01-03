@@ -614,7 +614,7 @@ public class JourneyManager {
     /**
      * Complète une étape et passe à la suivante
      */
-    private void completeStep(Player player, JourneyStep step) {
+    public void completeStep(Player player, JourneyStep step) {
         PlayerData data = plugin.getPlayerDataManager().getPlayer(player);
         if (data == null) return;
 
