@@ -909,6 +909,11 @@ public class ZombieZPlugin extends JavaPlugin {
         getCommand("as").setExecutor(ascensionCmd);
         getCommand("as").setTabCompleter(ascensionCmd);
 
+        // Commandes Admin - Ascension
+        com.rinaorc.zombiez.ascension.commands.AscensionAdminCommand ascensionAdminCmd = new com.rinaorc.zombiez.ascension.commands.AscensionAdminCommand(this);
+        getCommand("asadmin").setExecutor(ascensionAdminCmd);
+        getCommand("asadmin").setTabCompleter(ascensionAdminCmd);
+
         // Commandes Joueur - Pets
         com.rinaorc.zombiez.pets.commands.PetCommand petCmd = new com.rinaorc.zombiez.pets.commands.PetCommand(this);
         getCommand("pet").setExecutor(petCmd);
