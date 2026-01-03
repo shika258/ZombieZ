@@ -17,9 +17,12 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.EntityDeathEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.inventory.ItemStack;
+import org.bukkit.scoreboard.Scoreboard;
+import org.bukkit.scoreboard.Team;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
 import org.bukkit.scheduler.BukkitTask;
@@ -57,6 +60,11 @@ public class Chapter5Systems implements Listener {
     private final NamespacedKey QUEST_SALMON_KEY;
     private final NamespacedKey ORE_VISUAL_KEY;
     private final NamespacedKey ORE_HITBOX_KEY;
+    private final NamespacedKey SUSPECT_NPC_KEY;
+    private final NamespacedKey TRAITOR_PILLAGER_KEY;
+    private final NamespacedKey LUMBER_VISUAL_KEY;
+    private final NamespacedKey LUMBER_HITBOX_KEY;
+    private final NamespacedKey LUMBERJACK_NPC_KEY;
 
     // === ZONE DE PÊCHE (Étape 5.2) ===
     private static final int SALMON_ZONE_MIN_X = 798;
@@ -90,6 +98,55 @@ public class Chapter5Systems implements Listener {
     private static final int HITS_TO_MINE = 8;          // Nombre de coups pour miner un minerai
     private static final float ORE_VIEW_DISTANCE = 48f; // Distance de vue des minerais
     private static final double ORE_DISPLAY_HEIGHT = 2.0; // Hauteur du TextDisplay au-dessus du minerai
+
+    // === CONFIGURATION TRAÎTRE (Étape 5.5) ===
+    private static final int TOTAL_SUSPECTS = 5;
+    private static final int TRAITOR_LEVEL = 12;
+    // Coordonnées des suspects: x, y, z, yaw, pitch
+    private static final double[][] SUSPECT_LOCATIONS = {
+        {678.5, 90, 8222.5, 180, 0},
+        {703.5, 94, 8202.5, -12, 10},
+        {741.5, 100, 8220.5, -140, 0},
+        {656.5, 97, 8195.5, 0, 0},
+        {719.5, 90, 8246.5, 0, 0}
+    };
+    private static final String[] SUSPECT_NAMES = {
+        "§e§lMarchand Louche",
+        "§e§lVoyageur Nerveux",
+        "§e§lGarde Silencieux",
+        "§e§lFermier Méfiant",
+        "§e§lÉtranger Masqué"
+    };
+    private static final String[] SUSPECT_DIALOGUES = {
+        "§7\"Je ne sais rien! Je ne fais que vendre mes potions...\"",
+        "§7\"Pourquoi me regardez-vous comme ça? Je suis juste de passage!\"",
+        "§7\"Les murs ont des oreilles ici... Faites attention.\"",
+        "§7\"La récolte a été mauvaise... mais un traître? Ici?\"",
+        "§7\"...\" §8*Il vous fixe en silence*"
+    };
+
+    // === CONFIGURATION BÛCHERONNAGE (Étape 5.6) ===
+    // Zone de spawn du bois: corner1 (551, 102, 8289) à corner2 (493, 108, 8355)
+    private static final int LUMBER_ZONE_MIN_X = 493;
+    private static final int LUMBER_ZONE_MAX_X = 551;
+    private static final int LUMBER_ZONE_MIN_Y = 102;
+    private static final int LUMBER_ZONE_MAX_Y = 108;
+    private static final int LUMBER_ZONE_MIN_Z = 8289;
+    private static final int LUMBER_ZONE_MAX_Z = 8355;
+    private static final int LUMBER_ZONE_CENTER_X = (LUMBER_ZONE_MIN_X + LUMBER_ZONE_MAX_X) / 2; // ~522
+    private static final int LUMBER_ZONE_CENTER_Y = (LUMBER_ZONE_MIN_Y + LUMBER_ZONE_MAX_Y) / 2; // ~105
+    private static final int LUMBER_ZONE_CENTER_Z = (LUMBER_ZONE_MIN_Z + LUMBER_ZONE_MAX_Z) / 2; // ~8322
+
+    private static final int TOTAL_LUMBER = 24;           // Nombre de bois à spawner
+    private static final int LUMBER_TO_COLLECT = 16;      // Nombre de bois requis pour compléter
+    private static final float LUMBER_VIEW_DISTANCE = 48f; // Distance de vue des bois
+
+    // Bûcheron NPC: 637.5, 87, 8244.5 avec yaw -45, pitch 0
+    private static final double LUMBERJACK_X = 637.5;
+    private static final double LUMBERJACK_Y = 87;
+    private static final double LUMBERJACK_Z = 8244.5;
+    private static final float LUMBERJACK_YAW = -45;
+    private static final float LUMBERJACK_PITCH = 0;
 
     // Types de minerais avec leurs couleurs de glow
     private enum OreType {
@@ -135,6 +192,34 @@ public class Chapter5Systems implements Listener {
     // Minerais minés par chaque joueur (Set des index)
     private final Map<UUID, Set<Integer>> playerMinedOres = new ConcurrentHashMap<>();
 
+    // === TRACKING TRAÎTRE (Étape 5.5) ===
+    // Suspects (Villagers glowing)
+    private final Villager[] suspectNPCs = new Villager[TOTAL_SUSPECTS];
+    private final TextDisplay[] suspectDisplays = new TextDisplay[TOTAL_SUSPECTS];
+    // Joueurs actifs sur la quête du traître
+    private final Set<UUID> activeTraitorPlayers = ConcurrentHashMap.newKeySet();
+    // Suspects interrogés par chaque joueur (Set des index)
+    private final Map<UUID, Set<Integer>> playerInterrogatedSuspects = new ConcurrentHashMap<>();
+    // Traître actif par joueur (UUID du Pillager spawné)
+    private final Map<UUID, UUID> playerActiveTraitors = new ConcurrentHashMap<>();
+    // Team pour le glow vert des suspects
+    private Team suspectGlowTeam;
+
+    // === TRACKING BÛCHERONNAGE (Étape 5.6) ===
+    // Bois (ItemDisplay bois glowing + Interaction hitbox)
+    private final ItemDisplay[] lumberVisuals = new ItemDisplay[TOTAL_LUMBER];
+    private final Interaction[] lumberHitboxes = new Interaction[TOTAL_LUMBER];
+    private final Location[] lumberLocations = new Location[TOTAL_LUMBER];
+    // Bûcheron NPC
+    private Villager lumberjackNPC;
+    private TextDisplay lumberjackDisplay;
+    // Joueurs actifs sur la quête de bûcheronnage
+    private final Set<UUID> activeLumberPlayers = ConcurrentHashMap.newKeySet();
+    // Bois collectés par chaque joueur (Set des index)
+    private final Map<UUID, Set<Integer>> playerCollectedLumber = new ConcurrentHashMap<>();
+    // Nombre de bois dans l'inventaire par joueur
+    private final Map<UUID, Integer> playerLumberInInventory = new ConcurrentHashMap<>();
+
     public Chapter5Systems(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.journeyManager = plugin.getJourneyManager();
@@ -143,6 +228,11 @@ public class Chapter5Systems implements Listener {
         this.QUEST_SALMON_KEY = new NamespacedKey(plugin, "quest_salmon_ch5");
         this.ORE_VISUAL_KEY = new NamespacedKey(plugin, "quest_ore_visual_ch5");
         this.ORE_HITBOX_KEY = new NamespacedKey(plugin, "quest_ore_hitbox_ch5");
+        this.SUSPECT_NPC_KEY = new NamespacedKey(plugin, "quest_suspect_ch5");
+        this.TRAITOR_PILLAGER_KEY = new NamespacedKey(plugin, "quest_traitor_ch5");
+        this.LUMBER_VISUAL_KEY = new NamespacedKey(plugin, "quest_lumber_visual_ch5");
+        this.LUMBER_HITBOX_KEY = new NamespacedKey(plugin, "quest_lumber_hitbox_ch5");
+        this.LUMBERJACK_NPC_KEY = new NamespacedKey(plugin, "quest_lumberjack_ch5");
 
         // Enregistrer les événements
         plugin.getServer().getPluginManager().registerEvents(this, plugin);
@@ -150,7 +240,7 @@ public class Chapter5Systems implements Listener {
         // Démarrer les systèmes
         startSalmonSpawnTask();
 
-        // Initialiser les minerais après un délai (attendre que le monde soit chargé)
+        // Initialiser les minerais et suspects après un délai (attendre que le monde soit chargé)
         new BukkitRunnable() {
             @Override
             public void run() {
@@ -159,6 +249,18 @@ public class Chapter5Systems implements Listener {
                     initializeOres(world);
                     startOreVisibilityUpdater();
                     startOreRespawnChecker();
+
+                    // Système du traître
+                    initializeSuspectGlowTeam();
+                    initializeSuspects(world);
+                    startSuspectVisibilityUpdater();
+                    startSuspectRespawnChecker();
+
+                    // Système de bûcheronnage
+                    initializeLumber(world);
+                    initializeLumberjack(world);
+                    startLumberVisibilityUpdater();
+                    startLumberRespawnChecker();
                 }
             }
         }.runTaskLater(plugin, 100L);
@@ -341,15 +443,6 @@ public class Chapter5Systems implements Listener {
         Location loc = entity.getLocation();
         killer.getWorld().spawnParticle(Particle.BUBBLE_POP, loc, 30, 0.5, 0.5, 0.5, 0.1);
         killer.playSound(killer.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f);
-
-        int remaining = 12 - newProgress;
-        if (remaining > 0) {
-            killer.sendTitle(
-                "§a\u2713 §fSaumon Pêché!",
-                "§7" + newProgress + "/12 - Plus que §c" + remaining + " §7saumons!",
-                5, 30, 10
-            );
-        }
 
         journeyManager.createOrUpdateBossBar(killer);
 
@@ -862,16 +955,6 @@ public class Chapter5Systems implements Listener {
         player.playSound(oreLoc, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.5f);
         player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, oreLoc, 15, 0.5, 0.5, 0.5, 0);
 
-        // Message de progression
-        int remaining = ORES_TO_MINE - newProgress;
-        if (remaining > 0) {
-            player.sendTitle(
-                "§a⛏ " + oreType.displayName + " §aExtrait!",
-                "§7" + newProgress + "/" + ORES_TO_MINE + " - Plus que §c" + remaining + " §7minerais!",
-                5, 30, 10
-            );
-        }
-
         // Mettre à jour la BossBar
         journeyManager.createOrUpdateBossBar(player);
 
@@ -1004,6 +1087,1134 @@ public class Chapter5Systems implements Listener {
         activateMiningQuest(player);
     }
 
+    /**
+     * Appelé quand un joueur arrive à l'étape STEP_5_5
+     */
+    public void onPlayerReachStep55(Player player) {
+        activateTraitorQuest(player);
+    }
+
+    /**
+     * Appelé quand un joueur arrive à l'étape STEP_5_6
+     */
+    public void onPlayerReachStep56(Player player) {
+        activateLumberQuest(player);
+    }
+
+    // ==================== SYSTÈME DU TRAÎTRE (Étape 5.5) ====================
+
+    /**
+     * Initialise la team pour le glow vert des suspects
+     */
+    private void initializeSuspectGlowTeam() {
+        Scoreboard scoreboard = Bukkit.getScoreboardManager().getMainScoreboard();
+        suspectGlowTeam = scoreboard.getTeam("ch5_suspects");
+        if (suspectGlowTeam == null) {
+            suspectGlowTeam = scoreboard.registerNewTeam("ch5_suspects");
+        }
+        suspectGlowTeam.color(NamedTextColor.GREEN);
+        suspectGlowTeam.setOption(Team.Option.NAME_TAG_VISIBILITY, Team.OptionStatus.NEVER);
+    }
+
+    /**
+     * Initialise les suspects dans le village
+     */
+    private void initializeSuspects(World world) {
+        for (int i = 0; i < TOTAL_SUSPECTS; i++) {
+            spawnSuspect(world, i);
+        }
+        plugin.getLogger().info("[Chapter5Systems] " + TOTAL_SUSPECTS + " suspects initialisés à Maraisville");
+    }
+
+    /**
+     * Spawn un suspect à l'index donné
+     */
+    private void spawnSuspect(World world, int suspectIndex) {
+        double[] coords = SUSPECT_LOCATIONS[suspectIndex];
+        Location loc = new Location(world, coords[0], coords[1], coords[2], (float) coords[3], (float) coords[4]);
+
+        // Supprimer l'ancien si existant
+        if (suspectNPCs[suspectIndex] != null && suspectNPCs[suspectIndex].isValid()) {
+            suspectGlowTeam.removeEntity(suspectNPCs[suspectIndex]);
+            suspectNPCs[suspectIndex].remove();
+        }
+        if (suspectDisplays[suspectIndex] != null && suspectDisplays[suspectIndex].isValid()) {
+            suspectDisplays[suspectIndex].remove();
+        }
+
+        final int index = suspectIndex;
+
+        // Créer le Villager suspect
+        suspectNPCs[suspectIndex] = world.spawn(loc, Villager.class, villager -> {
+            villager.customName(Component.text(SUSPECT_NAMES[index]));
+            villager.setCustomNameVisible(false); // On utilise TextDisplay
+            villager.setAI(false);
+            villager.setInvulnerable(true);
+            villager.setSilent(true);
+            villager.setPersistent(true);
+            villager.setRemoveWhenFarAway(false);
+            villager.setCollidable(false);
+
+            // Profession variée
+            Villager.Profession[] professions = {
+                Villager.Profession.CLERIC,
+                Villager.Profession.CARTOGRAPHER,
+                Villager.Profession.WEAPONSMITH,
+                Villager.Profession.FARMER,
+                Villager.Profession.NITWIT
+            };
+            villager.setProfession(professions[index]);
+            villager.setVillagerLevel(2);
+
+            // Glow vert
+            villager.setGlowing(true);
+
+            // Tags
+            villager.addScoreboardTag("chapter5_suspect");
+            villager.addScoreboardTag("suspect_" + index);
+            villager.addScoreboardTag("zombiez_npc");
+
+            // PDC
+            villager.getPersistentDataContainer().set(SUSPECT_NPC_KEY, PersistentDataType.INTEGER, index);
+
+            // Invisible par défaut
+            villager.setVisibleByDefault(false);
+        });
+
+        // Ajouter à la team pour le glow vert
+        if (suspectGlowTeam != null && suspectNPCs[suspectIndex] != null) {
+            suspectGlowTeam.addEntity(suspectNPCs[suspectIndex]);
+        }
+
+        // Créer le TextDisplay au-dessus
+        Location displayLoc = loc.clone().add(0, 2.5, 0);
+        suspectDisplays[suspectIndex] = world.spawn(displayLoc, TextDisplay.class, display -> {
+            display.text(Component.text()
+                    .append(Component.text("§e🔍 ", NamedTextColor.YELLOW))
+                    .append(Component.text(SUSPECT_NAMES[index].replace("§e§l", ""), NamedTextColor.GOLD, TextDecoration.BOLD))
+                    .append(Component.text(" §e🔍", NamedTextColor.YELLOW))
+                    .append(Component.newline())
+                    .append(Component.text("▶ Clic droit pour interroger", NamedTextColor.GRAY))
+                    .build());
+
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setAlignment(TextDisplay.TextAlignment.CENTER);
+            display.setShadowed(true);
+            display.setSeeThrough(false);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(120, 0, 0, 0));
+
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(1.2f, 1.2f, 1.2f),
+                    new AxisAngle4f(0, 0, 0, 1)));
+
+            display.setViewRange(0.3f);
+            display.setPersistent(true);
+            display.addScoreboardTag("chapter5_suspect_display");
+            display.addScoreboardTag("suspect_display_" + index);
+
+            display.setVisibleByDefault(false);
+        });
+    }
+
+    /**
+     * Démarre le système de visibilité per-player pour les suspects
+     */
+    private void startSuspectVisibilityUpdater() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    if (!player.getWorld().equals(world)) {
+                        hideAllSuspectsForPlayer(player);
+                        continue;
+                    }
+
+                    // Vérifier si le joueur est sur la quête et ne l'a pas terminée
+                    boolean shouldSeeSuspects = isPlayerOnTraitorQuest(player) && !hasPlayerCompletedTraitorQuest(player);
+
+                    if (shouldSeeSuspects) {
+                        updateSuspectVisibilityForPlayer(player);
+                    } else {
+                        hideAllSuspectsForPlayer(player);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 100L, 20L);
+    }
+
+    /**
+     * Met à jour la visibilité des suspects pour un joueur
+     */
+    private void updateSuspectVisibilityForPlayer(Player player) {
+        Set<Integer> interrogated = playerInterrogatedSuspects.getOrDefault(player.getUniqueId(), Set.of());
+
+        for (int i = 0; i < TOTAL_SUSPECTS; i++) {
+            boolean hasInterrogated = interrogated.contains(i);
+
+            // Villager
+            if (suspectNPCs[i] != null && suspectNPCs[i].isValid()) {
+                if (hasInterrogated) {
+                    player.hideEntity(plugin, suspectNPCs[i]);
+                } else {
+                    player.showEntity(plugin, suspectNPCs[i]);
+                }
+            }
+
+            // TextDisplay
+            if (suspectDisplays[i] != null && suspectDisplays[i].isValid()) {
+                if (hasInterrogated) {
+                    player.hideEntity(plugin, suspectDisplays[i]);
+                } else {
+                    player.showEntity(plugin, suspectDisplays[i]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Cache tous les suspects pour un joueur
+     */
+    private void hideAllSuspectsForPlayer(Player player) {
+        for (int i = 0; i < TOTAL_SUSPECTS; i++) {
+            if (suspectNPCs[i] != null && suspectNPCs[i].isValid()) {
+                player.hideEntity(plugin, suspectNPCs[i]);
+            }
+            if (suspectDisplays[i] != null && suspectDisplays[i].isValid()) {
+                player.hideEntity(plugin, suspectDisplays[i]);
+            }
+        }
+    }
+
+    /**
+     * Démarre le vérificateur de respawn des suspects
+     */
+    private void startSuspectRespawnChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                for (int i = 0; i < TOTAL_SUSPECTS; i++) {
+                    boolean needsRespawn = (suspectNPCs[i] == null || !suspectNPCs[i].isValid()) ||
+                            (suspectDisplays[i] == null || !suspectDisplays[i].isValid());
+
+                    if (needsRespawn) {
+                        spawnSuspect(world, i);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 200L, 200L);
+    }
+
+    /**
+     * Vérifie si un joueur est sur la quête du traître
+     */
+    private boolean isPlayerOnTraitorQuest(Player player) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        return currentStep == JourneyStep.STEP_5_5;
+    }
+
+    /**
+     * Vérifie si un joueur a terminé la quête du traître
+     */
+    private boolean hasPlayerCompletedTraitorQuest(Player player) {
+        return journeyManager.isStepCompleted(player, JourneyStep.STEP_5_5);
+    }
+
+    /**
+     * Active la quête du traître pour un joueur
+     */
+    public void activateTraitorQuest(Player player) {
+        UUID playerId = player.getUniqueId();
+
+        // Initialiser le tracking
+        playerInterrogatedSuspects.put(playerId, ConcurrentHashMap.newKeySet());
+        activeTraitorPlayers.add(playerId);
+
+        // Afficher l'introduction
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.isOnline()) return;
+
+                // Title d'introduction
+                player.sendTitle(
+                    "§c⚔ §4§lTRAQUE DU TRAÎTRE §c⚔",
+                    "§7Un espion se cache parmi les habitants...",
+                    10, 60, 20
+                );
+
+                // Son d'ambiance
+                player.playSound(player.getLocation(), Sound.ENTITY_WARDEN_HEARTBEAT, 1.0f, 0.8f);
+
+                // Message de briefing
+                player.sendMessage("");
+                player.sendMessage("§4§l══════ TRAQUE DU TRAÎTRE ══════");
+                player.sendMessage("");
+                player.sendMessage("§7Un §ctraître §7s'est infiltré dans le refuge de");
+                player.sendMessage("§e§lMaraisville§7. Il communique avec les morts-vivants...");
+                player.sendMessage("");
+                player.sendMessage("§e▸ §fInterrogez les §c5 suspects §fdu village");
+                player.sendMessage("§e▸ §fLe dernier interrogé révélera sa vraie nature!");
+                player.sendMessage("§e▸ §c⚠ Si vous mourez, vous devrez recommencer!");
+                player.sendMessage("");
+
+                // Activer le GPS vers le premier suspect
+                updateGPSToNextSuspect(player);
+            }
+        }.runTaskLater(plugin, 20L);
+    }
+
+    /**
+     * Met à jour le GPS vers le prochain suspect non interrogé
+     */
+    private void updateGPSToNextSuspect(Player player) {
+        Set<Integer> interrogated = playerInterrogatedSuspects.getOrDefault(player.getUniqueId(), Set.of());
+
+        // Trouver le prochain suspect non interrogé
+        for (int i = 0; i < TOTAL_SUSPECTS; i++) {
+            if (!interrogated.contains(i)) {
+                double[] coords = SUSPECT_LOCATIONS[i];
+                String suspectName = SUSPECT_NAMES[i].replace("§e§l", "");
+                player.sendMessage("§e§l➤ §7GPS: §b" + (int) coords[0] + ", " + (int) coords[1] + ", " + (int) coords[2] + " §7(" + suspectName + ")");
+                player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1f);
+
+                var gpsManager = plugin.getGPSManager();
+                if (gpsManager != null) {
+                    gpsManager.enableGPSSilently(player);
+                }
+                return;
+            }
+        }
+    }
+
+    /**
+     * Gère l'interrogation d'un suspect
+     */
+    private void handleSuspectInterrogation(Player player, int suspectIndex) {
+        UUID playerId = player.getUniqueId();
+
+        // Vérifier si le joueur est sur la bonne étape
+        if (!isPlayerOnTraitorQuest(player)) {
+            return;
+        }
+
+        // Vérifier si déjà interrogé
+        Set<Integer> interrogated = playerInterrogatedSuspects.get(playerId);
+        if (interrogated == null) {
+            interrogated = ConcurrentHashMap.newKeySet();
+            playerInterrogatedSuspects.put(playerId, interrogated);
+        }
+
+        if (interrogated.contains(suspectIndex)) {
+            return;
+        }
+
+        // Marquer comme interrogé
+        interrogated.add(suspectIndex);
+        int totalInterrogated = interrogated.size();
+
+        // Cacher ce suspect pour le joueur
+        if (suspectNPCs[suspectIndex] != null && suspectNPCs[suspectIndex].isValid()) {
+            player.hideEntity(plugin, suspectNPCs[suspectIndex]);
+        }
+        if (suspectDisplays[suspectIndex] != null && suspectDisplays[suspectIndex].isValid()) {
+            player.hideEntity(plugin, suspectDisplays[suspectIndex]);
+        }
+
+        // Afficher le dialogue
+        player.sendMessage("");
+        player.sendMessage("§e§l[" + SUSPECT_NAMES[suspectIndex].replace("§e§l", "") + "]");
+        player.sendMessage(SUSPECT_DIALOGUES[suspectIndex]);
+        player.sendMessage("");
+
+        // Effets
+        player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_AMBIENT, 1.0f, 1.0f);
+
+        // Mettre à jour la progression
+        journeyManager.setStepProgress(player, JourneyStep.STEP_5_5, totalInterrogated);
+        journeyManager.createOrUpdateBossBar(player);
+
+        // Si c'est le 5ème suspect, il se transforme en traître!
+        if (totalInterrogated >= 5) {
+            spawnTraitor(player, suspectIndex);
+        } else {
+            // Mettre à jour le GPS vers le prochain suspect
+            int remaining = 5 - totalInterrogated;
+            player.sendMessage("§7[§e" + totalInterrogated + "/5§7] Suspects interrogés. §cEncore " + remaining + "...");
+            updateGPSToNextSuspect(player);
+        }
+    }
+
+    /**
+     * Spawn le traître (Pillager) à la place du 5ème suspect
+     */
+    private void spawnTraitor(Player player, int suspectIndex) {
+        double[] coords = SUSPECT_LOCATIONS[suspectIndex];
+        World world = player.getWorld();
+        Location loc = new Location(world, coords[0], coords[1], coords[2]);
+
+        // Effets de transformation
+        player.sendMessage("");
+        player.sendMessage("§c§l[!!!] §4LE TRAÎTRE SE RÉVÈLE!");
+        player.sendMessage("§7\"§cVous m'avez démasqué... mais vous ne quitterez pas ce village vivant!§7\"");
+        player.sendMessage("");
+
+        player.sendTitle(
+            "§c☠ §4§lTRAÎTRE DÉMASQUÉ! §c☠",
+            "§7Éliminez-le!",
+            10, 40, 10
+        );
+
+        player.playSound(loc, Sound.ENTITY_WITHER_SPAWN, 0.8f, 1.2f);
+        world.spawnParticle(Particle.EXPLOSION, loc, 5, 0.5, 0.5, 0.5, 0);
+        world.spawnParticle(Particle.SMOKE, loc, 30, 0.5, 1, 0.5, 0.1);
+
+        // Spawner le Pillager via ZombieManager
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                ZombieManager zombieManager = plugin.getZombieManager();
+                ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(
+                    ZombieType.PILLAGER,
+                    loc,
+                    TRAITOR_LEVEL
+                );
+
+                if (activeZombie != null) {
+                    Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
+                    if (entity instanceof LivingEntity traitor) {
+                        // Marquer comme traître de quête
+                        traitor.getPersistentDataContainer().set(TRAITOR_PILLAGER_KEY, PersistentDataType.STRING, player.getUniqueId().toString());
+                        traitor.addScoreboardTag("chapter5_traitor");
+                        traitor.addScoreboardTag("traitor_owner_" + player.getUniqueId());
+
+                        // Stocker l'UUID du traître
+                        playerActiveTraitors.put(player.getUniqueId(), entity.getUniqueId());
+
+                        // Effets de spawn
+                        world.playSound(loc, Sound.ENTITY_PILLAGER_CELEBRATE, 1.0f, 0.8f);
+
+                        // GPS vers le traître
+                        player.sendMessage("§c§l➤ §7Tuez le traître!");
+                    }
+                }
+            }
+        }.runTaskLater(plugin, 10L);
+    }
+
+    /**
+     * Gère la mort du traître
+     */
+    private void handleTraitorDeath(Player killer, Entity traitor) {
+        UUID killerId = killer.getUniqueId();
+
+        // Vérifier que c'est bien le traître de ce joueur
+        UUID expectedTraitorId = playerActiveTraitors.get(killerId);
+        if (expectedTraitorId == null || !expectedTraitorId.equals(traitor.getUniqueId())) {
+            return;
+        }
+
+        // Nettoyer
+        playerActiveTraitors.remove(killerId);
+        activeTraitorPlayers.remove(killerId);
+        playerInterrogatedSuspects.remove(killerId);
+
+        // Compléter la quête
+        journeyManager.setStepProgress(killer, JourneyStep.STEP_5_5, 6); // 5 + 1 pour le kill
+        journeyManager.completeStep(killer, JourneyStep.STEP_5_5);
+
+        // Effets de victoire
+        killer.sendTitle(
+            "§a§l✓ TRAÎTRE ÉLIMINÉ!",
+            "§7Maraisville est en sécurité...",
+            10, 60, 20
+        );
+
+        killer.playSound(killer.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+        killer.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, killer.getLocation().add(0, 1, 0), 50, 1, 1, 1, 0.2);
+
+        killer.sendMessage("");
+        killer.sendMessage("§a§l[QUÊTE TERMINÉE] §7Le traître a été éliminé!");
+        killer.sendMessage("§7Les habitants de Maraisville vous remercient.");
+        killer.sendMessage("");
+    }
+
+    /**
+     * Reset la progression du traître pour un joueur (appelé à la mort)
+     */
+    private void resetTraitorProgress(Player player) {
+        UUID uuid = player.getUniqueId();
+
+        // Supprimer le traître actif s'il existe
+        UUID traitorId = playerActiveTraitors.remove(uuid);
+        if (traitorId != null) {
+            Entity traitor = plugin.getServer().getEntity(traitorId);
+            if (traitor != null && traitor.isValid()) {
+                traitor.remove();
+            }
+        }
+
+        // Réinitialiser les suspects interrogés
+        playerInterrogatedSuspects.put(uuid, ConcurrentHashMap.newKeySet());
+
+        // Réinitialiser la progression dans JourneyManager
+        journeyManager.setStepProgress(player, JourneyStep.STEP_5_5, 0);
+
+        // Mettre à jour la BossBar
+        journeyManager.createOrUpdateBossBar(player);
+    }
+
+    // ==================== SYSTÈME DE BÛCHERONNAGE (Étape 5.6) ====================
+
+    /**
+     * Initialise les bois dans la zone de bûcheronnage
+     */
+    private void initializeLumber(World world) {
+        // Générer les positions des bois
+        generateLumberLocations(world);
+
+        // Spawner les bois
+        for (int i = 0; i < TOTAL_LUMBER; i++) {
+            if (lumberLocations[i] != null) {
+                spawnLumber(world, i);
+            }
+        }
+
+        plugin.getLogger().info("[Chapter5Systems] " + TOTAL_LUMBER + " bois initialisés dans la zone forestière");
+    }
+
+    /**
+     * Génère les positions des bois dans la zone
+     */
+    private void generateLumberLocations(World world) {
+        ThreadLocalRandom random = ThreadLocalRandom.current();
+        int spawned = 0;
+        int maxAttempts = TOTAL_LUMBER * 50;
+        int attempts = 0;
+
+        while (spawned < TOTAL_LUMBER && attempts < maxAttempts) {
+            attempts++;
+
+            int x = random.nextInt(LUMBER_ZONE_MIN_X, LUMBER_ZONE_MAX_X + 1);
+            int z = random.nextInt(LUMBER_ZONE_MIN_Z, LUMBER_ZONE_MAX_Z + 1);
+
+            // Chercher le premier bloc solide depuis le haut
+            for (int y = LUMBER_ZONE_MAX_Y; y >= LUMBER_ZONE_MIN_Y; y--) {
+                Block block = world.getBlockAt(x, y, z);
+                Block above = world.getBlockAt(x, y + 1, z);
+
+                if (block.getType().isSolid() && !block.getType().isAir() && above.getType() == Material.AIR) {
+                    Location loc = new Location(world, x + 0.5, y + 1.2, z + 0.5);
+
+                    // Vérifier qu'il n'y a pas déjà un bois trop proche
+                    boolean tooClose = false;
+                    for (int i = 0; i < spawned; i++) {
+                        if (lumberLocations[i] != null && lumberLocations[i].distanceSquared(loc) < 16) { // 4 blocs min
+                            tooClose = true;
+                            break;
+                        }
+                    }
+
+                    if (!tooClose) {
+                        lumberLocations[spawned] = loc;
+                        spawned++;
+                    }
+                    break;
+                }
+            }
+        }
+
+        if (spawned < TOTAL_LUMBER) {
+            plugin.getLogger().warning("[Chapter5Systems] Seulement " + spawned + "/" + TOTAL_LUMBER +
+                " positions de bois trouvées");
+        }
+    }
+
+    /**
+     * Spawn un bois à l'index donné
+     */
+    private void spawnLumber(World world, int lumberIndex) {
+        Location loc = lumberLocations[lumberIndex];
+        if (loc == null) return;
+
+        // Supprimer les anciens
+        if (lumberVisuals[lumberIndex] != null && lumberVisuals[lumberIndex].isValid()) {
+            lumberVisuals[lumberIndex].remove();
+        }
+        if (lumberHitboxes[lumberIndex] != null && lumberHitboxes[lumberIndex].isValid()) {
+            lumberHitboxes[lumberIndex].remove();
+        }
+
+        // 1. Créer le VISUEL (ItemDisplay avec le bois glowing)
+        lumberVisuals[lumberIndex] = world.spawn(loc.clone(), ItemDisplay.class, display -> {
+            display.setItemStack(new ItemStack(Material.DARK_OAK_WOOD));
+
+            // Taille et rotation pour ressembler à un rondin au sol
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f((float) Math.toRadians(90), 1, 0, 0), // Couché sur le côté
+                    new Vector3f(0.8f, 0.8f, 0.8f),
+                    new AxisAngle4f(0, 0, 1, 0)));
+
+            display.setBillboard(Display.Billboard.FIXED);
+
+            // Glow effect marron/orange
+            display.setGlowing(true);
+            display.setGlowColorOverride(Color.fromRGB(139, 90, 43)); // Brun
+
+            display.setViewRange(LUMBER_VIEW_DISTANCE);
+            display.setVisibleByDefault(false);
+            display.setPersistent(false);
+            display.addScoreboardTag("chapter5_lumber_visual");
+            display.addScoreboardTag("lumber_visual_" + lumberIndex);
+
+            // PDC
+            display.getPersistentDataContainer().set(LUMBER_VISUAL_KEY, PersistentDataType.INTEGER, lumberIndex);
+        });
+
+        // 2. Créer l'entité INTERACTION (hitbox cliquable)
+        lumberHitboxes[lumberIndex] = world.spawn(loc.clone(), Interaction.class, interaction -> {
+            interaction.setInteractionWidth(0.9f);
+            interaction.setInteractionHeight(0.9f);
+            interaction.setResponsive(true);
+
+            // Tags
+            interaction.addScoreboardTag("chapter5_lumber_hitbox");
+            interaction.addScoreboardTag("lumber_hitbox_" + lumberIndex);
+            interaction.addScoreboardTag("zombiez_npc");
+
+            // PDC
+            interaction.getPersistentDataContainer().set(LUMBER_HITBOX_KEY, PersistentDataType.INTEGER, lumberIndex);
+
+            interaction.setVisibleByDefault(false);
+            interaction.setPersistent(false);
+        });
+    }
+
+    /**
+     * Initialise le bûcheron NPC
+     */
+    private void initializeLumberjack(World world) {
+        Location loc = new Location(world, LUMBERJACK_X, LUMBERJACK_Y, LUMBERJACK_Z, LUMBERJACK_YAW, LUMBERJACK_PITCH);
+
+        // Chercher si le bûcheron existe déjà
+        for (Entity entity : world.getNearbyEntities(loc, 5, 5, 5)) {
+            if (entity instanceof Villager v && v.getPersistentDataContainer().has(LUMBERJACK_NPC_KEY, PersistentDataType.BYTE)) {
+                lumberjackNPC = v;
+                // Chercher aussi le display
+                for (Entity displayEntity : world.getNearbyEntities(loc.clone().add(0, 2.5, 0), 2, 2, 2)) {
+                    if (displayEntity instanceof TextDisplay td && td.getScoreboardTags().contains("chapter5_lumberjack_display")) {
+                        lumberjackDisplay = td;
+                        break;
+                    }
+                }
+                plugin.getLogger().info("[Chapter5Systems] Bûcheron existant trouvé");
+                return;
+            }
+        }
+
+        // Créer le bûcheron
+        lumberjackNPC = world.spawn(loc, Villager.class, villager -> {
+            villager.customName(Component.text("§6§lBûcheron Aldric").decorate(TextDecoration.BOLD));
+            villager.setCustomNameVisible(false);
+            villager.setAI(false);
+            villager.setInvulnerable(true);
+            villager.setSilent(true);
+            villager.setPersistent(true);
+            villager.setRemoveWhenFarAway(false);
+            villager.setCollidable(false);
+
+            villager.setProfession(Villager.Profession.TOOLSMITH);
+            villager.setVillagerLevel(3);
+
+            // Tags
+            villager.addScoreboardTag("chapter5_lumberjack");
+            villager.addScoreboardTag("zombiez_npc");
+
+            // PDC
+            villager.getPersistentDataContainer().set(LUMBERJACK_NPC_KEY, PersistentDataType.BYTE, (byte) 1);
+
+            // Visible par défaut pour ce NPC (il reste visible même après la quête)
+            villager.setVisibleByDefault(true);
+        });
+
+        // Créer le TextDisplay au-dessus
+        Location displayLoc = loc.clone().add(0, 2.5, 0);
+        lumberjackDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
+            display.text(Component.text()
+                    .append(Component.text("🪓 ", NamedTextColor.GOLD))
+                    .append(Component.text("Bûcheron Aldric", NamedTextColor.GOLD, TextDecoration.BOLD))
+                    .append(Component.text(" 🪓", NamedTextColor.GOLD))
+                    .append(Component.newline())
+                    .append(Component.text("▶ Clic droit pour livrer", NamedTextColor.GRAY))
+                    .build());
+
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setAlignment(TextDisplay.TextAlignment.CENTER);
+            display.setShadowed(true);
+            display.setSeeThrough(false);
+            display.setDefaultBackground(false);
+            display.setBackgroundColor(Color.fromARGB(120, 0, 0, 0));
+
+            display.setTransformation(new Transformation(
+                    new Vector3f(0, 0, 0),
+                    new AxisAngle4f(0, 0, 0, 1),
+                    new Vector3f(1.2f, 1.2f, 1.2f),
+                    new AxisAngle4f(0, 0, 0, 1)));
+
+            display.setViewRange(0.3f);
+            display.setPersistent(true);
+            display.addScoreboardTag("chapter5_lumberjack_display");
+
+            display.setVisibleByDefault(true);
+        });
+
+        plugin.getLogger().info("[Chapter5Systems] Bûcheron Aldric initialisé");
+    }
+
+    /**
+     * Démarre le système de visibilité per-player pour les bois
+     */
+    private void startLumberVisibilityUpdater() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                for (Player player : Bukkit.getOnlinePlayers()) {
+                    if (!player.getWorld().equals(world)) {
+                        hideAllLumberForPlayer(player);
+                        continue;
+                    }
+
+                    // Vérifier si le joueur est sur la quête et ne l'a pas terminée
+                    boolean shouldSeeLumber = isPlayerOnLumberQuest(player) && !hasPlayerCompletedLumberQuest(player);
+
+                    if (shouldSeeLumber) {
+                        updateLumberVisibilityForPlayer(player);
+                    } else {
+                        hideAllLumberForPlayer(player);
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 100L, 20L);
+    }
+
+    /**
+     * Met à jour la visibilité des bois pour un joueur
+     */
+    private void updateLumberVisibilityForPlayer(Player player) {
+        Set<Integer> collectedLumber = playerCollectedLumber.getOrDefault(player.getUniqueId(), Set.of());
+
+        for (int i = 0; i < TOTAL_LUMBER; i++) {
+            boolean hasCollected = collectedLumber.contains(i);
+
+            // Distance check
+            boolean inRange = false;
+            if (lumberVisuals[i] != null && lumberVisuals[i].isValid()) {
+                double distSq = player.getLocation().distanceSquared(lumberVisuals[i].getLocation());
+                inRange = distSq <= LUMBER_VIEW_DISTANCE * LUMBER_VIEW_DISTANCE;
+            }
+
+            // Visual (bois)
+            if (lumberVisuals[i] != null && lumberVisuals[i].isValid()) {
+                if (hasCollected || !inRange) {
+                    player.hideEntity(plugin, lumberVisuals[i]);
+                } else {
+                    player.showEntity(plugin, lumberVisuals[i]);
+                }
+            }
+
+            // Hitbox (Interaction)
+            if (lumberHitboxes[i] != null && lumberHitboxes[i].isValid()) {
+                if (hasCollected || !inRange) {
+                    player.hideEntity(plugin, lumberHitboxes[i]);
+                } else {
+                    player.showEntity(plugin, lumberHitboxes[i]);
+                }
+            }
+        }
+    }
+
+    /**
+     * Cache tous les bois pour un joueur
+     */
+    private void hideAllLumberForPlayer(Player player) {
+        for (int i = 0; i < TOTAL_LUMBER; i++) {
+            if (lumberVisuals[i] != null && lumberVisuals[i].isValid()) {
+                player.hideEntity(plugin, lumberVisuals[i]);
+            }
+            if (lumberHitboxes[i] != null && lumberHitboxes[i].isValid()) {
+                player.hideEntity(plugin, lumberHitboxes[i]);
+            }
+        }
+    }
+
+    /**
+     * Démarre le vérificateur de respawn des bois
+     */
+    private void startLumberRespawnChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                for (int i = 0; i < TOTAL_LUMBER; i++) {
+                    if (lumberLocations[i] == null) continue;
+
+                    boolean needsRespawn = (lumberVisuals[i] == null || !lumberVisuals[i].isValid()) ||
+                            (lumberHitboxes[i] == null || !lumberHitboxes[i].isValid());
+
+                    if (needsRespawn) {
+                        spawnLumber(world, i);
+                    }
+                }
+
+                // Vérifier aussi le bûcheron
+                if (lumberjackNPC == null || !lumberjackNPC.isValid()) {
+                    initializeLumberjack(world);
+                }
+            }
+        }.runTaskTimer(plugin, 200L, 200L);
+    }
+
+    /**
+     * Vérifie si un joueur est sur la quête de bûcheronnage
+     */
+    private boolean isPlayerOnLumberQuest(Player player) {
+        JourneyStep currentStep = journeyManager.getCurrentStep(player);
+        return currentStep == JourneyStep.STEP_5_6;
+    }
+
+    /**
+     * Vérifie si un joueur a terminé la quête de bûcheronnage
+     */
+    private boolean hasPlayerCompletedLumberQuest(Player player) {
+        return journeyManager.isStepCompleted(player, JourneyStep.STEP_5_6);
+    }
+
+    /**
+     * Initialise la progression de bûcheronnage d'un joueur
+     */
+    private void initializePlayerLumberProgress(Player player) {
+        UUID uuid = player.getUniqueId();
+        if (!playerCollectedLumber.containsKey(uuid)) {
+            playerCollectedLumber.put(uuid, ConcurrentHashMap.newKeySet());
+        }
+        if (!playerLumberInInventory.containsKey(uuid)) {
+            playerLumberInInventory.put(uuid, 0);
+        }
+    }
+
+    /**
+     * Active la quête de bûcheronnage pour un joueur
+     */
+    public void activateLumberQuest(Player player) {
+        UUID playerId = player.getUniqueId();
+
+        // Initialiser le tracking
+        initializePlayerLumberProgress(player);
+        activeLumberPlayers.add(playerId);
+
+        // Afficher l'introduction
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                if (!player.isOnline()) return;
+
+                // Title d'introduction
+                player.sendTitle(
+                    "§6🪓 §e§lLIVRAISON DE BOIS §6🪓",
+                    "§7Le bûcheron a besoin de votre aide!",
+                    10, 60, 20
+                );
+
+                // Son d'ambiance
+                player.playSound(player.getLocation(), Sound.BLOCK_WOOD_BREAK, 1.0f, 0.8f);
+
+                // Message de briefing
+                player.sendMessage("");
+                player.sendMessage("§6§l══════ LIVRAISON DE BOIS ══════");
+                player.sendMessage("");
+                player.sendMessage("§7Le §6§lBûcheron Aldric §7a besoin de bois pour");
+                player.sendMessage("§7renforcer les défenses du refuge...");
+                player.sendMessage("");
+                player.sendMessage("§e▸ §fCollectez §c" + LUMBER_TO_COLLECT + " bûches §fdans la forêt");
+                player.sendMessage("§e▸ §fApprochez-vous et §afrappez §fles bûches glowing");
+                player.sendMessage("§e▸ §fLivrez ensuite au §6Bûcheron Aldric");
+                player.sendMessage("");
+
+                // Activer le GPS vers la zone
+                activateGPSToLumberZone(player);
+            }
+        }.runTaskLater(plugin, 20L);
+    }
+
+    /**
+     * Active le GPS vers la zone de bûcheronnage
+     */
+    private void activateGPSToLumberZone(Player player) {
+        player.sendMessage("§e§l➤ §7GPS: §b" + LUMBER_ZONE_CENTER_X + ", " + LUMBER_ZONE_CENTER_Y + ", " + LUMBER_ZONE_CENTER_Z + " §7(Zone forestière)");
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1f);
+
+        var gpsManager = plugin.getGPSManager();
+        if (gpsManager != null) {
+            gpsManager.enableGPSSilently(player);
+        }
+    }
+
+    /**
+     * Active le GPS vers le bûcheron
+     */
+    private void activateGPSToLumberjack(Player player) {
+        player.sendMessage("§e§l➤ §7GPS: §b" + (int) LUMBERJACK_X + ", " + (int) LUMBERJACK_Y + ", " + (int) LUMBERJACK_Z + " §7(Bûcheron Aldric)");
+        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1f);
+
+        var gpsManager = plugin.getGPSManager();
+        if (gpsManager != null) {
+            gpsManager.enableGPSSilently(player);
+        }
+    }
+
+    /**
+     * Gère la collecte d'un bois
+     */
+    private void handleLumberCollection(Player player, int lumberIndex) {
+        UUID playerId = player.getUniqueId();
+
+        // Vérifier si le joueur est sur la bonne étape
+        if (!isPlayerOnLumberQuest(player)) {
+            player.sendMessage("§7Une bûche de bois... La quête n'est pas encore active.");
+            player.playSound(player.getLocation(), Sound.BLOCK_WOOD_HIT, 0.5f, 1f);
+            return;
+        }
+
+        // Vérifier si la quête est terminée
+        if (hasPlayerCompletedLumberQuest(player)) {
+            return;
+        }
+
+        // Vérifier si ce bois est déjà collecté
+        Set<Integer> collected = playerCollectedLumber.get(playerId);
+        if (collected == null) {
+            initializePlayerLumberProgress(player);
+            collected = playerCollectedLumber.get(playerId);
+        }
+
+        if (collected.contains(lumberIndex)) {
+            return;
+        }
+
+        // Marquer ce bois comme collecté
+        collected.add(lumberIndex);
+
+        // Ajouter le bois à l'inventaire du joueur
+        ItemStack woodItem = new ItemStack(Material.DARK_OAK_WOOD, 1);
+        var meta = woodItem.getItemMeta();
+        if (meta != null) {
+            meta.displayName(Component.text("§6Bûche de Chêne Noir §7(Quête)").decoration(TextDecoration.ITALIC, false));
+            meta.lore(List.of(
+                Component.text("§8─────────────────").decoration(TextDecoration.ITALIC, false),
+                Component.text("§7Bois récupéré pour le").decoration(TextDecoration.ITALIC, false),
+                Component.text("§6Bûcheron Aldric§7.").decoration(TextDecoration.ITALIC, false),
+                Component.text("").decoration(TextDecoration.ITALIC, false),
+                Component.text("§e▶ Livrez au bûcheron!").decoration(TextDecoration.ITALIC, false)
+            ));
+            woodItem.setItemMeta(meta);
+        }
+        player.getInventory().addItem(woodItem);
+
+        // Cacher ce bois pour le joueur
+        updateLumberVisibilityForPlayer(player);
+
+        // Mettre à jour le compteur
+        int lumberInInv = playerLumberInInventory.getOrDefault(playerId, 0) + 1;
+        playerLumberInInventory.put(playerId, lumberInInv);
+
+        // Mettre à jour la progression dans JourneyManager
+        journeyManager.setStepProgress(player, JourneyStep.STEP_5_6, lumberInInv);
+
+        // Effets de collecte
+        Location loc = lumberLocations[lumberIndex];
+        if (loc != null) {
+            player.playSound(loc, Sound.BLOCK_WOOD_BREAK, 1f, 1f);
+            player.playSound(loc, Sound.ENTITY_ITEM_PICKUP, 0.8f, 1.2f);
+            player.getWorld().spawnParticle(Particle.BLOCK, loc, 15, 0.3, 0.3, 0.3,
+                    Material.DARK_OAK_WOOD.createBlockData());
+        }
+
+        // Message de progression
+        int remaining = LUMBER_TO_COLLECT - lumberInInv;
+        if (remaining > 0) {
+            player.sendMessage("§6[BOIS] §f+" + 1 + " bûche §7(" + lumberInInv + "/" + LUMBER_TO_COLLECT + ")");
+        }
+
+        // Mettre à jour la BossBar
+        journeyManager.createOrUpdateBossBar(player);
+
+        // Si on a assez de bois, indiquer d'aller voir le bûcheron
+        if (lumberInInv >= LUMBER_TO_COLLECT) {
+            player.sendMessage("");
+            player.sendMessage("§a§l[✓] §7Vous avez assez de bois!");
+            player.sendMessage("§e▸ §fAllez livrer au §6Bûcheron Aldric§f!");
+            player.sendMessage("");
+
+            player.sendTitle(
+                "§a✓ BOIS COLLECTÉ!",
+                "§7Livrez au bûcheron pour terminer",
+                10, 60, 20
+            );
+
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.8f, 1.5f);
+
+            // GPS vers le bûcheron
+            activateGPSToLumberjack(player);
+        }
+    }
+
+    /**
+     * Gère la livraison au bûcheron
+     */
+    private void handleLumberjackDelivery(Player player) {
+        UUID playerId = player.getUniqueId();
+
+        // Vérifier si le joueur est sur la bonne étape
+        if (!isPlayerOnLumberQuest(player)) {
+            player.sendMessage("");
+            player.sendMessage("§6§l[Bûcheron Aldric]");
+            player.sendMessage("§7\"Hé là, voyageur! Si tu cherches du travail, reviens");
+            player.sendMessage("§7quand tu auras débloqué ma quête!\"");
+            player.sendMessage("");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_TRADE, 1f, 1f);
+            return;
+        }
+
+        // Vérifier si la quête est terminée
+        if (hasPlayerCompletedLumberQuest(player)) {
+            player.sendMessage("");
+            player.sendMessage("§6§l[Bûcheron Aldric]");
+            player.sendMessage("§7\"Merci encore pour le bois, ami! Les défenses");
+            player.sendMessage("§7sont renforcées grâce à toi!\"");
+            player.sendMessage("");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_YES, 1f, 1f);
+            return;
+        }
+
+        // Vérifier si le joueur a assez de bois
+        int lumberInInv = playerLumberInInventory.getOrDefault(playerId, 0);
+        if (lumberInInv < LUMBER_TO_COLLECT) {
+            int remaining = LUMBER_TO_COLLECT - lumberInInv;
+            player.sendMessage("");
+            player.sendMessage("§6§l[Bûcheron Aldric]");
+            player.sendMessage("§7\"Hum... il me faut encore §c" + remaining + " bûches§7!\"");
+            player.sendMessage("§7\"Retourne dans la forêt et ramène-moi ce bois!\"");
+            player.sendMessage("");
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 1f);
+
+            // GPS vers la zone
+            activateGPSToLumberZone(player);
+            return;
+        }
+
+        // Retirer le bois de l'inventaire
+        int toRemove = LUMBER_TO_COLLECT;
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item != null && item.getType() == Material.DARK_OAK_WOOD && toRemove > 0) {
+                int amount = item.getAmount();
+                if (amount <= toRemove) {
+                    toRemove -= amount;
+                    item.setAmount(0);
+                } else {
+                    item.setAmount(amount - toRemove);
+                    toRemove = 0;
+                }
+            }
+            if (toRemove <= 0) break;
+        }
+
+        // Compléter la quête
+        completeLumberQuest(player);
+    }
+
+    /**
+     * Termine la quête de bûcheronnage
+     */
+    private void completeLumberQuest(Player player) {
+        UUID playerId = player.getUniqueId();
+
+        // Nettoyer les données
+        activeLumberPlayers.remove(playerId);
+        playerCollectedLumber.remove(playerId);
+        playerLumberInInventory.remove(playerId);
+
+        // Cacher les bois
+        hideAllLumberForPlayer(player);
+
+        // Compléter l'étape
+        journeyManager.completeStep(player, JourneyStep.STEP_5_6);
+
+        // Dialogue du bûcheron
+        player.sendMessage("");
+        player.sendMessage("§6§l[Bûcheron Aldric]");
+        player.sendMessage("§7\"Excellent travail! Ce bois sera parfait pour");
+        player.sendMessage("§7renforcer nos défenses contre les morts-vivants!\"");
+        player.sendMessage("");
+
+        // Title de victoire
+        player.sendTitle(
+            "§a§l✓ QUÊTE TERMINÉE!",
+            "§7Le bûcheron vous remercie!",
+            10, 60, 20
+        );
+
+        // Effets
+        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+        player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_CELEBRATE, 1.0f, 1.0f);
+        player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 50, 1, 1, 1, 0.2);
+    }
+
+    /**
+     * Reset la progression de bûcheronnage pour un joueur (appelé à la mort)
+     */
+    private void resetLumberProgress(Player player) {
+        UUID uuid = player.getUniqueId();
+
+        // Réinitialiser les bois collectés
+        playerCollectedLumber.put(uuid, ConcurrentHashMap.newKeySet());
+
+        // Retirer le bois de l'inventaire
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item != null && item.getType() == Material.DARK_OAK_WOOD) {
+                var meta = item.getItemMeta();
+                if (meta != null && meta.hasDisplayName()) {
+                    var displayName = meta.displayName();
+                    if (displayName != null && displayName.toString().contains("Quête")) {
+                        item.setAmount(0);
+                    }
+                }
+            }
+        }
+
+        // Réinitialiser le compteur
+        playerLumberInInventory.put(uuid, 0);
+
+        // Réinitialiser la progression dans JourneyManager
+        journeyManager.setStepProgress(player, JourneyStep.STEP_5_6, 0);
+
+        // Mettre à jour la BossBar
+        journeyManager.createOrUpdateBossBar(player);
+    }
+
     // ==================== ÉVÉNEMENTS ====================
 
     @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
@@ -1028,6 +2239,74 @@ public class Chapter5Systems implements Listener {
                     handleOreHit(attacker, oreIndex);
                 }
             }
+        }
+
+        // Hit sur un bois (Interaction hitbox)
+        if (damaged instanceof Interaction
+                && damaged.getPersistentDataContainer().has(LUMBER_HITBOX_KEY, PersistentDataType.INTEGER)) {
+            event.setCancelled(true);
+
+            Player attacker = null;
+            if (event.getDamager() instanceof Player p) {
+                attacker = p;
+            } else if (event.getDamager() instanceof Projectile proj && proj.getShooter() instanceof Player p) {
+                attacker = p;
+            }
+
+            if (attacker != null) {
+                Integer lumberIndex = damaged.getPersistentDataContainer().get(LUMBER_HITBOX_KEY, PersistentDataType.INTEGER);
+                if (lumberIndex != null) {
+                    handleLumberCollection(attacker, lumberIndex);
+                }
+            }
+        }
+    }
+
+    @EventHandler(priority = EventPriority.HIGH, ignoreCancelled = true)
+    public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
+        Entity clicked = event.getRightClicked();
+        Player player = event.getPlayer();
+
+        // Interaction avec un suspect
+        if (clicked instanceof Villager
+                && clicked.getPersistentDataContainer().has(SUSPECT_NPC_KEY, PersistentDataType.INTEGER)) {
+            event.setCancelled(true);
+
+            Integer suspectIndex = clicked.getPersistentDataContainer().get(SUSPECT_NPC_KEY, PersistentDataType.INTEGER);
+            if (suspectIndex != null) {
+                handleSuspectInterrogation(player, suspectIndex);
+            }
+        }
+
+        // Interaction avec le bûcheron
+        if (clicked instanceof Villager
+                && clicked.getPersistentDataContainer().has(LUMBERJACK_NPC_KEY, PersistentDataType.BYTE)) {
+            event.setCancelled(true);
+            handleLumberjackDelivery(player);
+        }
+    }
+
+    @EventHandler(priority = EventPriority.NORMAL, ignoreCancelled = true)
+    public void onTraitorDeath(EntityDeathEvent event) {
+        Entity entity = event.getEntity();
+
+        // Vérifier si c'est un traître de quête
+        if (!entity.getPersistentDataContainer().has(TRAITOR_PILLAGER_KEY, PersistentDataType.STRING)) {
+            return;
+        }
+
+        String ownerIdStr = entity.getPersistentDataContainer().get(TRAITOR_PILLAGER_KEY, PersistentDataType.STRING);
+        if (ownerIdStr == null) {
+            return;
+        }
+
+        Player killer = null;
+        if (event.getEntity() instanceof LivingEntity living) {
+            killer = living.getKiller();
+        }
+
+        if (killer != null && killer.getUniqueId().toString().equals(ownerIdStr)) {
+            handleTraitorDeath(killer, entity);
         }
     }
 
@@ -1062,6 +2341,62 @@ public class Chapter5Systems implements Listener {
                     player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 0.8f);
                 }
             }.runTaskLater(plugin, 40L); // Après le respawn
+        }
+
+        // Si le joueur est sur la quête du traître, reset sa progression
+        if (isPlayerOnTraitorQuest(player)) {
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    if (!player.isOnline()) return;
+
+                    resetTraitorProgress(player);
+
+                    player.sendTitle(
+                        "§c☠ QUÊTE ÉCHOUÉE!",
+                        "§7Votre progression d'enquête a été réinitialisée",
+                        10, 60, 20
+                    );
+
+                    player.sendMessage("");
+                    player.sendMessage("§c§l[TRAÎTRE] §7Vous êtes mort! Votre enquête a été §créinitialisée§7.");
+                    player.sendMessage("§e▸ §fRetournez à Maraisville et recommencez!");
+                    player.sendMessage("");
+
+                    // Réactiver le GPS
+                    updateGPSToNextSuspect(player);
+
+                    player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 0.8f);
+                }
+            }.runTaskLater(plugin, 40L);
+        }
+
+        // Si le joueur est sur la quête de bûcheronnage, reset sa progression
+        if (isPlayerOnLumberQuest(player)) {
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    if (!player.isOnline()) return;
+
+                    resetLumberProgress(player);
+
+                    player.sendTitle(
+                        "§c☠ QUÊTE ÉCHOUÉE!",
+                        "§7Votre collecte de bois a été réinitialisée",
+                        10, 60, 20
+                    );
+
+                    player.sendMessage("");
+                    player.sendMessage("§c§l[BOIS] §7Vous êtes mort! Votre progression a été §créinitialisée§7.");
+                    player.sendMessage("§e▸ §fRetournez dans la forêt et recommencez!");
+                    player.sendMessage("");
+
+                    // Réactiver le GPS
+                    activateGPSToLumberZone(player);
+
+                    player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1f, 0.8f);
+                }
+            }.runTaskLater(plugin, 40L);
         }
     }
 
@@ -1111,6 +2446,50 @@ public class Chapter5Systems implements Listener {
 
                     activateGPSToMine(player);
                 }
+
+                // Quête du traître
+                if (currentStep == JourneyStep.STEP_5_5) {
+                    if (!playerInterrogatedSuspects.containsKey(player.getUniqueId())) {
+                        playerInterrogatedSuspects.put(player.getUniqueId(), ConcurrentHashMap.newKeySet());
+                    }
+                    activeTraitorPlayers.add(player.getUniqueId());
+
+                    int progress = journeyManager.getStepProgress(player, currentStep);
+
+                    player.sendMessage("");
+                    player.sendMessage("§4§l[QUÊTE] §7Traque du Traître en cours!");
+                    if (progress >= 5) {
+                        player.sendMessage("§e▸ §fTuez le traître!");
+                        player.sendMessage("§c§l➤ §7Le traître est dans le village!");
+                    } else {
+                        int remaining = 5 - progress;
+                        player.sendMessage("§e▸ §fProgression: §c" + progress + "/5 §fsuspects interrogés");
+                        player.sendMessage("§e▸ §fRestant: §c" + remaining + " §fsuspects");
+                        player.sendMessage("§c⚠ §7Si vous mourez, vous recommencerez à zéro!");
+                        updateGPSToNextSuspect(player);
+                    }
+                }
+
+                // Quête de bûcheronnage
+                if (currentStep == JourneyStep.STEP_5_6) {
+                    initializePlayerLumberProgress(player);
+                    activeLumberPlayers.add(player.getUniqueId());
+
+                    int progress = journeyManager.getStepProgress(player, currentStep);
+                    int remaining = LUMBER_TO_COLLECT - progress;
+
+                    player.sendMessage("");
+                    player.sendMessage("§6§l[QUÊTE] §7Livraison de Bois en cours!");
+                    player.sendMessage("§e▸ §fProgression: §c" + progress + "/" + LUMBER_TO_COLLECT);
+                    if (remaining > 0) {
+                        player.sendMessage("§e▸ §fRestant: §c" + remaining + " §fbûches à collecter");
+                        player.sendMessage("§c⚠ §7Si vous mourez, vous recommencerez à zéro!");
+                        activateGPSToLumberZone(player);
+                    } else {
+                        player.sendMessage("§e▸ §fLivrez au §6Bûcheron Aldric§f!");
+                        activateGPSToLumberjack(player);
+                    }
+                }
             }
         }.runTaskLater(plugin, 40L);
     }
@@ -1124,6 +2503,14 @@ public class Chapter5Systems implements Listener {
 
         // Minage - on garde les données pour la reconnexion
         activeMiningPlayers.remove(playerId);
+
+        // Traître - on garde les données pour la reconnexion
+        activeTraitorPlayers.remove(playerId);
+        // Note: on ne supprime PAS playerInterrogatedSuspects pour que le joueur puisse reprendre
+
+        // Bûcheronnage - on garde les données pour la reconnexion
+        activeLumberPlayers.remove(playerId);
+        // Note: on ne supprime PAS playerCollectedLumber pour que le joueur puisse reprendre
     }
 
     /**
@@ -1152,6 +2539,49 @@ public class Chapter5Systems implements Listener {
         playerOreHits.clear();
         playerMinedOres.clear();
         activeMiningPlayers.clear();
+
+        // Suspects
+        for (int i = 0; i < TOTAL_SUSPECTS; i++) {
+            if (suspectNPCs[i] != null && suspectNPCs[i].isValid()) {
+                suspectGlowTeam.removeEntity(suspectNPCs[i]);
+                suspectNPCs[i].remove();
+            }
+            if (suspectDisplays[i] != null && suspectDisplays[i].isValid()) {
+                suspectDisplays[i].remove();
+            }
+        }
+        playerInterrogatedSuspects.clear();
+        activeTraitorPlayers.clear();
+
+        // Traîtres actifs
+        for (UUID traitorId : playerActiveTraitors.values()) {
+            Entity traitor = plugin.getServer().getEntity(traitorId);
+            if (traitor != null && traitor.isValid()) {
+                traitor.remove();
+            }
+        }
+        playerActiveTraitors.clear();
+
+        // Bois
+        for (int i = 0; i < TOTAL_LUMBER; i++) {
+            if (lumberVisuals[i] != null && lumberVisuals[i].isValid()) {
+                lumberVisuals[i].remove();
+            }
+            if (lumberHitboxes[i] != null && lumberHitboxes[i].isValid()) {
+                lumberHitboxes[i].remove();
+            }
+        }
+        playerCollectedLumber.clear();
+        playerLumberInInventory.clear();
+        activeLumberPlayers.clear();
+
+        // Bûcheron
+        if (lumberjackNPC != null && lumberjackNPC.isValid()) {
+            lumberjackNPC.remove();
+        }
+        if (lumberjackDisplay != null && lumberjackDisplay.isValid()) {
+            lumberjackDisplay.remove();
+        }
 
         plugin.getLogger().info("[Chapter5Systems] Cleanup effectué");
     }
