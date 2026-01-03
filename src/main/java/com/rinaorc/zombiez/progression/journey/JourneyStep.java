@@ -189,9 +189,9 @@ public enum JourneyStep {
         "Zone de pêche: §b821, 86, 8183", StepType.SALMON_FISHING, 12,
         400, 12, Material.SALMON),
 
-    STEP_5_3(JourneyChapter.CHAPTER_5, 3, "Tue ton premier zombie Élite",
-        "Les élites sont plus dangereux", StepType.ELITE_KILLS, 1,
-        500, 15, Material.GOLDEN_APPLE),
+    STEP_5_3(JourneyChapter.CHAPTER_5, 3, "Extraction Minière",
+        "Mine abandonnée: §b933, 81, 8358", StepType.MINE_ORES_QUEST, 10,
+        500, 15, Material.DIAMOND_PICKAXE),
 
     STEP_5_4(JourneyChapter.CHAPTER_5, 4, "Atteins la Zone 5",
         "Toujours plus loin", StepType.REACH_ZONE, 5,
@@ -486,6 +486,7 @@ public enum JourneyStep {
             case FIRE_MINIGAME -> current >= 1 ? "✓ Incendie éteint!" : "Éteins l'incendie du moulin";
             case FORGE_ITEM -> current >= targetValue ? "✓ Objet amélioré!" : "Améliorez un objet §b/forge §7" + current + "/" + targetValue;
             case SALMON_FISHING -> current + "/" + targetValue + " Saumon Pêché";
+            case MINE_ORES_QUEST -> current + "/" + targetValue + " minerais extraits";
         };
     }
 
@@ -683,7 +684,10 @@ public enum JourneyStep {
         FORGE_ITEM("Améliore un objet avec la forge"),
 
         // Pêche (Chapitre 5)
-        SALMON_FISHING("Pêche les saumons mutants");
+        SALMON_FISHING("Pêche les saumons mutants"),
+
+        // Minage (Chapitre 5)
+        MINE_ORES_QUEST("Mine les filons de minerais");
 
         private final String description;
 
