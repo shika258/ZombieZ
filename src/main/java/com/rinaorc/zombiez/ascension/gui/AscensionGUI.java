@@ -235,7 +235,7 @@ public class AscensionGUI implements Listener {
             case LOW_HP_BOOST -> "< 20% HP: +40% Dmg, +20% Speed";
             case KILL_STACK_DAMAGE -> "Kill = +25% prochain hit (stack 3x)";
             case DAMAGE_AURA -> "Mobs proches: 1% HP/s";
-            case EXECUTE -> "Instakill sous 15% HP";
+            case EXECUTE -> "Instakill sous 10% HP (CD 3s)";
             case HEAL_ON_KILL -> "Kill = +2% HP (cap 5%/s)";
             case KILL_COUNTER_EXPLOSION -> "Explosion AoE tous les 25 kills";
             case CRIT_ARMOR_PEN -> "Crits ignorent 25% armure";

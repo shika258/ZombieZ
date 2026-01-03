@@ -218,7 +218,7 @@ public class MutationListGUI implements Listener {
             case LOW_HP_BOOST -> "< 20% HP boost";
             case KILL_STACK_DAMAGE -> "+25%/kill stack";
             case DAMAGE_AURA -> "1% HP/s aura";
-            case EXECUTE -> "Instakill < 15%";
+            case EXECUTE -> "Instakill < 10%";
             case HEAL_ON_KILL -> "+2% HP/kill";
             case KILL_COUNTER_EXPLOSION -> "Nova 25 kills";
             case CRIT_ARMOR_PEN -> "Crit -25% armor";

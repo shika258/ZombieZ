@@ -377,17 +377,8 @@ public class EconomyManager {
                     }
                 }
 
-                // Favori de la Chance: 50 kills = points bonus massif (compteur géré dans AscensionManager)
-                if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.FAVORI_DE_LA_CHANCE)) {
-                    if (ascData.getGuaranteedRareCounter().get() == 0) {
-                        // Le compteur vient d'être reset = milestone atteint
-                        // Note: Le compteur est reset dans AscensionManager.updateKillCounters()
-                        // On donne un gros bonus de points
-                        finalPoints += 500;
-                        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
-                        player.sendMessage("§d§l🌟 FAVORI DE LA CHANCE! §e+500 Points bonus!");
-                    }
-                }
+                // Favori de la Chance: Drop item Rare+ géré dans AscensionManager.updateKillCounters()
+                // (pas de bonus de points ici, le reward principal est l'item)
 
                 // Détecteur de Trésors: Élites +30% drop (intégré via multiplier)
                 if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.DETECTEUR_DE_TRESORS)) {

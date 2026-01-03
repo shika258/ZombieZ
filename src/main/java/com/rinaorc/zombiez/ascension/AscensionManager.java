@@ -251,8 +251,8 @@ public class AscensionManager {
             int count = data.getGuaranteedRareCounter().incrementAndGet();
             if (count >= 50) {
                 data.getGuaranteedRareCounter().set(0);
-                // Marquer pour drop garanti au prochain kill
-                // Géré dans le loot system
+                // Donner un item Rare+ garanti
+                triggerGuaranteedRareDrop(player);
             }
         }
 
@@ -428,6 +428,41 @@ public class AscensionManager {
         }
 
         player.sendMessage("§c§l💀 NOVA MORTELLE! §7Explosion dévastatrice!");
+    }
+
+    /**
+     * Déclenche un drop d'item Rare+ garanti (Favori de la Chance)
+     */
+    private void triggerGuaranteedRareDrop(Player player) {
+        // Obtenir la zone du joueur (ou zone par défaut)
+        int zoneId = 1;
+        var zoneManager = plugin.getZoneManager();
+        if (zoneManager != null) {
+            var zone = zoneManager.getZoneAt(player.getLocation());
+            if (zone != null) {
+                zoneId = zone.getId();
+            }
+        }
+
+        // Générer un item Rare+ (minimum Rare, peut être Epic, Legendary, etc.)
+        var itemManager = plugin.getItemManager();
+        if (itemManager != null) {
+            var item = itemManager.getGenerator().generateWithMinRarity(
+                zoneId,
+                com.rinaorc.zombiez.items.types.Rarity.RARE,
+                0.5 // Bonus de luck pour potentiellement obtenir mieux que Rare
+            );
+
+            // Donner l'item au joueur
+            itemManager.giveItem(player, item);
+
+            // Effets visuels et sonores
+            player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+            player.getWorld().spawnParticle(Particle.TOTEM_OF_UNDYING, player.getLocation().add(0, 1, 0), 30, 0.5, 0.5, 0.5, 0.3);
+
+            // Message
+            player.sendMessage("§d§l🌟 FAVORI DE LA CHANCE! §7Tu as reçu un item §9Rare+ §7garanti!");
+        }
     }
 
     /**
