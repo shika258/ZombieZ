@@ -82,8 +82,86 @@ public class AscensionManager {
                         });
                     }
                 }
+
+                // ============ FLÉAU AMBULANT (DAMAGE_AURA) ============
+                // 1% HP/s aux mobs dans un rayon de 5 blocs
+                if (data.hasMutation(Mutation.FLEAU_AMBULANT)) {
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        applyDamageAura(player);
+                    });
+                }
+
+                // ============ VENT DE LA MORT (PHASE_THROUGH) ============
+                // Sprint = traverse les mobs (simulé par speed boost + knockback resistance)
+                if (data.hasMutation(Mutation.VENT_DE_LA_MORT)) {
+                    Bukkit.getScheduler().runTask(plugin, () -> {
+                        applyPhaseThrough(player);
+                    });
+                }
             }
         }, 20L, 20L); // Toutes les secondes
+    }
+
+    /**
+     * Applique l'effet Vent de la Mort (traverser les mobs en sprintant)
+     */
+    private void applyPhaseThrough(Player player) {
+        if (!player.isOnline()) return;
+
+        if (player.isSprinting()) {
+            // Effet de vitesse burst
+            if (!player.hasPotionEffect(org.bukkit.potion.PotionEffectType.SPEED)) {
+                player.addPotionEffect(new org.bukkit.potion.PotionEffect(
+                    org.bukkit.potion.PotionEffectType.SPEED, 25, 1, false, false, false
+                ));
+            }
+
+            // Repousser les mobs proches (simule le passage à travers)
+            for (Entity entity : player.getNearbyEntities(1.5, 1.5, 1.5)) {
+                if (!(entity instanceof LivingEntity living)) continue;
+                if (entity instanceof Player) continue;
+                if (!entity.hasMetadata("zombiez_mob")) continue;
+
+                // Pousser le mob sur le côté
+                org.bukkit.util.Vector push = entity.getLocation().toVector()
+                    .subtract(player.getLocation().toVector())
+                    .normalize()
+                    .multiply(0.5);
+                push.setY(0.1);
+                entity.setVelocity(push);
+            }
+
+            // Particules de vent légères
+            player.getWorld().spawnParticle(Particle.CLOUD, player.getLocation().add(0, 0.5, 0), 2, 0.3, 0.2, 0.3, 0.01);
+        }
+    }
+
+    /**
+     * Applique l'aura de dégâts du Fléau Ambulant
+     * 1% HP/s aux mobs ZombieZ dans un rayon de 5 blocs
+     */
+    private void applyDamageAura(Player player) {
+        if (!player.isOnline()) return;
+
+        Location loc = player.getLocation();
+        boolean hitAny = false;
+
+        for (Entity entity : player.getNearbyEntities(5, 5, 5)) {
+            if (!(entity instanceof LivingEntity living)) continue;
+            if (entity instanceof Player) continue;
+            if (!entity.hasMetadata("zombiez_mob")) continue;
+
+            // 1% de la vie max du mob par seconde
+            double damage = living.getMaxHealth() * 0.01;
+            living.damage(damage, player);
+            hitAny = true;
+        }
+
+        // Effet visuel léger si on touche des mobs
+        if (hitAny) {
+            loc.getWorld().spawnParticle(Particle.DUST, loc.add(0, 1, 0), 8, 2, 1, 2, 0,
+                new Particle.DustOptions(org.bukkit.Color.fromRGB(100, 0, 0), 0.8f));
+        }
     }
 
     /**
@@ -353,6 +431,66 @@ public class AscensionManager {
     }
 
     /**
+     * Déclenche une chaîne critique (Lame Fantomatique)
+     * 20% chance que le crit chaîne à 1 ennemi proche
+     */
+    public void triggerCritChain(Player player, LivingEntity originalTarget, double damage) {
+        AscensionData data = getData(player);
+        if (data == null) return;
+
+        // Cooldown 300ms pour éviter les chaînes infinies
+        if (!data.canTriggerEffect("crit_chain", 300)) return;
+
+        // 20% chance
+        if (ThreadLocalRandom.current().nextDouble() >= 0.20) return;
+
+        // Trouver un ennemi proche (dans 4 blocs)
+        LivingEntity chainTarget = null;
+        double closestDist = 16; // 4 blocs au carré
+
+        for (Entity entity : originalTarget.getNearbyEntities(4, 4, 4)) {
+            if (!(entity instanceof LivingEntity living)) continue;
+            if (entity instanceof Player) continue;
+            if (!entity.hasMetadata("zombiez_mob")) continue;
+            if (entity.equals(originalTarget)) continue;
+
+            double dist = entity.getLocation().distanceSquared(originalTarget.getLocation());
+            if (dist < closestDist) {
+                closestDist = dist;
+                chainTarget = living;
+            }
+        }
+
+        if (chainTarget != null) {
+            // Appliquer 50% des dégâts au mob chaîné
+            double chainDamage = damage * 0.5;
+            chainTarget.damage(chainDamage, player);
+
+            // Effet visuel de chaîne
+            Location from = originalTarget.getEyeLocation();
+            Location to = chainTarget.getEyeLocation();
+            drawChainParticles(from, to);
+
+            // Son
+            player.playSound(player.getLocation(), Sound.ENTITY_LIGHTNING_BOLT_IMPACT, 0.3f, 2.0f);
+        }
+    }
+
+    /**
+     * Dessine des particules entre deux points (pour crit chain)
+     */
+    private void drawChainParticles(Location from, Location to) {
+        org.bukkit.util.Vector direction = to.toVector().subtract(from.toVector());
+        double length = direction.length();
+        direction.normalize();
+
+        for (double d = 0; d < length; d += 0.5) {
+            Location point = from.clone().add(direction.clone().multiply(d));
+            from.getWorld().spawnParticle(Particle.ELECTRIC_SPARK, point, 1, 0, 0, 0, 0);
+        }
+    }
+
+    /**
      * Déclenche une explosion d'Éclats d'Os
      */
     public void triggerBoneShardsExplosion(Player player, Location loc, double damage) {
@@ -404,6 +542,22 @@ public class AscensionManager {
         double stackCrit = data.getStackingCrit().get() * 2.0;
         if (stackCrit > 0) {
             bonuses.merge(StatType.CRIT_CHANCE, stackCrit, Double::sum);
+        }
+
+        // Spectre de Guerre: <30% HP = +25% Speed (esquive gérée dans CombatListener)
+        if (data.hasMutation(Mutation.SPECTRE_DE_GUERRE)) {
+            double playerHpPercent = player.getHealth() / player.getMaxHealth() * 100;
+            if (playerHpPercent < 30) {
+                bonuses.merge(StatType.MOVEMENT_SPEED, 25.0, Double::sum);
+            }
+        }
+
+        // Fureur du Dernier Souffle: <20% HP = +20% Speed
+        if (data.hasMutation(Mutation.FUREUR_DERNIER_SOUFFLE)) {
+            double playerHpPercent = player.getHealth() / player.getMaxHealth() * 100;
+            if (playerHpPercent < 20) {
+                bonuses.merge(StatType.MOVEMENT_SPEED, 20.0, Double::sum);
+            }
         }
 
         return bonuses;

@@ -676,6 +676,17 @@ public class CombatListener implements Listener {
                         mob.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, mob.getLocation().add(0, 1, 0), 3, 0.3, 0.3, 0.3);
                     }
                 }
+
+                // Lame Fantomatique: 20% chance crit chaîne à 1 ennemi
+                if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.LAME_FANTOMATIQUE)) {
+                    // Déclenché après calcul des dégâts finaux (en fin de méthode)
+                    final double critDamageForChain = finalDamage;
+                    plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                        if (ascensionManager != null && mob.isValid()) {
+                            ascensionManager.triggerCritChain(player, mob, critDamageForChain);
+                        }
+                    }, 1L);
+                }
             }
         }
 
@@ -1059,6 +1070,19 @@ public class CombatListener implements Listener {
 
         // ============ ESQUIVE ============
         double dodgeChance = playerStats.getOrDefault(StatType.DODGE_CHANCE, 0.0);
+
+        // Spectre de Guerre: <30% HP = +25% Esquive
+        var ascensionManager = plugin.getAscensionManager();
+        if (ascensionManager != null) {
+            var ascData = ascensionManager.getData(player);
+            if (ascData != null && ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.SPECTRE_DE_GUERRE)) {
+                double playerHpPercent = player.getHealth() / player.getMaxHealth() * 100;
+                if (playerHpPercent < 30) {
+                    dodgeChance += 25.0;
+                }
+            }
+        }
+
         if (random.nextDouble() * 100 < dodgeChance) {
             event.setCancelled(true);
             player.getWorld().spawnParticle(Particle.CLOUD, player.getLocation(), 10, 0.3, 0.5, 0.3, 0.05);
@@ -1136,6 +1160,11 @@ public class CombatListener implements Listener {
                     if (random.nextDouble() < 0.15) {
                         ascensionManager.triggerBoneShardsExplosion(killer, mob.getLocation(), 25.0);
                     }
+                }
+
+                // Évanescence: Kill = 3s aggro réduit
+                if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.EVANESCENCE)) {
+                    triggerEvanescence(killer, mob.getLocation());
                 }
             }
         }
@@ -1621,6 +1650,33 @@ public class CombatListener implements Listener {
         // Lueur ambiante
         loc.getWorld().spawnParticle(Particle.DUST, bottom.add(0, 0.5, 0), 10, 0.5, 0.5, 0.5, 0,
             new Particle.DustOptions(Color.fromRGB(200, 220, 255), 1.2f));
+    }
+
+    /**
+     * Déclenche l'effet Évanescence (aggro réduit pendant 3s)
+     */
+    private void triggerEvanescence(Player killer, Location mobLocation) {
+        // Marquer le joueur comme "évanescent" pendant 3 secondes
+        killer.setMetadata("zombiez_evanescence", new FixedMetadataValue(plugin, System.currentTimeMillis() + 3000));
+
+        // Effacer l'aggro des mobs proches
+        for (Entity entity : mobLocation.getWorld().getNearbyEntities(mobLocation, 8, 8, 8)) {
+            if (!(entity instanceof org.bukkit.entity.Mob mob)) continue;
+            if (!entity.hasMetadata("zombiez_mob")) continue;
+
+            // Si le mob cible le joueur, lui faire perdre l'aggro
+            if (mob.getTarget() != null && mob.getTarget().equals(killer)) {
+                mob.setTarget(null);
+            }
+        }
+
+        // Effet visuel léger
+        killer.getWorld().spawnParticle(Particle.SQUID_INK, killer.getLocation().add(0, 1, 0), 15, 0.5, 0.5, 0.5, 0.02);
+
+        // Retirer le metadata après 3 secondes
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            killer.removeMetadata("zombiez_evanescence", plugin);
+        }, 60L); // 3 secondes
     }
 
     /**

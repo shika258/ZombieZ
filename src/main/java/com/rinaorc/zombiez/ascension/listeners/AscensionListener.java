@@ -93,7 +93,7 @@ public class AscensionListener implements Listener {
     }
 
     /**
-     * Track les mobs qui touchent le joueur (pour Traque)
+     * Track les mobs qui touchent le joueur (pour Traque) et déclenche Phase Spectrale
      */
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
     public void onPlayerDamaged(EntityDamageByEntityEvent event) {
@@ -109,6 +109,43 @@ public class AscensionListener implements Listener {
         // Enregistrer que ce mob nous a touché (pour Traque: +15% dmg contre ceux qui nous ont hit)
         if (data.hasMutation(Mutation.TRAQUE)) {
             data.getHitByMobs().add(attacker.getUniqueId());
+        }
+
+        // Phase Spectrale: 10% chance de TP 5 blocs derrière l'attaquant
+        if (data.hasMutation(Mutation.PHASE_SPECTRALE)) {
+            if (data.canTriggerEffect("phase_spectrale", 2000)) { // Cooldown 2s
+                if (Math.random() < 0.10) {
+                    triggerPhaseSpectrale(player, attacker);
+                }
+            }
+        }
+    }
+
+    /**
+     * Téléporte le joueur derrière l'attaquant (Phase Spectrale)
+     */
+    private void triggerPhaseSpectrale(Player player, LivingEntity attacker) {
+        org.bukkit.Location attackerLoc = attacker.getLocation();
+        org.bukkit.util.Vector direction = attackerLoc.getDirection().normalize().multiply(-3); // 3 blocs derrière
+
+        org.bukkit.Location teleportLoc = attackerLoc.add(direction);
+        teleportLoc.setY(attackerLoc.getWorld().getHighestBlockYAt(teleportLoc) + 1);
+
+        // Vérifier que la destination est sûre
+        if (teleportLoc.getBlock().isPassable() && teleportLoc.clone().add(0, 1, 0).getBlock().isPassable()) {
+            // Particules à l'origine
+            player.getWorld().spawnParticle(org.bukkit.Particle.PORTAL, player.getLocation().add(0, 1, 0), 30, 0.3, 0.5, 0.3, 0.1);
+
+            // Téléporter
+            teleportLoc.setYaw(attackerLoc.getYaw() + 180); // Regarder l'attaquant
+            teleportLoc.setPitch(0);
+            player.teleport(teleportLoc);
+
+            // Particules à la destination
+            player.getWorld().spawnParticle(org.bukkit.Particle.PORTAL, teleportLoc.add(0, 1, 0), 30, 0.3, 0.5, 0.3, 0.1);
+
+            // Son
+            player.playSound(teleportLoc, org.bukkit.Sound.ENTITY_ENDERMAN_TELEPORT, 0.6f, 1.5f);
         }
     }
 }

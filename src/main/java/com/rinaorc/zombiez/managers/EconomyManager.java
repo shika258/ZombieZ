@@ -333,6 +333,71 @@ public class EconomyManager {
             xp += streakBonus;
         }
 
+        // ============ ASCENSION LOOT BONUSES ============
+        var ascensionManager = plugin.getAscensionManager();
+        if (ascensionManager != null) {
+            var ascData = ascensionManager.getData(player);
+            if (ascData != null) {
+                // Toucher de Midas: 5% kill = +25 pts bonus
+                if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.TOUCHER_DE_MIDAS)) {
+                    if (random.nextDouble() < 0.05) {
+                        finalPoints += 25;
+                        player.playSound(player.getLocation(), Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.5f, 1.8f);
+                    }
+                }
+
+                // Pluie d'Or: 3% kill = +100 pts
+                if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.PLUIE_DOR)) {
+                    if (random.nextDouble() < 0.03) {
+                        finalPoints += 100;
+                        player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.6f, 1.5f);
+                        player.sendMessage("§6§l★ §ePluie d'Or! §6+100 Points bonus!");
+                    }
+                }
+
+                // Combo Payant: Combo 10+ = +50% loot
+                if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.COMBO_PAYANT)) {
+                    int combo = plugin.getMomentumManager().getStreak(player);
+                    if (combo >= 10) {
+                        finalPoints = Math.round(finalPoints * 1.5);
+                    }
+                }
+
+                // Prospecteur: Zone +10% loot (aura passive via stats)
+                if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.PROSPECTEUR)) {
+                    finalPoints = Math.round(finalPoints * 1.10);
+                }
+
+                // Jackpot Ambulant: 1% kill = +200 pts garanti
+                if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.JACKPOT_AMBULANT)) {
+                    if (random.nextDouble() < 0.01) {
+                        finalPoints += 200;
+                        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 0.8f, 1.2f);
+                        player.sendMessage("§d§l🎰 JACKPOT! §e+200 Points!");
+                    }
+                }
+
+                // Favori de la Chance: 50 kills = points bonus massif (compteur géré dans AscensionManager)
+                if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.FAVORI_DE_LA_CHANCE)) {
+                    if (ascData.getGuaranteedRareCounter().get() == 0) {
+                        // Le compteur vient d'être reset = milestone atteint
+                        // Note: Le compteur est reset dans AscensionManager.updateKillCounters()
+                        // On donne un gros bonus de points
+                        finalPoints += 500;
+                        player.playSound(player.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1.0f, 1.0f);
+                        player.sendMessage("§d§l🌟 FAVORI DE LA CHANCE! §e+500 Points bonus!");
+                    }
+                }
+
+                // Détecteur de Trésors: Élites +30% drop (intégré via multiplier)
+                if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.DETECTEUR_DE_TRESORS)) {
+                    if (zombieType.toUpperCase().contains("ELITE") || zombieType.toUpperCase().contains("SPECIAL")) {
+                        finalPoints = Math.round(finalPoints * 1.30);
+                    }
+                }
+            }
+        }
+
         // Ajouter les récompenses
         addPoints(player, finalPoints, "Kill " + zombieType);
         addXp(player, xp, "Kill");
