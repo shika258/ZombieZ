@@ -196,22 +196,23 @@ public class AscensionData {
         else if (spectre >= 5) newStats.merge(StatType.MOVEMENT_SPEED, 10.0, Double::sum);
         else if (spectre >= 3) newStats.merge(StatType.MOVEMENT_SPEED, 5.0, Double::sum);
 
-        if (butin >= 7) newStats.merge(StatType.LUCK, 15.0, Double::sum);
-        else if (butin >= 5) newStats.merge(StatType.LUCK, 10.0, Double::sum);
-        else if (butin >= 3) newStats.merge(StatType.LUCK, 5.0, Double::sum);
+        // Bonus LUCK nerfé pour éviter le loot OP
+        if (butin >= 7) newStats.merge(StatType.LUCK, 8.0, Double::sum);
+        else if (butin >= 5) newStats.merge(StatType.LUCK, 5.0, Double::sum);
+        else if (butin >= 3) newStats.merge(StatType.LUCK, 3.0, Double::sum);
 
         // Bonus équilibriste (au moins 2 de chaque)
         if (carnage >= 2 && spectre >= 2 && butin >= 2) {
             if (carnage >= 3 && spectre >= 3 && butin >= 3) {
-                // Parfait 3-3-3 : +8% à tout
+                // Parfait 3-3-3 : +8% damage/speed, +4% luck (nerfé)
                 newStats.merge(StatType.DAMAGE_PERCENT, 8.0, Double::sum);
                 newStats.merge(StatType.MOVEMENT_SPEED, 8.0, Double::sum);
-                newStats.merge(StatType.LUCK, 8.0, Double::sum);
+                newStats.merge(StatType.LUCK, 4.0, Double::sum);
             } else {
-                // 2-2-2 minimum : +5% à tout
+                // 2-2-2 minimum : +5% damage/speed, +2% luck (nerfé)
                 newStats.merge(StatType.DAMAGE_PERCENT, 5.0, Double::sum);
                 newStats.merge(StatType.MOVEMENT_SPEED, 5.0, Double::sum);
-                newStats.merge(StatType.LUCK, 5.0, Double::sum);
+                newStats.merge(StatType.LUCK, 2.0, Double::sum);
             }
         }
 

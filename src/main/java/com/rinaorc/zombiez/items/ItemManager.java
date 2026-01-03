@@ -444,6 +444,7 @@ public class ItemManager {
         capStat(stats, StatType.EXECUTE_THRESHOLD, 15.0);     // Max execute at <15% HP
 
         // Stats de chance/loot
+        capStat(stats, StatType.LUCK, 50.0);                  // Max 50% luck (évite le loot à chaque kill)
         capStat(stats, StatType.DOUBLE_LOOT_CHANCE, 30.0);    // Max 30% double loot
         capStat(stats, StatType.LEGENDARY_DROP_BONUS, 100.0); // Max +100% legendary drop
 
