@@ -239,6 +239,8 @@ public class ZombieZPlugin extends JavaPlugin {
     private com.rinaorc.zombiez.progression.journey.chapter3.Chapter3Systems chapter3Systems;
     @Getter
     private com.rinaorc.zombiez.progression.journey.chapter4.Chapter4Systems chapter4Systems;
+    @Getter
+    private com.rinaorc.zombiez.progression.journey.chapter5.Chapter5Systems chapter5Systems;
 
     private com.rinaorc.zombiez.navigation.GPSManager gpsManager;
 
@@ -463,6 +465,11 @@ public class ZombieZPlugin extends JavaPlugin {
             chapter2Systems.cleanup();
         }
 
+        // Cleanup Chapter 5 Systems
+        if (chapter5Systems != null) {
+            chapter5Systems.cleanup();
+        }
+
         // Cleanup GPS Manager
         if (gpsManager != null) {
             gpsManager.shutdown();
@@ -614,6 +621,9 @@ public class ZombieZPlugin extends JavaPlugin {
 
         // Chapter 4 Systems - Le Fossoyeur (Cimetière)
         chapter4Systems = new com.rinaorc.zombiez.progression.journey.chapter4.Chapter4Systems(this);
+
+        // Chapter 5 Systems - Pêche aux Saumons Mutants
+        chapter5Systems = new com.rinaorc.zombiez.progression.journey.chapter5.Chapter5Systems(this);
 
         // GPS Manager - Navigation vers les objectifs du Journey
         gpsManager = new com.rinaorc.zombiez.navigation.GPSManager(this);

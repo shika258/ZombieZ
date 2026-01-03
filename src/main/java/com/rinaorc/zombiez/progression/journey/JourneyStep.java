@@ -185,9 +185,9 @@ public enum JourneyStep {
         "Active le beacon - Coords: §b704, 91, 8219", StepType.ACTIVATE_REFUGE_BEACON, 1,
         300, 10, Material.BEACON),
 
-    STEP_5_2(JourneyChapter.CHAPTER_5, 2, "Recycle 25 items",
-        "Le recyclage, c'est la vie!", StepType.RECYCLE_ITEMS, 25,
-        400, 12, Material.GRINDSTONE),
+    STEP_5_2(JourneyChapter.CHAPTER_5, 2, "Pêche aux Saumons Mutants",
+        "Zone de pêche: §b821, 86, 8183", StepType.SALMON_FISHING, 12,
+        400, 12, Material.SALMON),
 
     STEP_5_3(JourneyChapter.CHAPTER_5, 3, "Tue ton premier zombie Élite",
         "Les élites sont plus dangereux", StepType.ELITE_KILLS, 1,
@@ -485,6 +485,7 @@ public enum JourneyStep {
             case DPS_CHECK -> current >= 1 ? "✓ Cristal détruit!" : "Détruis le Cristal de Corruption";
             case FIRE_MINIGAME -> current >= 1 ? "✓ Incendie éteint!" : "Éteins l'incendie du moulin";
             case FORGE_ITEM -> current >= targetValue ? "✓ Objet amélioré!" : "Améliorez un objet §b/forge §7" + current + "/" + targetValue;
+            case SALMON_FISHING -> current + "/" + targetValue + " Saumon Pêché";
         };
     }
 
@@ -679,7 +680,10 @@ public enum JourneyStep {
         FIRE_MINIGAME("Éteins l'incendie du moulin"),
 
         // Forge
-        FORGE_ITEM("Améliore un objet avec la forge");
+        FORGE_ITEM("Améliore un objet avec la forge"),
+
+        // Pêche (Chapitre 5)
+        SALMON_FISHING("Pêche les saumons mutants");
 
         private final String description;
 
