@@ -657,8 +657,17 @@ public class JourneyManager {
      * Vérifie si l'étape actuelle est déjà complétée (basée sur l'état actuel du joueur)
      * Utile pour les étapes de type LEVEL, CLASS_LEVEL, etc. où la progression
      * peut avoir été atteinte avant d'arriver à cette étape
+     *
+     * NOTE: Certains types d'étapes nécessitent une action manuelle (livraison à un NPC)
+     * et ne doivent PAS être auto-complétées même si la progression atteint le target.
      */
     private void checkCurrentStepCompletion(Player player, JourneyStep step) {
+        // Exclure les types d'étapes qui nécessitent une livraison/validation manuelle
+        // Ces étapes sont complétées via le système de quête (Chapter5Systems, etc.)
+        if (requiresManualCompletion(step.getType())) {
+            return;
+        }
+
         int currentProgress = getStepProgress(player, step);
         if (step.isCompleted(currentProgress)) {
             // Utiliser un délai court pour éviter les appels récursifs trop rapides
@@ -674,6 +683,22 @@ public class JourneyManager {
                 }
             }.runTaskLater(plugin, 5L);
         }
+    }
+
+    /**
+     * Vérifie si un type d'étape nécessite une complétion manuelle
+     * (livraison à un NPC, validation par interaction, etc.)
+     *
+     * @param type Le type d'étape
+     * @return true si l'étape ne doit pas être auto-complétée
+     */
+    private boolean requiresManualCompletion(JourneyStep.StepType type) {
+        return switch (type) {
+            // Quêtes avec livraison à un NPC
+            case LUMBER_DELIVERY -> true;
+            // Autres types: auto-completion normale
+            default -> false;
+        };
     }
 
     /**

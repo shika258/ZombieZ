@@ -2126,17 +2126,23 @@ public class Chapter5Systems implements Listener {
             return;
         }
 
-        // Retirer le bois de l'inventaire
+        // Retirer le bois de quête de l'inventaire (uniquement les bûches marquées)
         int toRemove = LUMBER_TO_COLLECT;
         for (ItemStack item : player.getInventory().getContents()) {
             if (item != null && item.getType() == Material.DARK_OAK_WOOD && toRemove > 0) {
-                int amount = item.getAmount();
-                if (amount <= toRemove) {
-                    toRemove -= amount;
-                    item.setAmount(0);
-                } else {
-                    item.setAmount(amount - toRemove);
-                    toRemove = 0;
+                // Vérifier que c'est bien une bûche de quête (pas une bûche normale)
+                if (item.hasItemMeta() && item.getItemMeta().hasDisplayName()) {
+                    String displayName = item.getItemMeta().getDisplayName();
+                    if (displayName.contains("Quête") || displayName.contains("Bûche de Chêne Noir")) {
+                        int amount = item.getAmount();
+                        if (amount <= toRemove) {
+                            toRemove -= amount;
+                            item.setAmount(0);
+                        } else {
+                            item.setAmount(amount - toRemove);
+                            toRemove = 0;
+                        }
+                    }
                 }
             }
             if (toRemove <= 0) break;

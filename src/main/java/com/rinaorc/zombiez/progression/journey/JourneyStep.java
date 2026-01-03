@@ -497,7 +497,7 @@ public enum JourneyStep {
                 else yield current + "/5 suspects interrogés";
             }
             case LUMBER_DELIVERY -> {
-                if (current >= targetValue) yield "✓ Bois livré!";
+                if (current >= targetValue) yield "§e→ Livrez au bûcheron!";
                 else yield current + "/" + targetValue + " bois collecté";
             }
         };
