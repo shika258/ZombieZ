@@ -222,6 +222,19 @@ public class Chapter5Systems implements Listener {
     private final Map<UUID, UUID> activeSalmons = new ConcurrentHashMap<>();
     private BukkitTask salmonSpawnTask;
 
+    // === TOUTES LES TASKS (pour cleanup propre) ===
+    private BukkitTask oreUpdaterTask;
+    private BukkitTask oreCheckerTask;
+    private BukkitTask suspectUpdaterTask;
+    private BukkitTask suspectCheckerTask;
+    private BukkitTask lumberUpdaterTask;
+    private BukkitTask lumberjackCheckerTask;
+    private BukkitTask frogUpdaterTask;
+    private BukkitTask biologistCheckerTask;
+    private BukkitTask oracleCheckerTask;
+    private BukkitTask bossSpawnCheckerTask;
+    private BukkitTask bossDisplayUpdaterTask;
+
     // === TRACKING MINERAIS ===
     // Joueurs actifs sur la quête de minage
     private final Set<UUID> activeMiningPlayers = ConcurrentHashMap.newKeySet();
@@ -869,7 +882,7 @@ public class Chapter5Systems implements Listener {
      * Démarre le système de visibilité per-player pour les minerais
      */
     private void startOreVisibilityUpdater() {
-        new BukkitRunnable() {
+        oreUpdaterTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -960,7 +973,7 @@ public class Chapter5Systems implements Listener {
      * Démarre le vérificateur de respawn des minerais
      */
     private void startOreRespawnChecker() {
-        new BukkitRunnable() {
+        oreCheckerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -1407,7 +1420,7 @@ public class Chapter5Systems implements Listener {
      * Démarre le système de visibilité per-player pour les suspects
      */
     private void startSuspectVisibilityUpdater() {
-        new BukkitRunnable() {
+        suspectUpdaterTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -1479,7 +1492,7 @@ public class Chapter5Systems implements Listener {
      * Démarre le vérificateur de respawn des suspects
      */
     private void startSuspectRespawnChecker() {
-        new BukkitRunnable() {
+        suspectCheckerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -1968,7 +1981,7 @@ public class Chapter5Systems implements Listener {
      * Démarre le système de visibilité per-player pour les bois
      */
     private void startLumberVisibilityUpdater() {
-        new BukkitRunnable() {
+        lumberUpdaterTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -2047,7 +2060,7 @@ public class Chapter5Systems implements Listener {
      * Démarre le vérificateur de respawn des bois
      */
     private void startLumberRespawnChecker() {
-        new BukkitRunnable() {
+        lumberjackCheckerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -2620,7 +2633,7 @@ public class Chapter5Systems implements Listener {
      * Démarre le système de visibilité per-player pour les grenouilles
      */
     private void startFrogVisibilityUpdater() {
-        new BukkitRunnable() {
+        frogUpdaterTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -2687,7 +2700,7 @@ public class Chapter5Systems implements Listener {
      * Démarre le vérificateur de respawn des grenouilles
      */
     private void startFrogRespawnChecker() {
-        new BukkitRunnable() {
+        biologistCheckerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -3201,7 +3214,7 @@ public class Chapter5Systems implements Listener {
      * Démarre le vérificateur de respawn de l'Oracle
      */
     private void startOracleRespawnChecker() {
-        new BukkitRunnable() {
+        oracleCheckerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -3968,7 +3981,7 @@ public class Chapter5Systems implements Listener {
      * Démarre le checker de respawn du boss
      */
     private void startBossRespawnChecker() {
-        new BukkitRunnable() {
+        bossSpawnCheckerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -4159,7 +4172,7 @@ public class Chapter5Systems implements Listener {
      * Démarre la tâche de mise à jour du display (style Chapitre 2)
      */
     private void startBossDisplayUpdater() {
-        new BukkitRunnable() {
+        bossDisplayUpdaterTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -4313,10 +4326,45 @@ public class Chapter5Systems implements Listener {
      * Nettoyage lors de la désactivation du plugin
      */
     public void cleanup() {
-        // Saumons
-        if (salmonSpawnTask != null) {
+        // === ANNULATION DE TOUTES LES TASKS ===
+        if (salmonSpawnTask != null && !salmonSpawnTask.isCancelled()) {
             salmonSpawnTask.cancel();
         }
+        if (oreUpdaterTask != null && !oreUpdaterTask.isCancelled()) {
+            oreUpdaterTask.cancel();
+        }
+        if (oreCheckerTask != null && !oreCheckerTask.isCancelled()) {
+            oreCheckerTask.cancel();
+        }
+        if (suspectUpdaterTask != null && !suspectUpdaterTask.isCancelled()) {
+            suspectUpdaterTask.cancel();
+        }
+        if (suspectCheckerTask != null && !suspectCheckerTask.isCancelled()) {
+            suspectCheckerTask.cancel();
+        }
+        if (lumberUpdaterTask != null && !lumberUpdaterTask.isCancelled()) {
+            lumberUpdaterTask.cancel();
+        }
+        if (lumberjackCheckerTask != null && !lumberjackCheckerTask.isCancelled()) {
+            lumberjackCheckerTask.cancel();
+        }
+        if (frogUpdaterTask != null && !frogUpdaterTask.isCancelled()) {
+            frogUpdaterTask.cancel();
+        }
+        if (biologistCheckerTask != null && !biologistCheckerTask.isCancelled()) {
+            biologistCheckerTask.cancel();
+        }
+        if (oracleCheckerTask != null && !oracleCheckerTask.isCancelled()) {
+            oracleCheckerTask.cancel();
+        }
+        if (bossSpawnCheckerTask != null && !bossSpawnCheckerTask.isCancelled()) {
+            bossSpawnCheckerTask.cancel();
+        }
+        if (bossDisplayUpdaterTask != null && !bossDisplayUpdaterTask.isCancelled()) {
+            bossDisplayUpdaterTask.cancel();
+        }
+
+        // Saumons
         cleanupPlayerSalmons();
         activeSalmonPlayers.clear();
 
