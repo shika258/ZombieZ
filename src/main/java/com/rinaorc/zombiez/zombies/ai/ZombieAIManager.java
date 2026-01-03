@@ -81,6 +81,7 @@ public class ZombieAIManager {
             case ILLAGER -> new IllagerZombieAI(plugin, entity, type, level);
             case EVENT -> new BasicZombieAI(plugin, entity, type, level); // Zombies d'événements (Horde, etc.)
             case EVENT_BOSS -> new WanderingBossAI(plugin, entity, type, level); // Boss d'événements (Wandering Boss)
+            case QUEST -> new BasicZombieAI(plugin, entity, type, level); // Mobs de quêtes Journey (saumons, etc.)
         };
     }
 
