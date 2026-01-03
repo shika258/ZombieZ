@@ -94,7 +94,7 @@ public class SwampFrogBossAI extends ZombieAI {
 
         // Particules d'aura toxique
         if (tickCounter % 10 == 0) {
-            playParticles(Particle.SLIME, zombie.getLocation().add(0, 0.5, 0), 8, 1, 0.5, 1);
+            playParticles(Particle.ITEM_SLIME, zombie.getLocation().add(0, 0.5, 0), 8, 1, 0.5, 1);
             if (phase == 2) {
                 // Plus de particules toxiques en phase 2
                 zombie.getWorld().spawnParticle(Particle.DUST, zombie.getLocation().add(0, 1, 0),
@@ -216,7 +216,7 @@ public class SwampFrogBossAI extends ZombieAI {
      */
     private void tickLeap() {
         // Particules pendant le saut
-        playParticles(Particle.SLIME, zombie.getLocation(), 5, 0.5, 0.5, 0.5);
+        playParticles(Particle.ITEM_SLIME, zombie.getLocation(), 5, 0.5, 0.5, 0.5);
 
         // Vérifier si le boss est au sol
         if (zombie.isOnGround() && tickCounter > 5) {
@@ -284,7 +284,7 @@ public class SwampFrogBossAI extends ZombieAI {
                 // Particules
                 zombie.getWorld().spawnParticle(Particle.DUST, current, 5, 0.2, 0.2, 0.2, 0,
                     new Particle.DustOptions(Color.fromRGB(100, 200, 50), 1.5f));
-                zombie.getWorld().spawnParticle(Particle.SLIME, current, 3, 0.1, 0.1, 0.1, 0);
+                zombie.getWorld().spawnParticle(Particle.ITEM_SLIME, current, 3, 0.1, 0.1, 0.1, 0);
 
                 // Vérifier collision avec joueurs
                 for (Entity entity : zombie.getWorld().getNearbyEntities(current, 1, 1, 1)) {
@@ -295,7 +295,7 @@ public class SwampFrogBossAI extends ZombieAI {
                         p.addPotionEffect(new PotionEffect(PotionEffectType.NAUSEA, 60, 0, false, false));
 
                         zombie.getWorld().playSound(current, Sound.ENTITY_SLIME_SQUISH_SMALL, 1f, 1f);
-                        zombie.getWorld().spawnParticle(Particle.SLIME, current, 20, 0.5, 0.5, 0.5, 0);
+                        zombie.getWorld().spawnParticle(Particle.ITEM_SLIME, current, 20, 0.5, 0.5, 0.5, 0);
                         cancel();
                         return;
                     }
@@ -303,7 +303,7 @@ public class SwampFrogBossAI extends ZombieAI {
 
                 // Vérifier si touche un bloc solide
                 if (current.getBlock().getType().isSolid()) {
-                    zombie.getWorld().spawnParticle(Particle.SLIME, current, 15, 0.3, 0.3, 0.3, 0);
+                    zombie.getWorld().spawnParticle(Particle.ITEM_SLIME, current, 15, 0.3, 0.3, 0.3, 0);
                     cancel();
                 }
             }
@@ -347,7 +347,7 @@ public class SwampFrogBossAI extends ZombieAI {
                     }
                 }
                 // Particules de spawn
-                zombie.getWorld().spawnParticle(Particle.SLIME, spawnLoc, 20, 0.5, 0.5, 0.5, 0);
+                zombie.getWorld().spawnParticle(Particle.ITEM_SLIME, spawnLoc, 20, 0.5, 0.5, 0.5, 0);
                 zombie.getWorld().playSound(spawnLoc, Sound.ENTITY_FROG_STEP, 1f, 1.5f);
             }
         }
@@ -413,7 +413,7 @@ public class SwampFrogBossAI extends ZombieAI {
             zombie.teleport(spawnLocation);
             setZombieTarget(null);
             playSound(Sound.ENTITY_FROG_LONG_JUMP, 1.5f, 0.5f);
-            playParticles(Particle.SLIME, spawnLocation.clone().add(0, 1, 0), 30, 1, 1, 1);
+            playParticles(Particle.ITEM_SLIME, spawnLocation.clone().add(0, 1, 0), 30, 1, 1, 1);
 
             // Heal complet si reset
             var maxHealth = zombie.getAttribute(Attribute.MAX_HEALTH);
@@ -505,7 +505,7 @@ public class SwampFrogBossAI extends ZombieAI {
         // Contre-attaque occasionnelle (10% de chance) - crache du poison
         if (attacker instanceof Player player && random.nextFloat() < 0.10f) {
             player.addPotionEffect(new PotionEffect(PotionEffectType.POISON, 40, 0, false, false));
-            playParticles(Particle.SLIME, player.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3);
+            playParticles(Particle.ITEM_SLIME, player.getLocation().add(0, 1, 0), 10, 0.3, 0.3, 0.3);
         }
     }
 
@@ -523,7 +523,7 @@ public class SwampFrogBossAI extends ZombieAI {
         playParticles(Particle.EXPLOSION_EMITTER, zombie.getLocation(), 3, 1, 1, 1);
 
         // Explosion de slime
-        zombie.getWorld().spawnParticle(Particle.SLIME, zombie.getLocation(), 100, 3, 2, 3, 0);
+        zombie.getWorld().spawnParticle(Particle.ITEM_SLIME, zombie.getLocation(), 100, 3, 2, 3, 0);
         zombie.getWorld().spawnParticle(Particle.ITEM, zombie.getLocation(), 50, 2, 1, 2, 0.1,
             new org.bukkit.inventory.ItemStack(org.bukkit.Material.SLIME_BALL));
     }

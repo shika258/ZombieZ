@@ -21,6 +21,7 @@ import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.scoreboard.Scoreboard;
 import org.bukkit.scoreboard.Team;
@@ -4125,7 +4126,7 @@ public class Chapter5Systems implements Listener {
         world.playSound(deathLoc, Sound.ENTITY_FROG_DEATH, 2f, 0.3f);
         world.playSound(deathLoc, Sound.ENTITY_GENERIC_EXPLODE, 2f, 0.8f);
         world.spawnParticle(Particle.EXPLOSION_EMITTER, deathLoc, 5, 2, 1, 2, 0);
-        world.spawnParticle(Particle.SLIME, deathLoc, 100, 3, 2, 3, 0);
+        world.spawnParticle(Particle.ITEM_SLIME, deathLoc, 100, 3, 2, 3, 0);
 
         // Valider l'étape pour tous les contributeurs
         for (UUID uuid : bossContributors) {
