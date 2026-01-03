@@ -72,7 +72,7 @@ public class AscensionManager {
                     BossBar bar = choiceBossBars.get(playerId);
                     if (bar != null) {
                         bar.setProgress(Math.max(0, remaining / 30.0));
-                        bar.setTitle("§6§l⬆ ASCENSION §8- §7/asc pour muter §8- §c" + remaining + "s");
+                        bar.setTitle("§6§l⬆ ASCENSION §8- §7/as pour muter §8- §c" + remaining + "s");
                     }
 
                     // Timeout : choix aléatoire
@@ -286,12 +286,15 @@ public class AscensionManager {
 
         // Créer la BossBar de timer
         BossBar bar = Bukkit.createBossBar(
-            "§6§l⬆ ASCENSION PRÊTE §8- §7/asc pour muter §8- §c30s",
+            "§6§l⬆ ASCENSION PRÊTE §8- §7/as pour muter §8- §c30s",
             BarColor.YELLOW,
             BarStyle.SOLID
         );
         bar.addPlayer(player);
         choiceBossBars.put(player.getUniqueId(), bar);
+
+        // Subtitle pour indiquer au joueur
+        player.sendTitle("", "§a§lMutation prête ! §7Fais §e/as", 10, 60, 20);
 
         // Particules légères
         player.getWorld().spawnParticle(
@@ -665,6 +668,9 @@ public class AscensionManager {
         AscensionGUI.open(plugin, player, data);
     }
 
+    // Couleurs pour l'effet clignotant de /as
+    private static final String[] BLINK_COLORS = {"§a§l", "§e§l", "§6§l", "§c§l", "§d§l", "§b§l"};
+
     /**
      * Obtient la progression pour l'ActionBar
      */
@@ -678,7 +684,9 @@ public class AscensionManager {
         int nextStage = data.getKillsForNextStage();
 
         if (data.isChoicePending()) {
-            return "§a§l⬆PRÊT";
+            // Clignotement de couleurs basé sur le temps (change toutes les 250ms)
+            int colorIndex = (int) ((System.currentTimeMillis() / 250) % BLINK_COLORS.length);
+            return BLINK_COLORS[colorIndex] + "/as";
         }
 
         if (data.getCurrentStage() >= 10) {

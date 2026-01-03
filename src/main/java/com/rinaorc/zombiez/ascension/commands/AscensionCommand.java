@@ -15,7 +15,7 @@ import java.util.Collections;
 import java.util.List;
 
 /**
- * Commande /asc et /ascension pour ouvrir le menu d'Ascension
+ * Commande /as (et aliases /asc, /ascension) pour ouvrir le menu d'Ascension
  */
 public class AscensionCommand implements CommandExecutor, TabCompleter {
 

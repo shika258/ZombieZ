@@ -195,11 +195,11 @@ commands:
     aliases: [mutation, daily]
 
   # Commandes Ascension
-  ascension:
+  as:
     description: Système d'Ascension (mutations de session)
     usage: /<command>
     permission: zombiez.ascension
-    aliases: [asc]
+    aliases: [ascension, asc]
 
   talent:
     description: Gestion des talents de classe
