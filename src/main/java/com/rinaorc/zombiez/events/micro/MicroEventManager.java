@@ -347,6 +347,9 @@ public class MicroEventManager {
             Zone zone = plugin.getZoneManager().getZoneAt(checkLoc);
             if (zone == null || zone.isSafeZone() || zone.getId() == 0) continue;
 
+            // Verifier que ce n'est pas dans une zone de refuge protegee
+            if (plugin.getRefugeManager().isInAnyRefugeProtectedArea(checkLoc)) continue;
+
             // Trouver le sol
             int highestY = world.getHighestBlockYAt((int) x, (int) z);
 
