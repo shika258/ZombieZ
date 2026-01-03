@@ -764,6 +764,29 @@ public class JourneyManager {
             }
         }
 
+        // Étape 5.9: Mutations d'Ascension - Expliquer le système
+        if (step == JourneyStep.STEP_5_9) {
+            player.sendTitle("§d§l☣ ASCENSION ☣", "§7Débloque des mutations de combat", 10, 60, 20);
+
+            Bukkit.getScheduler().runTaskLater(plugin, () -> {
+                player.sendMessage("");
+                player.sendMessage("§8§m                                              ");
+                player.sendMessage("§d§l    ☣ MUTATIONS D'ASCENSION ☣");
+                player.sendMessage("§8§m                                              ");
+                player.sendMessage("");
+                player.sendMessage("§7Le système d'Ascension te permet de débloquer");
+                player.sendMessage("§7des §dmutations §7qui améliorent tes capacités.");
+                player.sendMessage("");
+                player.sendMessage("§e▸ §fTue des zombies pour remplir ta jauge (§7☣§f)");
+                player.sendMessage("§e▸ §fQuand elle est pleine, tape §e/as §fpour muter");
+                player.sendMessage("§e▸ §fChoisis parmi §d3 mutations §funiques");
+                player.sendMessage("");
+                player.sendMessage("§7Objectif: §dDébloque 3 mutations");
+                player.sendMessage("");
+                player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_WITHER_SPAWN, 0.5f, 1.5f);
+            }, 40L);
+        }
+
         // Pour les étapes d'exploration: reset les chunks explorés de la zone cible
         // Évite que les chunks visités AVANT le déblocage de l'étape soient comptés
         if (step.getType() == JourneyStep.StepType.ZONE_EXPLORATION) {

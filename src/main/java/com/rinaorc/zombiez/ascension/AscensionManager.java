@@ -402,6 +402,12 @@ public class AscensionManager {
         } else {
             player.sendMessage("§8[§6Ascension§8] §aMutation acquise: " + mutation.getFormattedName());
         }
+
+        // Notifier le système de Parcours (Journey)
+        if (plugin.getJourneyListener() != null) {
+            int totalMutations = data.getActiveMutations().size();
+            plugin.getJourneyListener().onMutationUnlocked(player, totalMutations);
+        }
     }
 
     // ==================== EFFETS SPÉCIAUX ====================

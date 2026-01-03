@@ -213,6 +213,10 @@ public enum JourneyStep {
         "Oracle des Marais: §b164, 96, 8149", StepType.RIDDLE_QUEST, 3,
         1050, 35, Material.ENCHANTED_BOOK),
 
+    STEP_5_9(JourneyChapter.CHAPTER_5, 9, "Mutations d'Ascension",
+        "Débloque 3 mutations via /as", StepType.UNLOCK_MUTATIONS, 3,
+        1150, 40, Material.NETHER_STAR),
+
     // ==================== CHAPITRE 6: SPÉCIALISATION ====================
 
     STEP_6_1(JourneyChapter.CHAPTER_6, 1, "Débloque 3 skills passifs",
@@ -516,6 +520,10 @@ public enum JourneyStep {
                 if (current >= targetValue) yield "✓ Énigmes résolues!";
                 else yield current + "/" + targetValue + " énigmes résolues";
             }
+            case UNLOCK_MUTATIONS -> {
+                if (current >= targetValue) yield "✓ Mutations débloquées!";
+                else yield current + "/" + targetValue + " mutations activées";
+            }
         };
     }
 
@@ -728,7 +736,10 @@ public enum JourneyStep {
         MUTANT_FROG_CAPTURE("Capture les grenouilles mutantes"),
 
         // Énigmes de l'Oracle (Chapitre 5)
-        RIDDLE_QUEST("Résous les énigmes de l'Oracle");
+        RIDDLE_QUEST("Résous les énigmes de l'Oracle"),
+
+        // Mutations d'Ascension (Chapitre 5)
+        UNLOCK_MUTATIONS("Débloque des mutations d'ascension");
 
         private final String description;
 
