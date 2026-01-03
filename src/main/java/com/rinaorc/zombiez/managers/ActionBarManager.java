@@ -198,6 +198,14 @@ public class ActionBarManager {
 
         bar.append(" §8│ ");
 
+        // ASCENSION (progression des mutations de session)
+        var ascensionManager = plugin.getAscensionManager();
+        if (ascensionManager != null) {
+            String ascensionProgress = ascensionManager.getActionBarProgress(player);
+            bar.append(ascensionProgress);
+            bar.append(" §8│ ");
+        }
+
         // BOUSSOLE
         bar.append(buildCompass(player));
 

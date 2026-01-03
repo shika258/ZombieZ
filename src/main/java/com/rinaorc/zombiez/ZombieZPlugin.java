@@ -252,6 +252,10 @@ public class ZombieZPlugin extends JavaPlugin {
     @Getter
     private com.rinaorc.zombiez.managers.ZoneLockDisplayManager zoneLockDisplayManager;
 
+    // Système d'Ascension (mutations de session)
+    @Getter
+    private com.rinaorc.zombiez.ascension.AscensionManager ascensionManager;
+
     // État du plugin
     @Getter
     private boolean fullyLoaded = false;
@@ -382,6 +386,12 @@ public class ZombieZPlugin extends JavaPlugin {
         if (classManager != null) {
             log(Level.INFO, "§7Sauvegarde des données de classe...");
             classManager.shutdown();
+        }
+
+        // Cleanup du système d'Ascension
+        if (ascensionManager != null) {
+            log(Level.INFO, "§7Arrêt du système d'Ascension...");
+            ascensionManager.shutdown();
         }
 
         // Cleanup des ArmorStands visuels (Bouclier d'Os)
@@ -725,6 +735,11 @@ public class ZombieZPlugin extends JavaPlugin {
         // ActionBar Manager - Système centralisé d'ActionBar (gestion combat/hors-combat)
         actionBarManager = new com.rinaorc.zombiez.managers.ActionBarManager(this);
 
+        // ===== Système d'Ascension =====
+
+        // Ascension Manager - Mutations de session (reset à la mort/reboot)
+        ascensionManager = new com.rinaorc.zombiez.ascension.AscensionManager(this);
+
         // ===== Système de Pets =====
 
         // Pet Manager - Système complet de pets avec caching et persistance
@@ -889,6 +904,11 @@ public class ZombieZPlugin extends JavaPlugin {
         getCommand("talent").setExecutor(talentCmd);
         getCommand("talent").setTabCompleter(talentCmd);
 
+        // Commandes Joueur - Ascension
+        com.rinaorc.zombiez.ascension.commands.AscensionCommand ascensionCmd = new com.rinaorc.zombiez.ascension.commands.AscensionCommand(this);
+        getCommand("ascension").setExecutor(ascensionCmd);
+        getCommand("ascension").setTabCompleter(ascensionCmd);
+
         // Commandes Joueur - Pets
         com.rinaorc.zombiez.pets.commands.PetCommand petCmd = new com.rinaorc.zombiez.pets.commands.PetCommand(this);
         getCommand("pet").setExecutor(petCmd);
@@ -1012,6 +1032,11 @@ public class ZombieZPlugin extends JavaPlugin {
         // Listener système de classes
         if (classManager != null) {
             pm.registerEvents(new com.rinaorc.zombiez.classes.ClassListener(this), this);
+        }
+
+        // Listener système d'Ascension
+        if (ascensionManager != null) {
+            pm.registerEvents(new com.rinaorc.zombiez.ascension.listeners.AscensionListener(this), this);
         }
 
         // Listener système de talents (effets passifs)

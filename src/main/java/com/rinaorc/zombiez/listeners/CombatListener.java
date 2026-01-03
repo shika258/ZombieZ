@@ -562,6 +562,16 @@ public class CombatListener implements Listener {
         // ============ 1. STATS D'ÉQUIPEMENT ============
         Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
 
+        // ============ 1.5 ASCENSION STATS ============
+        // Merge les bonus de mutations d'Ascension avec les stats d'équipement
+        var ascensionManager = plugin.getAscensionManager();
+        if (ascensionManager != null) {
+            Map<StatType, Double> ascensionStats = ascensionManager.getStatBonuses(player);
+            for (Map.Entry<StatType, Double> entry : ascensionStats.entrySet()) {
+                playerStats.merge(entry.getKey(), entry.getValue(), Double::sum);
+            }
+        }
+
         // Bonus de dégâts flat
         double flatDamageBonus = playerStats.getOrDefault(StatType.DAMAGE, 0.0);
         finalDamage += flatDamageBonus;
@@ -1003,6 +1013,12 @@ public class CombatListener implements Listener {
         // ============ ENREGISTRER LE KILL DANS MOMENTUM ============
         plugin.getMomentumManager().registerKill(killer);
 
+        // ============ ENREGISTRER LE KILL DANS ASCENSION ============
+        var ascensionManager = plugin.getAscensionManager();
+        if (ascensionManager != null) {
+            ascensionManager.registerKill(killer);
+        }
+
         // ============ METTRE À JOUR LES MISSIONS ============
         plugin.getMissionManager().updateProgress(killer,
             com.rinaorc.zombiez.progression.MissionManager.MissionTracker.ZOMBIE_KILLS, 1);
@@ -1220,6 +1236,16 @@ public class CombatListener implements Listener {
 
         // ============ 1. STATS D'ÉQUIPEMENT ============
         Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
+
+        // ============ 1.5 ASCENSION STATS ============
+        // Merge les bonus de mutations d'Ascension avec les stats d'équipement
+        var ascensionManager = plugin.getAscensionManager();
+        if (ascensionManager != null) {
+            Map<StatType, Double> ascensionStats = ascensionManager.getStatBonuses(player);
+            for (Map.Entry<StatType, Double> entry : ascensionStats.entrySet()) {
+                playerStats.merge(entry.getKey(), entry.getValue(), Double::sum);
+            }
+        }
 
         // Bonus de dégâts flat
         double flatDamageBonus = playerStats.getOrDefault(StatType.DAMAGE, 0.0);
