@@ -787,6 +787,14 @@ public class JourneyManager {
             }, 40L);
         }
 
+        // Étape 5.10: Grenouille Géante du Marais - Activer le boss
+        if (step == JourneyStep.STEP_5_10) {
+            var chapter5Systems = plugin.getChapter5Systems();
+            if (chapter5Systems != null) {
+                chapter5Systems.onPlayerReachStep510(player);
+            }
+        }
+
         // Pour les étapes d'exploration: reset les chunks explorés de la zone cible
         // Évite que les chunks visités AVANT le déblocage de l'étape soient comptés
         if (step.getType() == JourneyStep.StepType.ZONE_EXPLORATION) {

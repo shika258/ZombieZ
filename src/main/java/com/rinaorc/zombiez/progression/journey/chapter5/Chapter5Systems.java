@@ -184,6 +184,12 @@ public class Chapter5Systems implements Listener {
     private static final float ORACLE_PITCH = 0;
     private static final int TOTAL_RIDDLES = 3;  // Nombre d'énigmes à résoudre
 
+    // === CONFIGURATION BOSS GRENOUILLE (Étape 5.10) ===
+    // Boss location: 384, 93, 8034
+    private static final Location SWAMP_FROG_BOSS_LOCATION = new Location(null, 384.5, 93, 8034.5, 0, 0);
+    private static final int BOSS_LEVEL = 15;  // Niveau du boss
+    private static final int BOSS_RESPAWN_SECONDS = 120;  // Respawn après 2 minutes
+
     // Types de minerais avec leurs couleurs de glow
     private enum OreType {
         REDSTONE(Material.REDSTONE_ORE, Color.RED, "§cRedstone"),
@@ -282,6 +288,14 @@ public class Chapter5Systems implements Listener {
     // Énigme actuelle par joueur (0, 1, 2)
     private final Map<UUID, Integer> playerCurrentRiddle = new ConcurrentHashMap<>();
 
+    // === TRACKING BOSS GRENOUILLE (Étape 5.10) ===
+    private NamespacedKey SWAMP_FROG_BOSS_KEY;
+    private Zombie swampFrogBossEntity;
+    private TextDisplay swampFrogBossDisplay;
+    private final Set<UUID> bossContributors = ConcurrentHashMap.newKeySet();
+    private boolean bossRespawnScheduled = false;
+    private long bossRespawnTime = 0;
+
     public Chapter5Systems(ZombieZPlugin plugin) {
         this.plugin = plugin;
         this.journeyManager = plugin.getJourneyManager();
@@ -299,6 +313,7 @@ public class Chapter5Systems implements Listener {
         this.FROG_HITBOX_KEY = new NamespacedKey(plugin, "quest_frog_hitbox_ch5");
         this.BIOLOGIST_NPC_KEY = new NamespacedKey(plugin, "quest_biologist_ch5");
         this.ORACLE_NPC_KEY = new NamespacedKey(plugin, "quest_oracle_ch5");
+        this.SWAMP_FROG_BOSS_KEY = new NamespacedKey(plugin, "swamp_frog_boss_ch5");
 
         // Initialiser le GUI du mini-jeu de grenouilles
         this.frogCaptureGUI = new FrogCaptureGUI(plugin);
@@ -340,6 +355,10 @@ public class Chapter5Systems implements Listener {
                     // Système des énigmes
                     initializeOracle(world);
                     startOracleRespawnChecker();
+
+                    // Système du boss Grenouille Géante
+                    initializeSwampFrogBoss(world);
+                    startBossRespawnChecker();
                 }
             }
         }.runTaskLater(plugin, 100L);
@@ -3880,6 +3899,284 @@ public class Chapter5Systems implements Listener {
         // Note: on ne supprime PAS playerCurrentRiddle pour que le joueur puisse reprendre
     }
 
+    // ==================== SYSTÈME DU BOSS GRENOUILLE GÉANTE (Étape 5.10) ====================
+
+    /**
+     * Initialise le boss de la Grenouille Géante
+     */
+    private void initializeSwampFrogBoss(World world) {
+        spawnSwampFrogBoss(world);
+    }
+
+    /**
+     * Démarre le checker de respawn du boss
+     */
+    private void startBossRespawnChecker() {
+        new BukkitRunnable() {
+            @Override
+            public void run() {
+                World world = Bukkit.getWorld("world");
+                if (world == null) return;
+
+                // Vérifier si le boss doit être respawné
+                if (swampFrogBossEntity == null || !swampFrogBossEntity.isValid() || swampFrogBossEntity.isDead()) {
+                    if (!bossRespawnScheduled) {
+                        // Check si joueur proche pour spawn
+                        Location bossLoc = SWAMP_FROG_BOSS_LOCATION.clone();
+                        bossLoc.setWorld(world);
+
+                        boolean playerNearby = world.getPlayers().stream()
+                            .anyMatch(p -> p.getLocation().distanceSquared(bossLoc) < 10000); // 100 blocs
+
+                        if (playerNearby && bossLoc.getChunk().isLoaded()) {
+                            spawnSwampFrogBoss(world);
+                        }
+                    }
+                }
+            }
+        }.runTaskTimer(plugin, 200L, 100L); // Check toutes les 5 secondes
+    }
+
+    /**
+     * Fait spawn le boss Grenouille Géante via le système ZombieZ
+     */
+    private void spawnSwampFrogBoss(World world) {
+        // Protection anti-spawn multiple
+        if (swampFrogBossEntity != null && swampFrogBossEntity.isValid() && !swampFrogBossEntity.isDead()) {
+            return;
+        }
+
+        Location loc = SWAMP_FROG_BOSS_LOCATION.clone();
+        loc.setWorld(world);
+
+        if (!loc.getChunk().isLoaded()) {
+            return;
+        }
+
+        // Chercher un boss existant dans le monde
+        for (Entity entity : world.getNearbyEntities(loc, 50, 30, 50)) {
+            if (entity instanceof Zombie z
+                    && z.getPersistentDataContainer().has(SWAMP_FROG_BOSS_KEY, PersistentDataType.BYTE)) {
+                swampFrogBossEntity = z;
+                return;
+            }
+        }
+
+        // Nettoyer les contributeurs
+        bossContributors.clear();
+        bossRespawnScheduled = false;
+
+        ZombieManager zombieManager = plugin.getZombieManager();
+        if (zombieManager == null) {
+            plugin.getLogger().warning("ZombieManager non disponible pour le boss grenouille");
+            return;
+        }
+
+        // Spawn via ZombieManager avec l'IA SwampFrogBossAI
+        ZombieManager.ActiveZombie activeZombie = zombieManager.spawnZombie(ZombieType.SWAMP_FROG_BOSS, loc, BOSS_LEVEL);
+
+        if (activeZombie == null) {
+            plugin.getLogger().warning("Échec du spawn du boss Grenouille Géante");
+            return;
+        }
+
+        Entity entity = plugin.getServer().getEntity(activeZombie.getEntityId());
+        if (!(entity instanceof Zombie boss)) {
+            plugin.getLogger().warning("Boss Grenouille n'est pas un Zombie valide");
+            return;
+        }
+
+        swampFrogBossEntity = boss;
+
+        // Appliquer les visuels
+        applySwampFrogBossVisuals(boss);
+
+        // Marquer comme boss pour le tracking
+        boss.getPersistentDataContainer().set(SWAMP_FROG_BOSS_KEY, PersistentDataType.BYTE, (byte) 1);
+        boss.setPersistent(true);
+
+        // Créer le TextDisplay au-dessus
+        spawnBossDisplay(world, loc);
+
+        // Annoncer le spawn
+        for (Player player : world.getPlayers()) {
+            if (player.getLocation().distance(loc) < 80) {
+                player.sendMessage("");
+                player.sendMessage("§2§l🐸 Une Grenouille Géante émerge du marais!");
+                player.playSound(player.getLocation(), Sound.ENTITY_FROG_LONG_JUMP, 1.5f, 0.3f);
+                player.playSound(player.getLocation(), Sound.ENTITY_WITHER_SPAWN, 0.6f, 1.5f);
+            }
+        }
+
+        plugin.getLogger().info("§a§lBoss Grenouille Géante spawné (Chapitre 5)");
+    }
+
+    /**
+     * Applique les visuels au boss
+     */
+    private void applySwampFrogBossVisuals(Zombie boss) {
+        // Scale x4 (grenouille géante)
+        var scale = boss.getAttribute(org.bukkit.attribute.Attribute.SCALE);
+        if (scale != null) {
+            scale.setBaseValue(3.5);
+        }
+
+        // Pas d'équipement (c'est une grenouille)
+        boss.getEquipment().clear();
+
+        // Couleur verte (effet de potion pour le glow)
+        boss.addPotionEffect(new org.bukkit.potion.PotionEffect(
+            org.bukkit.potion.PotionEffectType.GLOWING, Integer.MAX_VALUE, 0, false, false));
+
+        boss.setGlowing(true);
+        boss.setCustomNameVisible(true);
+    }
+
+    /**
+     * Crée le TextDisplay au-dessus du boss
+     */
+    private void spawnBossDisplay(World world, Location loc) {
+        if (swampFrogBossDisplay != null && swampFrogBossDisplay.isValid()) {
+            swampFrogBossDisplay.remove();
+        }
+
+        Location displayLoc = loc.clone().add(0, 4.5, 0);
+        swampFrogBossDisplay = world.spawn(displayLoc, TextDisplay.class, display -> {
+            display.text(Component.text("🐸 ", NamedTextColor.GREEN)
+                .append(Component.text("GRENOUILLE GÉANTE", NamedTextColor.DARK_GREEN, TextDecoration.BOLD))
+                .append(Component.text(" 🐸", NamedTextColor.GREEN)));
+            display.setBillboard(Display.Billboard.CENTER);
+            display.setBackgroundColor(org.bukkit.Color.fromARGB(180, 0, 80, 0));
+            display.setSeeThrough(false);
+            display.setViewRange(48f);
+
+            Transformation transform = new Transformation(
+                new Vector3f(0, 0, 0),
+                new AxisAngle4f(0, 0, 0, 1),
+                new Vector3f(2.0f, 2.0f, 2.0f),
+                new AxisAngle4f(0, 0, 0, 1)
+            );
+            display.setTransformation(transform);
+
+            display.setPersistent(false);
+        });
+    }
+
+    /**
+     * Appelé quand un joueur atteint l'étape 5.10
+     */
+    public void onPlayerReachStep510(Player player) {
+        player.sendTitle("§2§l🐸 BOSS FINAL 🐸", "§7Terrasse la Grenouille Géante!", 10, 60, 20);
+
+        Bukkit.getScheduler().runTaskLater(plugin, () -> {
+            player.sendMessage("");
+            player.sendMessage("§8§m                                              ");
+            player.sendMessage("§2§l    🐸 GRENOUILLE GÉANTE DU MARAIS 🐸");
+            player.sendMessage("§8§m                                              ");
+            player.sendMessage("");
+            player.sendMessage("§7Une §2créature monstrueuse §7hante les marais.");
+            player.sendMessage("§7Cette grenouille mutante est la source de la corruption.");
+            player.sendMessage("");
+            player.sendMessage("§e§l➤ §7Zone: §2Marais - 384, 93, 8034");
+            player.sendMessage("");
+            player.sendMessage("§c⚠ §7Attaques du boss:");
+            player.sendMessage("§e  • §fLangue Venimeuse §7- T'attire vers elle");
+            player.sendMessage("§e  • §fSaut Écrasant §7- Saute et atterrit sur toi");
+            player.sendMessage("§e  • §fCrachat Toxique §7- Projectiles empoisonnés");
+            player.sendMessage("");
+            player.playSound(player.getLocation(), Sound.ENTITY_FROG_AMBIENT, 1f, 0.5f);
+        }, 40L);
+    }
+
+    /**
+     * Tracker les joueurs qui attaquent le boss
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onSwampFrogBossDamage(EntityDamageByEntityEvent event) {
+        if (!(event.getEntity() instanceof Zombie boss)) return;
+        if (!boss.getPersistentDataContainer().has(SWAMP_FROG_BOSS_KEY, PersistentDataType.BYTE)) return;
+
+        Player damager = null;
+        if (event.getDamager() instanceof Player player) {
+            damager = player;
+        } else if (event.getDamager() instanceof Projectile projectile &&
+                projectile.getShooter() instanceof Player player) {
+            damager = player;
+        }
+
+        if (damager != null) {
+            bossContributors.add(damager.getUniqueId());
+        }
+    }
+
+    /**
+     * Gère la mort du boss
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onSwampFrogBossDeath(EntityDeathEvent event) {
+        if (!(event.getEntity() instanceof Zombie boss)) return;
+        if (!boss.getPersistentDataContainer().has(SWAMP_FROG_BOSS_KEY, PersistentDataType.BYTE)) return;
+
+        Location deathLoc = boss.getLocation();
+        World world = boss.getWorld();
+
+        // Effets de mort épiques
+        world.playSound(deathLoc, Sound.ENTITY_FROG_DEATH, 2f, 0.3f);
+        world.playSound(deathLoc, Sound.ENTITY_GENERIC_EXPLODE, 2f, 0.8f);
+        world.spawnParticle(Particle.EXPLOSION_EMITTER, deathLoc, 5, 2, 1, 2, 0);
+        world.spawnParticle(Particle.SLIME, deathLoc, 100, 3, 2, 3, 0);
+
+        // Valider l'étape pour tous les contributeurs
+        for (UUID uuid : bossContributors) {
+            Player contributor = Bukkit.getPlayer(uuid);
+            if (contributor != null && contributor.isOnline()) {
+                JourneyStep currentStep = journeyManager.getCurrentStep(contributor);
+                if (currentStep != null && currentStep == JourneyStep.STEP_5_10) {
+                    journeyManager.updateProgress(contributor, JourneyStep.StepType.KILL_SWAMP_FROG_BOSS, 1);
+
+                    contributor.sendMessage("");
+                    contributor.sendMessage("§2§l🐸 La Grenouille Géante a été vaincue!");
+                    contributor.sendMessage("§7Tu as contribué à sa défaite.");
+                    contributor.sendMessage("§a§lChapitre 5 terminé!");
+                    contributor.sendMessage("");
+
+                    // Son de victoire
+                    contributor.playSound(contributor.getLocation(), Sound.UI_TOAST_CHALLENGE_COMPLETE, 1f, 1f);
+                }
+            }
+        }
+
+        // Nettoyer
+        bossContributors.clear();
+        swampFrogBossEntity = null;
+
+        // Supprimer le display
+        if (swampFrogBossDisplay != null && swampFrogBossDisplay.isValid()) {
+            swampFrogBossDisplay.remove();
+        }
+
+        // Programmer le respawn
+        if (!bossRespawnScheduled) {
+            bossRespawnScheduled = true;
+            bossRespawnTime = System.currentTimeMillis() + (BOSS_RESPAWN_SECONDS * 1000L);
+
+            new BukkitRunnable() {
+                @Override
+                public void run() {
+                    spawnSwampFrogBoss(world);
+                    bossRespawnTime = 0;
+                }
+            }.runTaskLater(plugin, 20L * BOSS_RESPAWN_SECONDS);
+
+            // Annoncer le respawn
+            for (Player player : world.getPlayers()) {
+                if (player.getLocation().distance(deathLoc) < 100) {
+                    player.sendMessage("§7La Grenouille Géante réapparaîtra dans §e" + BOSS_RESPAWN_SECONDS + " secondes§7...");
+                }
+            }
+        }
+    }
+
     /**
      * Nettoyage lors de la désactivation du plugin
      */
@@ -3985,6 +4282,15 @@ public class Chapter5Systems implements Listener {
         }
         activeRiddlePlayers.clear();
         playerCurrentRiddle.clear();
+
+        // Boss Grenouille Géante
+        if (swampFrogBossEntity != null && swampFrogBossEntity.isValid()) {
+            swampFrogBossEntity.remove();
+        }
+        if (swampFrogBossDisplay != null && swampFrogBossDisplay.isValid()) {
+            swampFrogBossDisplay.remove();
+        }
+        bossContributors.clear();
 
         plugin.getLogger().info("[Chapter5Systems] Cleanup effectué");
     }

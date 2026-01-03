@@ -217,6 +217,10 @@ public enum JourneyStep {
         "Débloque 3 mutations via /as", StepType.UNLOCK_MUTATIONS, 3,
         1150, 40, Material.NETHER_STAR),
 
+    STEP_5_10(JourneyChapter.CHAPTER_5, 10, "Terrasse la Grenouille Géante",
+        "Marais: §b384, 93, 8034", StepType.KILL_SWAMP_FROG_BOSS, 1,
+        1500, 50, Material.FROG_SPAWN_EGG),
+
     // ==================== CHAPITRE 6: SPÉCIALISATION ====================
 
     STEP_6_1(JourneyChapter.CHAPTER_6, 1, "Débloque 3 skills passifs",
@@ -460,6 +464,7 @@ public enum JourneyStep {
             case FIRE_ZOMBIE_KILLS -> current + "/" + targetValue + " Pyromorts";
             case KILL_MANOR_BOSS -> current >= targetValue ? "✓ Boss vaincu!" : "Tue le boss du manoir";
             case KILL_MINE_BOSS -> current >= targetValue ? "✓ Boss vaincu!" : "Tue le Seigneur des Profondeurs";
+            case KILL_SWAMP_FROG_BOSS -> current >= targetValue ? "✓ Boss vaincu!" : "Tue la Grenouille Géante";
             case OPEN_AND_EQUIP_PET -> {
                 if (current >= 2) yield "✓ Compagnon équipé!";
                 else if (current >= 1) yield "1/2 - Équipe ton pet!";
@@ -672,6 +677,7 @@ public enum JourneyStep {
         // Boss spécifiques
         KILL_MANOR_BOSS("Tue le boss du manoir"),
         KILL_MINE_BOSS("Tue le boss de la mine"),
+        KILL_SWAMP_FROG_BOSS("Tue la Grenouille Géante du Marais"),
 
         // Pets
         OPEN_AND_EQUIP_PET("Ouvre et équipe un compagnon"),
