@@ -193,9 +193,9 @@ public enum JourneyStep {
         "Mine abandonnée: §b933, 81, 8358", StepType.MINE_ORES_QUEST, 10,
         500, 15, Material.DIAMOND_PICKAXE),
 
-    STEP_5_4(JourneyChapter.CHAPTER_5, 4, "Atteins la Zone 5",
-        "Toujours plus loin", StepType.REACH_ZONE, 5,
-        600, 18, Material.DIAMOND_BOOTS),
+    STEP_5_4(JourneyChapter.CHAPTER_5, 4, "Chasseur d'Élites",
+        "Tue 3 mobs Élites §6(Mobs Orange Glowing)", StepType.ELITE_KILLS, 3,
+        600, 18, Material.GOLDEN_APPLE),
 
     STEP_5_5(JourneyChapter.CHAPTER_5, 5, "Atteins le niveau 30",
         "L'arbre de compétences t'attend", StepType.LEVEL, 30,
