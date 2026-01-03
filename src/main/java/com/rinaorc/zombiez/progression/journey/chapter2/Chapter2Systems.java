@@ -30,6 +30,7 @@ import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
 import org.bukkit.scheduler.BukkitRunnable;
+import org.bukkit.scheduler.BukkitTask;
 import org.bukkit.util.BoundingBox;
 import org.joml.AxisAngle4f;
 import org.joml.Vector3f;
@@ -108,6 +109,11 @@ public class Chapter2Systems implements Listener {
     private long bossRespawnTime = 0; // Timestamp du prochain respawn
     private static final int BOSS_RESPAWN_SECONDS = 60; // Temps de respawn en secondes
     private static final double BOSS_DISPLAY_HEIGHT = 5.0; // Hauteur au-dessus du spawn
+
+    // === TASKS (pour cleanup propre) ===
+    private BukkitTask bossDisplayUpdaterTask;
+    private BukkitTask fireZombieSpawnerTask;
+    private BukkitTask npcNameUpdaterTask;
 
     // Config du boss (stats gérées par ZombieType.MANOR_LORD +
     // calculateHealth/Damage)
@@ -303,7 +309,7 @@ public class Chapter2Systems implements Listener {
      * Vérifie aussi le leash range du boss
      */
     private void startBossDisplayUpdater() {
-        new BukkitRunnable() {
+        bossDisplayUpdaterTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -1143,7 +1149,7 @@ public class Chapter2Systems implements Listener {
      * Lance le spawner de zombies incendiés dans la zone du météore
      */
     private void startFireZombieSpawner(World world) {
-        new BukkitRunnable() {
+        fireZombieSpawnerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 // Vérifier s'il y a des joueurs dans ou près de la zone
@@ -1520,7 +1526,7 @@ public class Chapter2Systems implements Listener {
      * Ce système gère les TextDisplays per-player : chaque joueur proche a son propre display.
      */
     private void startNPCNameUpdater() {
-        new BukkitRunnable() {
+        npcNameUpdaterTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -1672,6 +1678,17 @@ public class Chapter2Systems implements Listener {
      * NOTE: Les NPCs Citizens sont persistants (gérés par JourneyNPCManager).
      */
     public void cleanup() {
+        // === ANNULATION DE TOUTES LES TASKS ===
+        if (bossDisplayUpdaterTask != null && !bossDisplayUpdaterTask.isCancelled()) {
+            bossDisplayUpdaterTask.cancel();
+        }
+        if (fireZombieSpawnerTask != null && !fireZombieSpawnerTask.isCancelled()) {
+            fireZombieSpawnerTask.cancel();
+        }
+        if (npcNameUpdaterTask != null && !npcNameUpdaterTask.isCancelled()) {
+            npcNameUpdaterTask.cancel();
+        }
+
         // Détruire tous les TextDisplays per-player du mineur
         removeAllPlayerMinerDisplays();
         playersWhoHealedMiner.clear();

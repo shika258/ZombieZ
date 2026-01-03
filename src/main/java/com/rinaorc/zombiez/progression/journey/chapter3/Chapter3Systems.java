@@ -153,6 +153,14 @@ public class Chapter3Systems implements Listener {
     private boolean bossRespawnScheduled = false;
     private long bossRespawnTime = 0;
 
+    // === TASKS (pour cleanup propre) ===
+    private BukkitTask npcRespawnCheckerTask;
+    private BukkitTask catVisibilityUpdaterTask;
+    private BukkitTask clueVisibilityUpdaterTask;
+    private BukkitTask villageSurvivorUpdaterTask;
+    private BukkitTask zeppelinControlUpdaterTask;
+    private BukkitTask bossDisplayUpdaterTask;
+
     // Joueurs ayant complété le puzzle (évite de refaire)
     private final Set<UUID> playersWhoCompletedPuzzle = ConcurrentHashMap.newKeySet();
     // Joueurs ayant sauvé le chat
@@ -414,7 +422,7 @@ public class Chapter3Systems implements Listener {
      * Utilise JourneyNPCManager pour la récupération/création automatique.
      */
     private void startForainRespawnChecker() {
-        new BukkitRunnable() {
+        npcRespawnCheckerTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -557,7 +565,7 @@ public class Chapter3Systems implements Listener {
      * Inclut aussi le respawn si le chat a disparu (chunk unload, etc.)
      */
     private void startCatVisibilityUpdater() {
-        new BukkitRunnable() {
+        catVisibilityUpdaterTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -832,7 +840,7 @@ public class Chapter3Systems implements Listener {
      * Démarre le système de visibilité per-player pour les indices
      */
     private void startClueVisibilityUpdater() {
-        new BukkitRunnable() {
+        clueVisibilityUpdaterTask = new BukkitRunnable() {
             @Override
             public void run() {
                 Location houseLoc = PATIENT_ZERO_HOUSE.clone();
@@ -1143,7 +1151,7 @@ public class Chapter3Systems implements Listener {
      * SÉCURITÉ MAXMOBS=1: Respawne automatiquement avec nettoyage préalable.
      */
     private void startSurvivorVisibilityUpdater() {
-        new BukkitRunnable() {
+        villageSurvivorUpdaterTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -1821,7 +1829,7 @@ public class Chapter3Systems implements Listener {
      * Démarre le système de visibilité per-player pour le panneau de contrôle
      */
     private void startZeppelinControlVisibilityUpdater() {
-        new BukkitRunnable() {
+        zeppelinControlUpdaterTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -2080,7 +2088,7 @@ public class Chapter3Systems implements Listener {
      * Démarre la tâche de mise à jour du display et du leash range
      */
     private void startBossDisplayUpdater() {
-        new BukkitRunnable() {
+        bossDisplayUpdaterTask = new BukkitRunnable() {
             @Override
             public void run() {
                 World world = Bukkit.getWorld("world");
@@ -2677,6 +2685,26 @@ public class Chapter3Systems implements Listener {
      * Nettoie les ressources du chapitre 3
      */
     public void shutdown() {
+        // === ANNULATION DE TOUTES LES TASKS ===
+        if (npcRespawnCheckerTask != null && !npcRespawnCheckerTask.isCancelled()) {
+            npcRespawnCheckerTask.cancel();
+        }
+        if (catVisibilityUpdaterTask != null && !catVisibilityUpdaterTask.isCancelled()) {
+            catVisibilityUpdaterTask.cancel();
+        }
+        if (clueVisibilityUpdaterTask != null && !clueVisibilityUpdaterTask.isCancelled()) {
+            clueVisibilityUpdaterTask.cancel();
+        }
+        if (villageSurvivorUpdaterTask != null && !villageSurvivorUpdaterTask.isCancelled()) {
+            villageSurvivorUpdaterTask.cancel();
+        }
+        if (zeppelinControlUpdaterTask != null && !zeppelinControlUpdaterTask.isCancelled()) {
+            zeppelinControlUpdaterTask.cancel();
+        }
+        if (bossDisplayUpdaterTask != null && !bossDisplayUpdaterTask.isCancelled()) {
+            bossDisplayUpdaterTask.cancel();
+        }
+
         // Nettoyer le Forain (le display est géré par JourneyNPCManager)
         if (forainEntity != null && forainEntity.isValid()) {
             forainEntity.remove();
