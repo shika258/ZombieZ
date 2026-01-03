@@ -342,15 +342,6 @@ public class Chapter5Systems implements Listener {
         killer.getWorld().spawnParticle(Particle.BUBBLE_POP, loc, 30, 0.5, 0.5, 0.5, 0.1);
         killer.playSound(killer.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f);
 
-        int remaining = 12 - newProgress;
-        if (remaining > 0) {
-            killer.sendTitle(
-                "§a\u2713 §fSaumon Pêché!",
-                "§7" + newProgress + "/12 - Plus que §c" + remaining + " §7saumons!",
-                5, 30, 10
-            );
-        }
-
         journeyManager.createOrUpdateBossBar(killer);
 
         if (currentStep.isCompleted(newProgress)) {
@@ -861,16 +852,6 @@ public class Chapter5Systems implements Listener {
         player.playSound(oreLoc, Sound.BLOCK_AMETHYST_CLUSTER_BREAK, 1f, 1.2f);
         player.playSound(oreLoc, Sound.ENTITY_EXPERIENCE_ORB_PICKUP, 0.8f, 1.5f);
         player.getWorld().spawnParticle(Particle.HAPPY_VILLAGER, oreLoc, 15, 0.5, 0.5, 0.5, 0);
-
-        // Message de progression
-        int remaining = ORES_TO_MINE - newProgress;
-        if (remaining > 0) {
-            player.sendTitle(
-                "§a⛏ " + oreType.displayName + " §aExtrait!",
-                "§7" + newProgress + "/" + ORES_TO_MINE + " - Plus que §c" + remaining + " §7minerais!",
-                5, 30, 10
-            );
-        }
 
         // Mettre à jour la BossBar
         journeyManager.createOrUpdateBossBar(player);
