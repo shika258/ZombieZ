@@ -691,6 +691,14 @@ public class JourneyManager {
             givePetEggForIntroduction(player);
         }
 
+        // Étape 5.2: Pêche aux Saumons Mutants - Activer le système de spawn
+        if (step == JourneyStep.STEP_5_2) {
+            var chapter5Systems = plugin.getChapter5Systems();
+            if (chapter5Systems != null) {
+                chapter5Systems.onPlayerReachStep52(player);
+            }
+        }
+
         // Pour les étapes d'exploration: reset les chunks explorés de la zone cible
         // Évite que les chunks visités AVANT le déblocage de l'étape soient comptés
         if (step.getType() == JourneyStep.StepType.ZONE_EXPLORATION) {

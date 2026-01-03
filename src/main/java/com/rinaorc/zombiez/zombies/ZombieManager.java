@@ -41,6 +41,7 @@ import org.bukkit.entity.Pillager;
 import org.bukkit.entity.Vindicator;
 import org.bukkit.entity.Giant;
 import org.bukkit.entity.Creaking;
+import org.bukkit.entity.Salmon;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.entity.Item;
 import org.bukkit.ChatColor;
@@ -523,6 +524,22 @@ public class ZombieManager {
                 // Le Creaking est une entité terrifiante du Pale Garden
                 entity.addPotionEffect(new PotionEffect(PotionEffectType.RESISTANCE, Integer.MAX_VALUE, 1, false, false));
                 entity.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0, false, false));
+            });
+
+            // ═══════════════════════════════════════════════════════════════════
+            // QUEST SALMON (Chapitre 5 Étape 2 - Saumons mutants à pêcher)
+            // ═══════════════════════════════════════════════════════════════════
+            case QUEST_SALMON -> location.getWorld().spawn(location, Salmon.class, entity -> {
+                configureNonZombieEntity(entity, type, level, effectiveHealth, effectiveDamage, effectiveSpeed, effectiveName);
+                // Le saumon mutant est plus gros et plus résistant
+                var scaleAttr = entity.getAttribute(Attribute.SCALE);
+                if (scaleAttr != null) {
+                    scaleAttr.setBaseValue(2.5); // Saumon géant (2.5x la taille normale)
+                }
+                // Résistance au feu (mutation)
+                entity.addPotionEffect(new PotionEffect(PotionEffectType.FIRE_RESISTANCE, Integer.MAX_VALUE, 0, false, false));
+                // Glow rouge pour les identifier facilement
+                entity.setGlowing(true);
             });
 
             default -> location.getWorld().spawn(location, Zombie.class, entity -> {
@@ -1177,6 +1194,12 @@ public class ZombieManager {
         ZombieType type = zombie.getType();
         int zoneId = zombie.getZoneId();
         UUID playerId = killer.getUniqueId();
+
+        // Les mobs de quête (QUEST) ne dropent AUCUN loot
+        // Le but est uniquement de les tuer pour la progression
+        if (type.getCategory() == ZombieType.ZombieCategory.QUEST) {
+            return;
+        }
 
         // Obtenir la table de loot appropriée
         // NOTE: Les JOURNEY_BOSS (boss de quête réapparaissant rapidement) utilisent

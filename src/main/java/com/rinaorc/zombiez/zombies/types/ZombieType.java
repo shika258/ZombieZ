@@ -198,6 +198,9 @@ public enum ZombieType {
     DAMNED_SOUL("ZZ_DamnedSoul", "Âme Damnée", 2, 60, 8, 0.18,  // Chapitre 4 Étape 6 - Zombie du cimetière à purifier
         new int[]{}, ZombieCategory.ELEMENTAL),  // Pas de zone: spawn uniquement via Chapter4Systems
 
+    QUEST_SALMON("ZZ_QuestSalmon", "Saumon Mutant", 2, 100, 5, 0.35,  // Chapitre 5 Étape 2 - Saumons à pêcher
+        new int[]{}, ZombieCategory.QUEST),  // Pas de zone: spawn uniquement via Chapter5Systems
+
     // ═══════════════════════════════════════════════════════════════════
     // MINI-BOSS - Les Redoutés (Noms épiques avec titres)
     // ═══════════════════════════════════════════════════════════════════
@@ -324,6 +327,7 @@ public enum ZombieType {
             case ILLAGER -> 10;      // Illagers - récompense élevée
             case EVENT -> 8;         // Zombies d'événements - récompense modérée
             case EVENT_BOSS -> 300;  // Boss d'événements - grosse récompense
+            case QUEST -> 15;        // Mobs de quêtes Journey - récompense élevée
         };
     }
 
@@ -403,6 +407,7 @@ public enum ZombieType {
         PACK,        // Loups en meute (nouveaux)
         ILLAGER,     // Illagers (Evoker, Pillager, Vindicator)
         EVENT,       // Zombies d'événements dynamiques (Horde, etc.)
-        EVENT_BOSS   // Boss d'événements dynamiques (Wandering Boss, etc.)
+        EVENT_BOSS,  // Boss d'événements dynamiques (Wandering Boss, etc.)
+        QUEST        // Mobs de quêtes Journey (saumons, etc.)
     }
 }
