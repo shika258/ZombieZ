@@ -5,10 +5,12 @@ import com.rinaorc.zombiez.ascension.AscensionData;
 import com.rinaorc.zombiez.ascension.AscensionManager;
 import com.rinaorc.zombiez.ascension.Mutation;
 import com.rinaorc.zombiez.ascension.gui.InsuranceGUI;
+import org.bukkit.entity.LivingEntity;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
+import org.bukkit.event.entity.EntityDamageByEntityEvent;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.event.player.PlayerQuitEvent;
@@ -33,9 +35,7 @@ public class AscensionListener implements Listener {
 
         // Créer les données (vides car reset au reboot)
         manager.getOrCreateData(player);
-
-        // Message d'info si nouvelle session
-        player.sendMessage("§8[§6Ascension§8] §7Nouvelle session ! Tue des zombies pour muter.");
+        // Pas de message spam - le système est visible dans l'ActionBar
     }
 
     @EventHandler(priority = EventPriority.MONITOR)
@@ -90,5 +90,25 @@ public class AscensionListener implements Listener {
 
         // Reset normal sans assurance
         manager.resetPlayer(player);
+    }
+
+    /**
+     * Track les mobs qui touchent le joueur (pour Traque)
+     */
+    @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
+    public void onPlayerDamaged(EntityDamageByEntityEvent event) {
+        if (!(event.getEntity() instanceof Player player)) return;
+        if (!(event.getDamager() instanceof LivingEntity attacker)) return;
+
+        AscensionManager manager = plugin.getAscensionManager();
+        if (manager == null) return;
+
+        AscensionData data = manager.getData(player);
+        if (data == null) return;
+
+        // Enregistrer que ce mob nous a touché (pour Traque: +15% dmg contre ceux qui nous ont hit)
+        if (data.hasMutation(Mutation.TRAQUE)) {
+            data.getHitByMobs().add(attacker.getUniqueId());
+        }
     }
 }

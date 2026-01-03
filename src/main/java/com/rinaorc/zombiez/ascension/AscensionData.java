@@ -28,10 +28,10 @@ public class AscensionData {
     // ==================== CACHE DES STATS (recalculé à chaque mutation) ====================
 
     private volatile Map<StatType, Double> cachedStatBonuses = new EnumMap<>(StatType.class);
-    private volatile double cachedDamageMultiplier = 1.0;
     private volatile int strainCarnageCount = 0;
     private volatile int strainSpectreCount = 0;
     private volatile int strainButinCount = 0;
+    private final Object cacheLock = new Object(); // Lock pour thread-safety
 
     // ==================== DONNÉES D'EFFETS SPÉCIAUX ====================
 
@@ -41,12 +41,17 @@ public class AscensionData {
     private final AtomicInteger milestoneKillCounter = new AtomicInteger(0); // Pour Économiste (10 kills)
     private final AtomicInteger guaranteedRareCounter = new AtomicInteger(0);// Pour Favori de la Chance (50 kills)
 
-    // Stacks temporaires
+    // Stacks temporaires (chaque type a son propre timer)
     private final AtomicInteger stackingLifesteal = new AtomicInteger(0);    // Soif Insatiable (max 5 stacks)
     private final AtomicInteger stackingSpeed = new AtomicInteger(0);        // Vélocité (max 10 stacks)
     private final AtomicInteger stackingCrit = new AtomicInteger(0);         // Danse Macabre (max 10 stacks)
     private final AtomicInteger cascadeStacks = new AtomicInteger(0);        // Cascade Sanglante (max 3 stacks)
-    private final AtomicLong lastStackTime = new AtomicLong(0);              // Timer de reset des stacks
+
+    // Timers séparés pour chaque type de stack
+    private final AtomicLong lastLifestealStackTime = new AtomicLong(0);     // Timer Soif Insatiable (10s)
+    private final AtomicLong lastSpeedStackTime = new AtomicLong(0);         // Timer Vélocité (15s)
+    private final AtomicLong lastCritStackTime = new AtomicLong(0);          // Timer Danse Macabre (20s)
+    private final AtomicLong lastCascadeStackTime = new AtomicLong(0);       // Timer Cascade (5s)
 
     // Cooldowns des effets (pour éviter le spam)
     private final Map<String, Long> effectCooldowns = new ConcurrentHashMap<>();
@@ -155,14 +160,20 @@ public class AscensionData {
     }
 
     /**
-     * Recalcule le cache des stats
+     * Recalcule le cache des stats (thread-safe)
      */
     public void recalculateCache() {
         Map<StatType, Double> newStats = new EnumMap<>(StatType.class);
         int carnage = 0, spectre = 0, butin = 0;
 
+        // Copier la liste pour éviter ConcurrentModificationException
+        List<Mutation> mutationsCopy;
+        synchronized (activeMutations) {
+            mutationsCopy = new ArrayList<>(activeMutations);
+        }
+
         // Additionner les stats de toutes les mutations
-        for (Mutation mutation : activeMutations) {
+        for (Mutation mutation : mutationsCopy) {
             // Stats directes
             mutation.getStatBonuses().forEach((stat, value) ->
                 newStats.merge(stat, value, Double::sum)
@@ -204,10 +215,13 @@ public class AscensionData {
             }
         }
 
-        this.cachedStatBonuses = newStats;
-        this.strainCarnageCount = carnage;
-        this.strainSpectreCount = spectre;
-        this.strainButinCount = butin;
+        // Assignation atomique des valeurs
+        synchronized (cacheLock) {
+            this.cachedStatBonuses = newStats;
+            this.strainCarnageCount = carnage;
+            this.strainSpectreCount = spectre;
+            this.strainButinCount = butin;
+        }
     }
 
     // ==================== GESTION DES STACKS ====================
@@ -218,46 +232,66 @@ public class AscensionData {
      */
     public boolean updateStacks() {
         long now = System.currentTimeMillis();
-        long lastStack = lastStackTime.get();
         boolean reset = false;
 
-        // Soif Insatiable : reset après 10s
-        if (stackingLifesteal.get() > 0 && now - lastStack > 10000) {
+        // Soif Insatiable : reset après 10s d'inactivité
+        if (stackingLifesteal.get() > 0 && now - lastLifestealStackTime.get() > 10000) {
             stackingLifesteal.set(0);
             reset = true;
         }
 
-        // Vélocité : reset après 15s
-        if (stackingSpeed.get() > 0 && now - lastStack > 15000) {
+        // Vélocité : reset après 15s d'inactivité
+        if (stackingSpeed.get() > 0 && now - lastSpeedStackTime.get() > 15000) {
             stackingSpeed.set(0);
             reset = true;
         }
 
-        // Danse Macabre : reset après 20s
-        if (stackingCrit.get() > 0 && now - lastStack > 20000) {
+        // Danse Macabre : reset après 20s d'inactivité
+        if (stackingCrit.get() > 0 && now - lastCritStackTime.get() > 20000) {
             stackingCrit.set(0);
             reset = true;
         }
 
-        // Cascade Sanglante : reset après 5s
-        if (cascadeStacks.get() > 0 && now - lastStack > 5000) {
+        // Cascade Sanglante : reset après 5s d'inactivité
+        if (cascadeStacks.get() > 0 && now - lastCascadeStackTime.get() > 5000) {
             cascadeStacks.set(0);
             reset = true;
+        }
+
+        // Cleanup des Sets de tracking (évite memory leak)
+        // On garde seulement les 50 derniers mobs pour éviter les Sets trop gros
+        if (hitByMobs.size() > 50) {
+            hitByMobs.clear();
+        }
+        if (firstHitMobs.size() > 50) {
+            firstHitMobs.clear();
         }
 
         return reset;
     }
 
     /**
-     * Ajoute un stack et met à jour le timer
+     * Ajoute un stack et met à jour le timer correspondant
      */
     public void addStack(StackType type) {
-        lastStackTime.set(System.currentTimeMillis());
+        long now = System.currentTimeMillis();
         switch (type) {
-            case LIFESTEAL -> stackingLifesteal.updateAndGet(v -> Math.min(v + 1, 5));
-            case SPEED -> stackingSpeed.updateAndGet(v -> Math.min(v + 1, 10));
-            case CRIT -> stackingCrit.updateAndGet(v -> Math.min(v + 1, 10));
-            case CASCADE -> cascadeStacks.updateAndGet(v -> Math.min(v + 1, 3));
+            case LIFESTEAL -> {
+                lastLifestealStackTime.set(now);
+                stackingLifesteal.updateAndGet(v -> Math.min(v + 1, 5));
+            }
+            case SPEED -> {
+                lastSpeedStackTime.set(now);
+                stackingSpeed.updateAndGet(v -> Math.min(v + 1, 10));
+            }
+            case CRIT -> {
+                lastCritStackTime.set(now);
+                stackingCrit.updateAndGet(v -> Math.min(v + 1, 10));
+            }
+            case CASCADE -> {
+                lastCascadeStackTime.set(now);
+                cascadeStacks.updateAndGet(v -> Math.min(v + 1, 3));
+            }
         }
     }
 
@@ -331,11 +365,15 @@ public class AscensionData {
         milestoneKillCounter.set(0);
         guaranteedRareCounter.set(0);
 
-        // Reset des stacks
+        // Reset des stacks et leurs timers
         stackingLifesteal.set(0);
         stackingSpeed.set(0);
         stackingCrit.set(0);
         cascadeStacks.set(0);
+        lastLifestealStackTime.set(0);
+        lastSpeedStackTime.set(0);
+        lastCritStackTime.set(0);
+        lastCascadeStackTime.set(0);
 
         // Reset des cooldowns et tracking
         effectCooldowns.clear();
@@ -343,11 +381,13 @@ public class AscensionData {
         firstHitMobs.clear();
         healedThisSecond = 0;
 
-        // Reset du cache
-        cachedStatBonuses = new EnumMap<>(StatType.class);
-        strainCarnageCount = 0;
-        strainSpectreCount = 0;
-        strainButinCount = 0;
+        // Reset du cache (thread-safe)
+        synchronized (cacheLock) {
+            cachedStatBonuses = new EnumMap<>(StatType.class);
+            strainCarnageCount = 0;
+            strainSpectreCount = 0;
+            strainButinCount = 0;
+        }
 
         // Si mutation assurée, la restaurer
         if (insuredMutation != null) {

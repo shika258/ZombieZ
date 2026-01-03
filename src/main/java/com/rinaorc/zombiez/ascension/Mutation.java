@@ -125,7 +125,7 @@ public enum Mutation {
         MutationStrain.CARNAGE,
         MutationTier.TIER_4,
         MutationEffect.EXECUTE,
-        Map.of() // <15% HP = instakill
+        Map.of() // <10% HP = instakill (équilibré, cooldown 3s)
     ),
 
     RECOLTE_DE_SANG(
@@ -143,7 +143,7 @@ public enum Mutation {
         MutationStrain.CARNAGE,
         MutationTier.TIER_5,
         MutationEffect.STAT_BONUS,
-        Map.of(StatType.DAMAGE_PERCENT, 35.0, StatType.DAMAGE_REDUCTION, -20.0)
+        Map.of(StatType.DAMAGE_PERCENT, 30.0, StatType.DAMAGE_REDUCTION, -25.0) // Équilibré: +30% dmg, -25% DR
     ),
 
     NOVA_MORTELLE(
