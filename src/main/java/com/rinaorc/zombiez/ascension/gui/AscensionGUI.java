@@ -160,8 +160,8 @@ public class AscensionGUI implements Listener {
             for (Map.Entry<StatType, Double> entry : mutation.getStatBonuses().entrySet()) {
                 StatType stat = entry.getKey();
                 double value = entry.getValue();
-                String sign = value >= 0 ? "§a+" : "§c";
-                lore.add("  " + sign + stat.formatValue(value) + " §7" + stat.getDisplayName());
+                String color = value >= 0 ? "§a" : "§c";
+                lore.add("  " + color + stat.formatValue(value) + " §7" + stat.getDisplayName());
             }
         } else {
             lore.add("§a§lEffet Spécial:");
