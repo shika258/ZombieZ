@@ -562,6 +562,66 @@ public class CombatListener implements Listener {
         // ============ 1. STATS D'ÉQUIPEMENT ============
         Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
 
+        // ============ 1.5 ASCENSION STATS ============
+        // Merge les bonus de mutations d'Ascension avec les stats d'équipement
+        var ascensionManager = plugin.getAscensionManager();
+        com.rinaorc.zombiez.ascension.AscensionData ascData = null;
+        if (ascensionManager != null) {
+            Map<StatType, Double> ascensionStats = ascensionManager.getStatBonuses(player);
+            for (Map.Entry<StatType, Double> entry : ascensionStats.entrySet()) {
+                playerStats.merge(entry.getKey(), entry.getValue(), Double::sum);
+            }
+            ascData = ascensionManager.getData(player);
+        }
+
+        // ============ 1.6 ASCENSION CONDITIONAL BONUSES ============
+        if (ascData != null) {
+            double playerHpPercent = player.getHealth() / player.getMaxHealth() * 100;
+
+            // Rage Infectée: +20% dmg quand < 50% HP
+            if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.RAGE_INFECTEE) && playerHpPercent < 50) {
+                finalDamage *= 1.20;
+            }
+
+            // Fureur du Dernier Souffle: <20% HP = +40% Dmg
+            if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.FUREUR_DERNIER_SOUFFLE) && playerHpPercent < 20) {
+                finalDamage *= 1.40;
+            }
+
+            // Frappe Brutale: 5ème hit = +50% dégâts
+            if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.FRAPPE_BRUTALE)) {
+                int hitCount = ascData.getHitCounter().incrementAndGet();
+                if (hitCount >= 5) {
+                    ascData.getHitCounter().set(0);
+                    finalDamage *= 1.50;
+                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_STRONG, 0.8f, 1.3f);
+                }
+            }
+
+            // Prédateur Silencieux: Premier hit sur un mob = +30%
+            if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.PREDATEUR_SILENCIEUX)) {
+                if (!ascData.getFirstHitMobs().contains(mob.getUniqueId())) {
+                    ascData.getFirstHitMobs().add(mob.getUniqueId());
+                    finalDamage *= 1.30;
+                }
+            }
+
+            // Cascade Sanglante: Consomme les stacks accumulés
+            if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.CASCADE_SANGLANTE)) {
+                int stacks = ascData.consumeCascadeStacks();
+                if (stacks > 0) {
+                    finalDamage *= (1 + stacks * 0.25); // +25% par stack
+                }
+            }
+
+            // Traque: +15% aux mobs qui nous ont touché
+            if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.TRAQUE)) {
+                if (ascData.getHitByMobs().contains(mob.getUniqueId())) {
+                    finalDamage *= 1.15;
+                }
+            }
+        }
+
         // Bonus de dégâts flat
         double flatDamageBonus = playerStats.getOrDefault(StatType.DAMAGE, 0.0);
         finalDamage += flatDamageBonus;
@@ -582,7 +642,18 @@ public class CombatListener implements Listener {
         double skillCritChance = skillManager.getSkillBonus(player, SkillBonus.CRIT_CHANCE);
         double totalCritChance = baseCritChance + skillCritChance;
 
-        if (random.nextDouble() * 100 < totalCritChance) {
+        // Maître des Ombres: Crit garanti dans le dos
+        boolean backstabCrit = false;
+        if (ascData != null && ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.MAITRE_DES_OMBRES)) {
+            org.bukkit.util.Vector playerDir = player.getLocation().getDirection();
+            org.bukkit.util.Vector mobDir = mob.getLocation().getDirection();
+            double dot = playerDir.dot(mobDir);
+            if (dot > 0.5) { // Dans le dos si même direction
+                backstabCrit = true;
+            }
+        }
+
+        if (backstabCrit || random.nextDouble() * 100 < totalCritChance) {
             isCritical = true;
             double baseCritDamage = 150.0; // 150% de base
             double bonusCritDamage = playerStats.getOrDefault(StatType.CRIT_DAMAGE, 0.0);
@@ -590,6 +661,41 @@ public class CombatListener implements Listener {
 
             double critMultiplier = (baseCritDamage + bonusCritDamage + skillCritDamage) / 100.0;
             finalDamage *= critMultiplier;
+
+            // ============ 3.5 ASCENSION CRIT EFFECTS ============
+            if (ascData != null) {
+                // Frappe Fantôme: Crits ignorent 25% armure (~10% bonus)
+                if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.FRAPPE_FANTOME)) {
+                    finalDamage *= 1.10;
+                }
+
+                // Éviscération: Crits font saigner
+                if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.EVISCERATION)) {
+                    if (ascData.canTriggerEffect("crit_bleed", 500)) {
+                        mob.addPotionEffect(new PotionEffect(PotionEffectType.INSTANT_DAMAGE, 1, 0, false, false));
+                        mob.getWorld().spawnParticle(Particle.DAMAGE_INDICATOR, mob.getLocation().add(0, 1, 0), 3, 0.3, 0.3, 0.3);
+                    }
+                }
+
+                // Lame Fantomatique: 20% chance crit chaîne à 1 ennemi
+                if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.LAME_FANTOMATIQUE)) {
+                    // Déclenché après calcul des dégâts finaux (en fin de méthode)
+                    final double critDamageForChain = finalDamage;
+                    plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+                        if (ascensionManager != null && mob.isValid()) {
+                            ascensionManager.triggerCritChain(player, mob, critDamageForChain);
+                        }
+                    }, 1L);
+                }
+            }
+        }
+
+        // Double Frappe: 12% chance double hit
+        if (ascData != null && ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.DOUBLE_FRAPPE)) {
+            if (random.nextDouble() < 0.12 && ascData.canTriggerEffect("double_hit", 500)) {
+                finalDamage *= 2.0;
+                player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_SWEEP, 0.6f, 1.5f);
+            }
         }
 
         // ============ 4. MOMENTUM SYSTEM ============
@@ -614,6 +720,19 @@ public class CombatListener implements Listener {
             double executeBonus = playerStats.getOrDefault(StatType.EXECUTE_DAMAGE, 0.0);
             double skillExecuteBonus = skillManager.getSkillBonus(player, SkillBonus.EXECUTE_DAMAGE);
             finalDamage *= (1 + (executeBonus + skillExecuteBonus) / 100.0);
+        }
+
+        // ============ 5.5 ASCENSION EXECUTE (INSTAKILL) ============
+        // Exécuteur: <10% HP = instakill (cooldown 3s, ne fonctionne pas sur les boss)
+        if (ascData != null && ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.EXECUTEUR)) {
+            if (mobHealthPercent <= 10 && !isWorldBoss(mob)) {
+                if (ascData.canTriggerEffect("executeur", 3000)) {
+                    // Instakill
+                    finalDamage = mob.getHealth() + 100;
+                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_ATTACK_CRIT, 1.0f, 0.8f);
+                    mob.getWorld().spawnParticle(Particle.CRIT, mob.getLocation().add(0, 1, 0), 20, 0.5, 0.5, 0.5, 0.2);
+                }
+            }
         }
 
         // ============ 6. BERSERKER (<30% HP joueur) ============
@@ -951,6 +1070,19 @@ public class CombatListener implements Listener {
 
         // ============ ESQUIVE ============
         double dodgeChance = playerStats.getOrDefault(StatType.DODGE_CHANCE, 0.0);
+
+        // Spectre de Guerre: <30% HP = +25% Esquive
+        var ascensionManager = plugin.getAscensionManager();
+        if (ascensionManager != null) {
+            var ascData = ascensionManager.getData(player);
+            if (ascData != null && ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.SPECTRE_DE_GUERRE)) {
+                double playerHpPercent = player.getHealth() / player.getMaxHealth() * 100;
+                if (playerHpPercent < 30) {
+                    dodgeChance += 25.0;
+                }
+            }
+        }
+
         if (random.nextDouble() * 100 < dodgeChance) {
             event.setCancelled(true);
             player.getWorld().spawnParticle(Particle.CLOUD, player.getLocation(), 10, 0.3, 0.5, 0.3, 0.05);
@@ -1002,6 +1134,40 @@ public class CombatListener implements Listener {
 
         // ============ ENREGISTRER LE KILL DANS MOMENTUM ============
         plugin.getMomentumManager().registerKill(killer);
+
+        // ============ ENREGISTRER LE KILL DANS ASCENSION ============
+        var ascensionManager = plugin.getAscensionManager();
+        if (ascensionManager != null) {
+            ascensionManager.registerKill(killer);
+
+            // ============ ASCENSION ON-KILL EFFECTS ============
+            var ascData = ascensionManager.getData(killer);
+            if (ascData != null) {
+                // Récolte de Sang: +2% HP on kill (cap 5%/s)
+                if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.RECOLTE_DE_SANG)) {
+                    double maxHp = killer.getMaxHealth();
+                    double healAmount = maxHp * 0.02; // 2% max HP
+                    double actualHeal = ascData.registerHeal(healAmount, maxHp);
+                    if (actualHeal > 0) {
+                        double newHealth = Math.min(killer.getHealth() + actualHeal, maxHp);
+                        killer.setHealth(newHealth);
+                        killer.getWorld().spawnParticle(Particle.HEART, killer.getLocation().add(0, 1.5, 0), 1, 0.2, 0.2, 0.2);
+                    }
+                }
+
+                // Éclats d'Os: 15% chance explosion AoE
+                if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.ECLATS_DOS)) {
+                    if (random.nextDouble() < 0.15) {
+                        ascensionManager.triggerBoneShardsExplosion(killer, mob.getLocation(), 25.0);
+                    }
+                }
+
+                // Évanescence: Kill = 3s aggro réduit
+                if (ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.EVANESCENCE)) {
+                    triggerEvanescence(killer, mob.getLocation());
+                }
+            }
+        }
 
         // ============ METTRE À JOUR LES MISSIONS ============
         plugin.getMissionManager().updateProgress(killer,
@@ -1220,6 +1386,16 @@ public class CombatListener implements Listener {
 
         // ============ 1. STATS D'ÉQUIPEMENT ============
         Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
+
+        // ============ 1.5 ASCENSION STATS ============
+        // Merge les bonus de mutations d'Ascension avec les stats d'équipement
+        var ascensionManager = plugin.getAscensionManager();
+        if (ascensionManager != null) {
+            Map<StatType, Double> ascensionStats = ascensionManager.getStatBonuses(player);
+            for (Map.Entry<StatType, Double> entry : ascensionStats.entrySet()) {
+                playerStats.merge(entry.getKey(), entry.getValue(), Double::sum);
+            }
+        }
 
         // Bonus de dégâts flat
         double flatDamageBonus = playerStats.getOrDefault(StatType.DAMAGE, 0.0);
@@ -1474,6 +1650,33 @@ public class CombatListener implements Listener {
         // Lueur ambiante
         loc.getWorld().spawnParticle(Particle.DUST, bottom.add(0, 0.5, 0), 10, 0.5, 0.5, 0.5, 0,
             new Particle.DustOptions(Color.fromRGB(200, 220, 255), 1.2f));
+    }
+
+    /**
+     * Déclenche l'effet Évanescence (aggro réduit pendant 3s)
+     */
+    private void triggerEvanescence(Player killer, Location mobLocation) {
+        // Marquer le joueur comme "évanescent" pendant 3 secondes
+        killer.setMetadata("zombiez_evanescence", new FixedMetadataValue(plugin, System.currentTimeMillis() + 3000));
+
+        // Effacer l'aggro des mobs proches
+        for (Entity entity : mobLocation.getWorld().getNearbyEntities(mobLocation, 8, 8, 8)) {
+            if (!(entity instanceof org.bukkit.entity.Mob mob)) continue;
+            if (!entity.hasMetadata("zombiez_mob")) continue;
+
+            // Si le mob cible le joueur, lui faire perdre l'aggro
+            if (mob.getTarget() != null && mob.getTarget().equals(killer)) {
+                mob.setTarget(null);
+            }
+        }
+
+        // Effet visuel léger
+        killer.getWorld().spawnParticle(Particle.SQUID_INK, killer.getLocation().add(0, 1, 0), 15, 0.5, 0.5, 0.5, 0.02);
+
+        // Retirer le metadata après 3 secondes
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            killer.removeMetadata("zombiez_evanescence", plugin);
+        }, 60L); // 3 secondes
     }
 
     /**

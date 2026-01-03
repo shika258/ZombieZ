@@ -162,6 +162,16 @@ public class ActionBarManager {
         }
 
         Map<StatType, Double> playerStats = plugin.getItemManager().calculatePlayerStats(player);
+
+        // Merger les stats d'Ascension pour un affichage correct
+        var ascensionManager = plugin.getAscensionManager();
+        if (ascensionManager != null) {
+            Map<StatType, Double> ascensionStats = ascensionManager.getStatBonuses(player);
+            for (Map.Entry<StatType, Double> entry : ascensionStats.entrySet()) {
+                playerStats.merge(entry.getKey(), entry.getValue(), Double::sum);
+            }
+        }
+
         StringBuilder bar = new StringBuilder();
 
         // VIE
@@ -197,6 +207,13 @@ public class ActionBarManager {
         bar.append(damageColor).append("⚔ ").append(formatStat(totalDamage));
 
         bar.append(" §8│ ");
+
+        // ASCENSION (progression des mutations de session)
+        if (ascensionManager != null) {
+            String ascensionProgress = ascensionManager.getActionBarProgress(player);
+            bar.append(ascensionProgress);
+            bar.append(" §8│ ");
+        }
 
         // BOUSSOLE
         bar.append(buildCompass(player));

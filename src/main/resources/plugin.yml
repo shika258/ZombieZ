@@ -194,6 +194,13 @@ commands:
     permission: zombiez.class
     aliases: [mutation, daily]
 
+  # Commandes Ascension
+  ascension:
+    description: Système d'Ascension (mutations de session)
+    usage: /<command>
+    permission: zombiez.ascension
+    aliases: [asc]
+
   talent:
     description: Gestion des talents de classe
     usage: /<command> [info|branch|help]
@@ -333,6 +340,7 @@ permissions:
       zombiez.recycle: true
       zombiez.forge: true
       zombiez.leaderboard: true
+      zombiez.ascension: true
 
   zombiez.spawn:
     description: Utiliser /spawn
@@ -388,6 +396,10 @@ permissions:
 
   zombiez.forge:
     description: Accès au système de forge
+    default: true
+
+  zombiez.ascension:
+    description: Accès au système d'Ascension
     default: true
 
   zombiez.leaderboard:

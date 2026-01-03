@@ -161,6 +161,15 @@ public class RecycleManager implements Listener {
             double vipMultiplier = playerData.getPointsMultiplier();
             points = (int) Math.round(points * vipMultiplier);
 
+            // Maître du Marché (Ascension): +50% valeur recyclage
+            var ascensionManager = plugin.getAscensionManager();
+            if (ascensionManager != null) {
+                var ascData = ascensionManager.getData(player);
+                if (ascData != null && ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.MAITRE_DU_MARCHE)) {
+                    points = (int) Math.round(points * 1.5);
+                }
+            }
+
             // Ajouter les points au joueur
             playerData.addPoints(points);
             playerData.addTotalPointsEarned(points);
@@ -206,6 +215,15 @@ public class RecycleManager implements Listener {
         if (playerData != null) {
             double vipMultiplier = playerData.getPointsMultiplier();
             points = (int) Math.round(points * vipMultiplier);
+
+            // Maître du Marché (Ascension): +50% valeur recyclage
+            var ascensionManager = plugin.getAscensionManager();
+            if (ascensionManager != null) {
+                var ascData = ascensionManager.getData(player);
+                if (ascData != null && ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.MAITRE_DU_MARCHE)) {
+                    points = (int) Math.round(points * 1.5);
+                }
+            }
 
             // Ajouter les points au joueur
             playerData.addPoints(points);

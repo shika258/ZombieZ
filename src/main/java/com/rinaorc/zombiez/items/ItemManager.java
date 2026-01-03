@@ -281,6 +281,27 @@ public class ItemManager {
      */
     public ZombieZItem giveItem(Player player, int zoneId, double luckBonus) {
         ZombieZItem item = generator.generate(zoneId, luckBonus);
+
+        // ============ INSTINCT DU CHERCHEUR (Ascension): 10% rare+ → tier+1 ============
+        var ascensionManager = plugin.getAscensionManager();
+        if (ascensionManager != null) {
+            var ascData = ascensionManager.getData(player);
+            if (ascData != null && ascData.hasMutation(com.rinaorc.zombiez.ascension.Mutation.INSTINCT_DU_CHERCHEUR)) {
+                // Si l'item est Rare ou mieux, 10% chance d'upgrade rareté
+                if (item.getRarity().ordinal() >= Rarity.RARE.ordinal()) {
+                    if (Math.random() < 0.10) {
+                        Rarity upgradedRarity = item.getRarity().getNext();
+                        if (upgradedRarity != item.getRarity()) {
+                            // Regénérer l'item avec la nouvelle rareté
+                            item = generator.generate(zoneId, upgradedRarity, luckBonus);
+                            player.playSound(player.getLocation(), org.bukkit.Sound.ENTITY_PLAYER_LEVELUP, 0.5f, 1.5f);
+                            player.sendMessage("§d§l✨ §eInstinct du Chercheur! §7Item amélioré en §f" + upgradedRarity.getDisplayName() + "§7!");
+                        }
+                    }
+                }
+            }
+        }
+
         giveItem(player, item);
         return item;
     }
