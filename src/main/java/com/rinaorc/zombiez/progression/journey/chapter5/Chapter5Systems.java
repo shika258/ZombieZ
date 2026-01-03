@@ -378,25 +378,67 @@ public class Chapter5Systems implements Listener {
                     return;
                 }
 
+                // Vérifier si AU MOINS un joueur est réellement proche de la zone
+                boolean anyPlayerNearby = false;
+                World targetWorld = null;
+
                 for (UUID playerId : activeSalmonPlayers) {
                     Player player = plugin.getServer().getPlayer(playerId);
-                    if (player == null || !player.isOnline()) {
-                        continue;
+                    if (player != null && player.isOnline() && isPlayerNearSalmonZone(player)) {
+                        anyPlayerNearby = true;
+                        targetWorld = player.getWorld();
+                        break;
                     }
-
-                    if (!isPlayerNearSalmonZone(player)) {
-                        continue;
-                    }
-
-                    int currentSalmons = countActiveSalmons();
-                    if (currentSalmons >= MAX_SALMONS_IN_ZONE) {
-                        continue;
-                    }
-
-                    spawnSalmon(player.getWorld());
                 }
+
+                if (!anyPlayerNearby || targetWorld == null) {
+                    return;
+                }
+
+                // Compter les saumons une seule fois par tick (optimisation)
+                int currentSalmons = countActiveSalmons();
+
+                // Limite de sécurité absolue : si > 2x max, nettoyer les excédents
+                if (currentSalmons > MAX_SALMONS_IN_ZONE * 2) {
+                    plugin.getLogger().warning("[Chapter5] Trop de saumons détectés (" + currentSalmons + "), nettoyage...");
+                    cleanupExcessSalmons(targetWorld, MAX_SALMONS_IN_ZONE);
+                    return;
+                }
+
+                if (currentSalmons >= MAX_SALMONS_IN_ZONE) {
+                    return;
+                }
+
+                // Spawner UN SEUL saumon par tick (pas un par joueur)
+                spawnSalmon(targetWorld);
             }
         }.runTaskTimer(plugin, 20L, SPAWN_INTERVAL_TICKS);
+    }
+
+    /**
+     * Nettoie les saumons excédentaires dans la zone (sécurité anti-accumulation)
+     */
+    private void cleanupExcessSalmons(World world, int maxToKeep) {
+        Location zoneCenter = new Location(world, SALMON_ZONE_CENTER_X, SALMON_ZONE_Y, SALMON_ZONE_CENTER_Z);
+        List<Entity> salmonsToRemove = new java.util.ArrayList<>();
+
+        for (Entity entity : world.getNearbyEntities(zoneCenter, 80, 40, 80)) {
+            if (entity instanceof Salmon salmon) {
+                if (salmon.getPersistentDataContainer().has(QUEST_SALMON_KEY, PersistentDataType.BYTE)) {
+                    salmonsToRemove.add(salmon);
+                }
+            }
+        }
+
+        // Garder seulement maxToKeep, supprimer le reste
+        if (salmonsToRemove.size() > maxToKeep) {
+            for (int i = maxToKeep; i < salmonsToRemove.size(); i++) {
+                salmonsToRemove.get(i).remove();
+            }
+            plugin.getLogger().info("[Chapter5] " + (salmonsToRemove.size() - maxToKeep) + " saumons excédentaires supprimés.");
+        }
+
+        activeSalmons.clear();
     }
 
     private boolean isPlayerNearSalmonZone(Player player) {
@@ -406,18 +448,43 @@ public class Chapter5Systems implements Listener {
         return distanceSquared < 10000;
     }
 
+    /**
+     * Compte les saumons mutants RÉELLEMENT présents dans la zone via PDC.
+     * Cette méthode est robuste aux chunks non chargés car elle scanne
+     * uniquement les entités chargées dans la zone.
+     */
     private int countActiveSalmons() {
+        World world = plugin.getServer().getWorld("world");
+        if (world == null) {
+            return 0;
+        }
+
+        // Vérifier si le chunk de la zone est chargé
+        Location zoneCenter = new Location(world, SALMON_ZONE_CENTER_X, SALMON_ZONE_Y, SALMON_ZONE_CENTER_Z);
+        if (!zoneCenter.getChunk().isLoaded()) {
+            // Chunk non chargé = pas de joueur à proximité = pas besoin de spawner
+            return MAX_SALMONS_IN_ZONE; // Retourne max pour bloquer le spawn
+        }
+
         int count = 0;
-        Iterator<UUID> it = activeSalmons.keySet().iterator();
-        while (it.hasNext()) {
-            UUID salmonId = it.next();
-            Entity entity = plugin.getServer().getEntity(salmonId);
-            if (entity == null || !entity.isValid() || entity.isDead()) {
-                it.remove();
-            } else {
-                count++;
+        double radius = 60; // Rayon de recherche (zone + marge)
+
+        for (Entity entity : world.getNearbyEntities(zoneCenter, radius, 30, radius)) {
+            if (entity instanceof Salmon salmon) {
+                if (salmon.getPersistentDataContainer().has(QUEST_SALMON_KEY, PersistentDataType.BYTE)) {
+                    count++;
+                }
             }
         }
+
+        // Synchroniser la Map activeSalmons avec les entités réelles trouvées
+        // Nettoyer les entrées obsolètes
+        activeSalmons.keySet().removeIf(uuid -> {
+            Entity entity = plugin.getServer().getEntity(uuid);
+            // Retirer seulement si l'entité est confirmée morte, pas juste null
+            return entity != null && (!entity.isValid() || entity.isDead());
+        });
+
         return count;
     }
 
