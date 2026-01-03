@@ -56,6 +56,9 @@ public class GPSManager implements Listener {
     // Joueurs avec GPS actif et leurs entités flèche
     private final Map<UUID, GPSArrow> activeArrows = new ConcurrentHashMap<>();
 
+    // Destinations custom par joueur (override la destination de l'étape)
+    private final Map<UUID, Location> customDestinations = new ConcurrentHashMap<>();
+
     // Patterns pour extraire les coordonnées
     private static final Pattern COORD_PATTERN = Pattern.compile("§b~?(-?\\d+),?\\s*~?(-?\\d+),?\\s*~?(-?\\d+)");
 
@@ -190,13 +193,42 @@ public class GPSManager implements Listener {
 
     /**
      * Obtient la destination de l'étape actuelle du joueur
+     * Priorité: destination custom > destination de l'étape
      */
     public Location getDestinationForPlayer(Player player) {
+        // Vérifier d'abord s'il y a une destination custom
+        Location customDest = customDestinations.get(player.getUniqueId());
+        if (customDest != null) {
+            return customDest;
+        }
+
+        // Sinon, utiliser la destination de l'étape
         JourneyStep step = journeyManager.getCurrentStep(player);
         if (step == null)
             return null;
 
         return parseCoordinates(step.getDescription(), player.getWorld().getName());
+    }
+
+    /**
+     * Définit une destination custom pour un joueur (override la destination de l'étape)
+     * Utile quand une quête a plusieurs phases (ex: collecter puis livrer)
+     */
+    public void setCustomDestination(Player player, Location destination) {
+        customDestinations.put(player.getUniqueId(), destination);
+
+        // Mettre à jour la flèche GPS si active
+        GPSArrow arrow = activeArrows.get(player.getUniqueId());
+        if (arrow != null) {
+            arrow.destination = destination;
+        }
+    }
+
+    /**
+     * Supprime la destination custom d'un joueur (revient à la destination de l'étape)
+     */
+    public void clearCustomDestination(Player player) {
+        customDestinations.remove(player.getUniqueId());
     }
 
     /**
@@ -281,6 +313,7 @@ public class GPSManager implements Listener {
         if (arrow != null) {
             arrow.destroy();
         }
+        customDestinations.remove(uuid);
     }
 
     /**

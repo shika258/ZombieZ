@@ -2155,14 +2155,20 @@ public class Chapter5Systems implements Listener {
     }
 
     /**
-     * Active le GPS vers le bûcheron
+     * Active le GPS vers le bûcheron avec destination custom
      */
     private void activateGPSToLumberjack(Player player) {
-        player.sendMessage("§e§l➤ §7GPS: §b" + (int) LUMBERJACK_X + ", " + (int) LUMBERJACK_Y + ", " + (int) LUMBERJACK_Z + " §7(Bûcheron Aldric)");
-        player.playSound(player.getLocation(), Sound.UI_BUTTON_CLICK, 0.5f, 1f);
+        player.sendMessage("§e§l➤ §7GPS mis à jour: §b" + (int) LUMBERJACK_X + ", " + (int) LUMBERJACK_Y + ", " + (int) LUMBERJACK_Z + " §7(Bûcheron Aldric)");
+        player.playSound(player.getLocation(), Sound.BLOCK_NOTE_BLOCK_CHIME, 0.7f, 1.5f);
 
         var gpsManager = plugin.getGPSManager();
         if (gpsManager != null) {
+            // Définir la destination custom vers le bûcheron
+            World world = player.getWorld();
+            Location lumberjackLoc = new Location(world, LUMBERJACK_X, LUMBERJACK_Y, LUMBERJACK_Z);
+            gpsManager.setCustomDestination(player, lumberjackLoc);
+
+            // Activer/rafraîchir le GPS
             gpsManager.enableGPSSilently(player);
         }
     }
@@ -2343,6 +2349,12 @@ public class Chapter5Systems implements Listener {
         activeLumberPlayers.remove(playerId);
         playerCollectedLumber.remove(playerId);
         playerLumberInInventory.remove(playerId);
+
+        // Nettoyer la destination GPS custom
+        var gpsManager = plugin.getGPSManager();
+        if (gpsManager != null) {
+            gpsManager.clearCustomDestination(player);
+        }
 
         // Cacher les bois
         hideAllLumberForPlayer(player);
