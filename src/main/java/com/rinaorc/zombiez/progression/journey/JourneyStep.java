@@ -205,6 +205,10 @@ public enum JourneyStep {
         "Zone forestière: §b522, 105, 8322", StepType.LUMBER_DELIVERY, 16,
         850, 25, Material.DARK_OAK_WOOD),
 
+    STEP_5_7(JourneyChapter.CHAPTER_5, 7, "Chasse aux Grenouilles Mutantes",
+        "Zone marécageuse: §b380, 90, 8140", StepType.MUTANT_FROG_CAPTURE, 5,
+        950, 30, Material.FROG_SPAWN_EGG),
+
     // ==================== CHAPITRE 6: SPÉCIALISATION ====================
 
     STEP_6_1(JourneyChapter.CHAPTER_6, 1, "Débloque 3 skills passifs",
@@ -500,6 +504,10 @@ public enum JourneyStep {
                 if (current >= targetValue) yield "§e→ Livrez au bûcheron!";
                 else yield current + "/" + targetValue + " bois collecté";
             }
+            case MUTANT_FROG_CAPTURE -> {
+                if (current >= targetValue) yield "§e→ Livrez au biologiste!";
+                else yield current + "/" + targetValue + " grenouilles capturées";
+            }
         };
     }
 
@@ -706,7 +714,10 @@ public enum JourneyStep {
         INTERROGATE_TRAITOR("Interroge les suspects et élimine le traître"),
 
         // Livraison de bois (Chapitre 5)
-        LUMBER_DELIVERY("Collecte et livre du bois au bûcheron");
+        LUMBER_DELIVERY("Collecte et livre du bois au bûcheron"),
+
+        // Capture de grenouilles mutantes (Chapitre 5)
+        MUTANT_FROG_CAPTURE("Capture les grenouilles mutantes");
 
         private final String description;
 

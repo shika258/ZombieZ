@@ -695,7 +695,7 @@ public class JourneyManager {
     private boolean requiresManualCompletion(JourneyStep.StepType type) {
         return switch (type) {
             // Quêtes avec livraison à un NPC
-            case LUMBER_DELIVERY -> true;
+            case LUMBER_DELIVERY, MUTANT_FROG_CAPTURE -> true;
             // Autres types: auto-completion normale
             default -> false;
         };
@@ -745,6 +745,14 @@ public class JourneyManager {
             var chapter5Systems = plugin.getChapter5Systems();
             if (chapter5Systems != null) {
                 chapter5Systems.onPlayerReachStep56(player);
+            }
+        }
+
+        // Étape 5.7: Chasse aux Grenouilles Mutantes - Activer le système de capture
+        if (step == JourneyStep.STEP_5_7) {
+            var chapter5Systems = plugin.getChapter5Systems();
+            if (chapter5Systems != null) {
+                chapter5Systems.onPlayerReachStep57(player);
             }
         }
 
